@@ -2,11 +2,12 @@
   "name": "clipforge",
   "version": "1.0.0",
   "private": true,
-  "description": "A browser-based video clip planner and export workspace.",
+  "description": "ClipForge full-stack video clipping workspace.",
   "type": "module",
   "scripts": {
-    "start": "python3 -m http.server 4173 --directory .",
+    "start": "node server/index.js",
     "test": "node --test",
-    "check": "node --check src/app.js && node --check src/clip-utils.js"
+    "check": "node --check src/app.js && node --check src/clip-utils.js && node --check server/app.js && node --check server/auth.js && node --check server/queue.js",
+    "dev": "node --watch server/index.js"
   }
 }
