@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1020" />
+    <meta name="description" content="ClipForge helps creators turn long videos into focused, share-ready clips." />
+    <title>ClipForge — Shape the moment</title>
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#workspace" aria-label="ClipForge home"><span class="brand-mark">CF</span>ClipForge</a>
+        <div class="topbar-actions"><button class="ghost-button" id="new-project">New project</button><button class="avatar" aria-label="Open account menu">IA</button></div>
+      </header>
+      <section class="workspace" id="workspace" aria-labelledby="workspace-title">
+        <aside class="sidebar">
+          <p class="eyebrow">PROJECT</p><h1 id="workspace-title">Midnight Sessions</h1>
+          <nav aria-label="Workspace navigation"><a class="nav-link active" href="#editor">Editor</a><a class="nav-link" href="#clips">My clips <span id="clip-count">0</span></a><a class="nav-link" href="#brand">Brand kit</a></nav>
+          <div class="sidebar-tip"><span>✦</span><p><strong>Pro tip</strong><br />Leave room for captions in your framing.</p></div>
+        </aside>
+        <section class="editor" id="editor">
+          <div class="editor-heading"><div><p class="eyebrow">CLIP EDITOR</p><h2>Shape the moment.</h2></div><button class="primary-button" id="export-button">Export clip <span>→</span></button></div>
+          <div class="editor-grid">
+            <section class="preview-panel" aria-label="Clip preview">
+              <div class="video-stage"><div class="stage-glow"></div><div class="video-placeholder"><span class="play-icon">▶</span><p>Midnight Sessions — Episode 04</p><small>00:08:42</small></div><span class="format-badge">9:16</span></div>
+              <div class="timeline"><div class="timeline-header"><span>Timeline</span><span id="duration-label">00:24 clip</span></div><div class="time-ruler" aria-hidden="true"><span>00:00</span><span>00:08</span><span>00:16</span><span>00:24</span></div><div class="timeline-track"><div class="range" id="range"><i class="handle start-handle" title="Drag start"></i><div class="range-fill"></div><i class="handle end-handle" title="Drag end"></i></div><div class="playhead"></div></div><div class="timeline-footer"><button class="playback-button" id="play-button" aria-label="Play clip">▶</button><label>Start <input id="start-input" type="number" min="0" max="518" value="124" /> s</label><label>End <input id="end-input" type="number" min="1" max="519" value="148" /> s</label></div></div>
+            </section>
+            <aside class="settings-panel"><section><p class="eyebrow">FORMAT</p><div class="format-options" role="radiogroup" aria-label="Aspect ratio"><button class="format-option selected" data-format="9:16" role="radio" aria-checked="true">9:16 <small>Reels</small></button><button class="format-option" data-format="1:1" role="radio" aria-checked="false">1:1 <small>Square</small></button><button class="format-option" data-format="16:9" role="radio" aria-checked="false">16:9 <small>Wide</small></button></div></section><section><p class="eyebrow">CAPTIONS</p><label class="switch-row" for="caption-toggle"><span><strong>Auto captions</strong><small>English · Burned in</small></span><input id="caption-toggle" type="checkbox" checked /><i></i></label></section><section><p class="eyebrow">STYLE</p><div class="style-card"><div class="caption-preview">and then it all<br /><b>clicked.</b></div><button id="style-button">Edit caption style <span>→</span></button></div></section><section class="smart-cut"><p class="eyebrow">SMART CUT</p><p>We found a strong hook at <strong>02:04</strong>.</p><button class="text-button" id="apply-hook">Use this moment</button></section></aside>
+          </div>
+        </section>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
