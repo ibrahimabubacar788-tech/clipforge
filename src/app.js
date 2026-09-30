@@ -16,7 +16,31 @@ const clipsEmpty = document.querySelector("#clips-empty");
 const styleDialog = document.querySelector("#style-dialog");
 const timelineMaximum = Number(endInput.max);
 const storageKey = "clipforge-exports";
-let clips = readSavedClips();
+const sessionKey = "clipforge-session";
+let clips = [];
+let apiSession = JSON.parse(window.localStorage.getItem(sessionKey) || "null");
+let sourceVideo;
+const api = async (path, options = {}) => {
+  const response = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}), ...options.headers } });
+  if (response.status === 204) return null;
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "Request failed.");
+  return result;
+};
+async function ensureWorkspace() {
+  try {
+    if (!apiSession) {
+      const email = `creator-${crypto.randomUUID().slice(0, 8)}@clipforge.local`;
+      apiSession = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password: crypto.randomUUID() }) });
+      window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+    }
+    const { projects } = await api("/api/projects");
+    const project = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+    sourceVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: project.id, name: "Midnight Sessions — Episode 04", duration: timelineMaximum }) })).video;
+    clips = (await api("/api/clips")).clips;
+    renderClipLibrary();
+  } catch (error) { showToast(`Backend unavailable: ${error.message}`); clips = readSavedClips(); renderClipLibrary(); }
+}
 let playbackTimer;
 let toastTimer;
 let draggedHandle;
@@ -162,24 +186,24 @@ document.querySelector("#new-project").addEventListener("click", () => {
   switchView("editor");
   showToast("Fresh project workspace created.");
 });
-document.querySelector("#export-button").addEventListener("click", () => {
+document.querySelector("#export-button").addEventListener("click", async () => {
   const selected = document.querySelector(".format-option.selected").dataset.format;
-  const clip = { id: crypto.randomUUID(), title: `Midnight Session · Clip ${clips.length + 1}`, start: Number(startInput.value), end: Number(endInput.value), format: selected, captions: captionToggle.checked, createdAt: new Date().toISOString() };
-  clips.unshift(clip);
-  saveClips();
-  renderClipLibrary();
-  showToast("Your clip has been exported to My clips.");
+  try {
+    if (!sourceVideo) await ensureWorkspace();
+    const result = await api("/api/clips", { method: "POST", body: JSON.stringify({ videoId: sourceVideo.id, title: `Midnight Session · Clip ${clips.length + 1}`, start: Number(startInput.value), end: Number(endInput.value), format: selected, captions: captionToggle.checked, style: { color: document.querySelector("#highlight-color").value, weight: document.querySelector("#caption-weight").value } }) });
+    clips.unshift(result.clip); renderClipLibrary(); showToast("Export queued. Your rendered clip will be ready shortly.");
+    window.setTimeout(async () => { clips = (await api("/api/clips")).clips; renderClipLibrary(); }, 500);
+  } catch (error) { showToast(error.message); }
 });
 document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("click", (event) => { event.preventDefault(); switchView(link.dataset.view); }));
 document.querySelectorAll("[data-go-editor]").forEach((button) => button.addEventListener("click", () => switchView("editor")));
-clipLibrary.addEventListener("click", (event) => {
+clipLibrary.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-delete-clip]");
   if (!button) return;
-  clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip);
-  saveClips();
-  renderClipLibrary();
-  showToast("Clip removed from your library.");
+  try { await api(`/api/clips/${button.dataset.deleteClip}`, { method: "DELETE" }); } catch { clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip); saveClips(); }
+  clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip); renderClipLibrary(); showToast("Clip removed from your library.");
 });
 
 renderClipLibrary();
 updateRange();
+ensureWorkspace();

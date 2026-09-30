@@ -1,0 +1,11 @@
+services:
+  clipforge:
+    build: .
+    ports:
+      - "4173:4173"
+    volumes:
+      - clipforge-data:/app/data
+      - clipforge-storage:/app/storage
+volumes:
+  clipforge-data:
+  clipforge-storage:
