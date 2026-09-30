@@ -19,4 +19,4 @@ npm test
 
 ## Deployment
 
-The application is static: deploy the repository root to any static host (GitHub Pages, Cloudflare Pages, Netlify, or Vercel). The included GitHub Actions workflow validates syntax and tests on pushes and pull requests targeting `main`.
+The application is static: deploy the repository root to any static host (GitHub Pages, Cloudflare Pages, Netlify, or Vercel). The included GitHub Actions workflow validates syntax and tests on pushes and pull requests targeting `main`, then deploys the repository root to GitHub Pages when changes reach `main`. Enable **GitHub Pages → Source → GitHub Actions** once in the repository settings to activate the deployment.
