@@ -13,6 +13,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
   const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);
   async function api(req, res, pathname) {
     const payload = ["POST", "PATCH"].includes(req.method) ? await body(req) : {};
+    if (req.method === "GET" && pathname === "/api/ready") return json(res, 200, { ok: true, service: "clipforge" });
     if (req.method === "POST" && pathname === "/api/auth/register") { const user = await register(db, payload.email, payload.password); const session = await login(db, payload.email, payload.password); return json(res, 201, { token: session.token, user: publicUser(user) }); }
     if (req.method === "POST" && pathname === "/api/auth/login") { const session = await login(db, payload.email, payload.password); return json(res, 200, { token: session.token, user: publicUser(session.user) }); }
     if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); return json(res, 204, {}); }

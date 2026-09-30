@@ -2,6 +2,7 @@ import { access, mkdir, unlink } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { join, relative, resolve } from "node:path";
 import { id, now } from "./database.js";
+import ffmpegStatic from "ffmpeg-static";
 
 const formats = {
   "9:16": { width: 720, height: 1280 },
@@ -42,7 +43,7 @@ function videoFilter(clip) {
 }
 
 export class ClipQueue {
-  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; }
+  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; }
   async enqueue(clip) { const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work(); return job; }
   async render(clip) {
     const source = sourcePath(this.storageDir, clip.sourceUrl);

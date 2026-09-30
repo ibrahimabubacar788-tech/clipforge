@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: clipforge
+    runtime: docker
+    repo: https://github.com/ibrahimabubacar788-tech/clipforge
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/ready
+    autoDeploy: true
+    plan: free
+    envVars:
+      - key: PORT
+        value: 4173
+      - key: NODE_ENV
+        value: production
