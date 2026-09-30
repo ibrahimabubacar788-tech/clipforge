@@ -3,7 +3,7 @@ services:
     name: clipforge
     runtime: docker
     repo: https://github.com/ibrahimabubacar788-tech/clipforge
-    branch: assistant/production-hardening
+    branch: main
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/ready
     autoDeploy: true
@@ -13,7 +13,3 @@ services:
         value: 4173
       - key: NODE_ENV
         value: production
-    disk:
-      name: clipforge-data
-      mountPath: /app/data
-      sizeGB: 10
