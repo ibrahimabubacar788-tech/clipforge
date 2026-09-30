@@ -14,7 +14,8 @@ const clipCount = document.querySelector("#clip-count");
 const clipLibrary = document.querySelector("#clip-library");
 const clipsEmpty = document.querySelector("#clips-empty");
 const styleDialog = document.querySelector("#style-dialog");
-const timelineMaximum = Number(endInput.max);
+const sourceUpload = document.querySelector("#source-upload");
+let timelineMaximum = Number(endInput.max);
 const storageKey = "clipforge-exports";
 const sessionKey = "clipforge-session";
 let clips = [];
@@ -36,7 +37,6 @@ async function ensureWorkspace() {
     }
     const { projects } = await api("/api/projects");
     const project = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
-    sourceVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: project.id, name: "Midnight Sessions — Episode 04", duration: timelineMaximum }) })).video;
     clips = (await api("/api/clips")).clips;
     renderClipLibrary();
   } catch (error) { showToast(`Backend unavailable: ${error.message}`); clips = readSavedClips(); renderClipLibrary(); }
@@ -78,6 +78,18 @@ function updateRange() {
   range.style.left = `${(clipRange.start / timelineMaximum) * 100}%`;
   range.style.width = `${(duration / timelineMaximum) * 100}%`;
   playhead.style.left = `${(clipRange.start / timelineMaximum) * 100}%`;
+}
+
+async function uploadSource(file) {
+  if (!file) return;
+  const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error("Could not read video file.")); reader.readAsDataURL(file); });
+  const probe = document.createElement("video");
+  const duration = await new Promise((resolve, reject) => { probe.onloadedmetadata = () => resolve(probe.duration); probe.onerror = () => reject(new Error("Could not read video duration.")); probe.src = URL.createObjectURL(file); });
+  const upload = await api("/api/uploads", { method: "POST", body: JSON.stringify({ filename: file.name, data }) });
+  const { projects } = await api("/api/projects");
+  const project = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "My clips" }) })).project;
+  sourceVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: project.id, name: file.name, duration, sourceUrl: upload.url }) })).video;
+  timelineMaximum = Math.max(1, Math.floor(duration)); startInput.max = timelineMaximum; endInput.max = timelineMaximum; startInput.value = 0; endInput.value = Math.min(24, timelineMaximum); updateRange(); showToast(`${file.name} is ready to clip.`);
 }
 
 function renderClipLibrary() {
@@ -135,6 +147,7 @@ document.querySelectorAll(".format-option").forEach((button) => {
 });
 
 playbackButton.addEventListener("click", () => (playbackTimer ? stopPlayback() : startPlayback()));
+sourceUpload.addEventListener("change", async () => { try { await uploadSource(sourceUpload.files[0]); } catch (error) { showToast(error.message); } });
 captionToggle.addEventListener("change", () => {
   videoStage.classList.toggle("captions-off", !captionToggle.checked);
   showToast(captionToggle.checked ? "Auto captions enabled." : "Auto captions disabled.");
@@ -189,7 +202,7 @@ document.querySelector("#new-project").addEventListener("click", () => {
 document.querySelector("#export-button").addEventListener("click", async () => {
   const selected = document.querySelector(".format-option.selected").dataset.format;
   try {
-    if (!sourceVideo) await ensureWorkspace();
+    if (!sourceVideo) throw new Error("Upload a source video before exporting.");
     const result = await api("/api/clips", { method: "POST", body: JSON.stringify({ videoId: sourceVideo.id, title: `Midnight Session · Clip ${clips.length + 1}`, start: Number(startInput.value), end: Number(endInput.value), format: selected, captions: captionToggle.checked, style: { color: document.querySelector("#highlight-color").value, weight: document.querySelector("#caption-weight").value } }) });
     clips.unshift(result.clip); renderClipLibrary(); showToast("Export queued. Your rendered clip will be ready shortly.");
     window.setTimeout(async () => { clips = (await api("/api/clips")).clips; renderClipLibrary(); }, 500);
