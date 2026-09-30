@@ -1,6 +1,6 @@
 # ClipForge
 
-ClipForge is a full-stack video clipping workspace. It provides a browser editor backed by an authenticated JSON database, local object storage, and a durable render queue. The render worker records an export artifact locally; production deployments can replace `ClipQueue` with an FFmpeg/S3 worker without changing the API contract.
+ClipForge is a full-stack video clipping workspace. It provides a browser editor backed by an authenticated JSON database, local object storage, and a durable FFmpeg render queue. The worker trims uploaded MP4 source videos, crops them to the selected format, optionally burns in the selected caption treatment, and stores a playable MP4 export locally.
 
 ## Run locally
 
@@ -18,7 +18,7 @@ Open `http://localhost:4173`. The browser provisions a local creator account on 
 - `POST /api/uploads`, `POST /api/videos`
 - `GET|POST /api/clips`, `DELETE /api/clips/:id`, `GET /api/jobs/:id`
 
-All non-auth endpoints require `Authorization: Bearer <token>`. Uploads accept a JSON base64 payload and are stored under `storage/uploads`; rendered export manifests are exposed under `storage/exports` after the queue completes.
+All non-auth endpoints require `Authorization: Bearer <token>`. Uploads accept a JSON base64 payload and are stored under `storage/uploads`. Pass the returned upload `url` as `sourceUrl` when creating a video; completed exports are playable MP4 files exposed under `storage/exports`.
 
 ## Checks
 
