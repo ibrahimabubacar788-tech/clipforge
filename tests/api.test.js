@@ -134,6 +134,16 @@ test("clip retry is protected by clip ownership", async (t) => {
   assert.equal(denied.status, 404);
 });
 
+test("responses include baseline security headers", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const response = await fetch(\`\${base}/api/ready\`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("referrer-policy"), "strict-origin-when-cross-origin");
+  assert.equal(response.headers.get("x-frame-options"), "SAMEORIGIN");
+});
+
 test("readiness verifies database availability", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
