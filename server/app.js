@@ -162,8 +162,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           });
         }
 
-      try {
-        const existingAutoClips = await db.read((d) => d.clips.filter((clip) =>
+      const existingAutoClips = await db.read((d) => d.clips.filter((clip) =>
           clip.videoId === video.id &&
           clip.userId === user.id &&
           clip.generation === "auto-ai"
