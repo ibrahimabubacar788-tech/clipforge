@@ -228,10 +228,12 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           d.jobs = d.jobs.filter((job) => !failedIds.has(job.clipId));
         });
       }
+      const videoDuration = Number(video.duration);
+      const maxClipDuration = Math.min(75, Math.max(20, Number.isFinite(videoDuration) && videoDuration > 0 ? videoDuration : 75));
       const analysis = await rankHighlightsWithAI(segments, {
         limit,
         minDuration: 15,
-        maxDuration: Math.min(75, Math.max(20, Number(video.duration) || 75)),
+        maxDuration: maxClipDuration,
       });
       const candidates = analysis.candidates.filter((candidate) => {
         const start = Number(candidate.start);
@@ -239,9 +241,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         return Number.isFinite(start) && Number.isFinite(end)
           && start >= 0
           && end > start
-          && end <= Number(video.duration)
+          && (!Number.isFinite(videoDuration) || videoDuration <= 0 || end <= videoDuration)
           && end - start >= 15
-          && end - start <= Math.min(75, Math.max(20, Number(video.duration) || 75));
+          && end - start <= maxClipDuration;
       });
       if (!candidates.length) throw Object.assign(new Error("The AI could not find enough valid moments inside this video."), { status: 422 });
 
