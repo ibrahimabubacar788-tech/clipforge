@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { join, relative, resolve } from "node:path";
 import { id, now } from "./database.js";
 import ffmpegStatic from "ffmpeg-static";
+import { captionPpm, captionSegmentsForClip } from "./caption-renderer.js";
 
 const formats = {
   "9:16": { width: 720, height: 1280 },
@@ -83,14 +84,12 @@ function watermarkPpm() {
   return `P3\n${width} ${height}\n255\n${data}\n`;
 }
 
-function videoFilter(clip) {
+function videoFilter(clip, captions = []) {
   const { width, height } = formats[clip.format] || formats["9:16"];
-  const filters = [
-    `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}[base]`,
-    `[1:v]format=rgb24,colorkey=0x121212:0.08:0.02,format=rgba[wm]`,
-    `[base][wm]overlay=W-w-24:H-h-24:format=auto[v]`,
-  ];
-  return filters.join(";");
+  const filters=[`[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}[base]`,`[1:v]format=rgb24,colorkey=0x121212:0.08:0.02,format=rgba[wm]`,`[base][wm]overlay=W-w-24:H-h-24:format=auto[v0]`];
+  let previous="v0";
+  captions.forEach((c,i)=>{const input=i+2,next=`v${i+1}`;filters.push(`[${input}:v]format=rgb24,colorkey=0x0a0a0a:0.08:0.02,format=rgba[c${i}]`,`[${previous}][c${i}]overlay=(W-w)/2:H-h-90:enable='between(t,${c.start.toFixed(3)},${c.end.toFixed(3)})':format=auto[${next}]`);previous=next;});
+  filters.push(`[${previous}]null[v]`); return filters.join(";");
 }
 
 export class ClipQueue {
@@ -129,13 +128,21 @@ export class ClipQueue {
     const output = join(exportDir, filename);
     const duration = clip.end - clip.start;
     try {
+      const { writeFile } = await import("node:fs/promises");
       const watermarkPath = join(exportDir, `watermark-${clip.id}.ppm`);
-    const { writeFile } = await import("node:fs/promises");
-    await writeFile(watermarkPath, watermarkPpm(), "utf8");
-    try {
-      await run(this.ffmpegPath, ["-y", "-i", source, "-loop", "1", "-i", watermarkPath, "-ss", String(clip.start), "-t", String(duration), "-filter_complex", videoFilter(clip), "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-movflags", "+faststart", output]);
-    } finally {
-      await unlink(watermarkPath).catch(() => {});
+      const captions = captionSegmentsForClip(clip);
+      const captionPaths = captions.map((_,i)=>join(exportDir,`caption-${clip.id}-${i}.ppm`));
+      await writeFile(watermarkPath, watermarkPpm(), "utf8");
+      for(let i=0;i<captions.length;i++) await writeFile(captionPaths[i],captionPpm(captions[i].text,clip.style?.color==="pink"?"ff8fbe":clip.style?.color==="sky"?"8be1ff":"d3e964"),"utf8");
+      try {
+        const args=["-y","-i",source,"-loop","1","-i",watermarkPath];
+        for(const p of captionPaths) args.push("-loop","1","-i",p);
+        args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart",output);
+        await run(this.ffmpegPath,args);
+      } finally {
+        await unlink(watermarkPath).catch(()=>{});
+        for(const p of captionPaths) await unlink(p).catch(()=>{});
+      }
     }
     } catch (error) {
       await unlink(output).catch(() => {});
