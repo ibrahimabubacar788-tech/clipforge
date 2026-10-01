@@ -149,11 +149,28 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
     }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
 
     const selected = [];
+    const addIfDistinct = (candidate) => {
+      if (!candidate || selected.length >= limit) return false;
+      const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
+      if (overlaps) return false;
+      selected.push(candidate);
+      return true;
+    };
+
     for (const candidate of ranked) {
       if (selected.length >= limit) break;
-      const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
-      if (!overlaps) selected.push(candidate);
+      addIfDistinct(candidate);
     }
+
+    // If the model returns fewer clips than requested, fill the remaining slots
+    // with the strongest non-overlapping baseline candidates. This keeps the
+    // automatic pipeline productive when the model is conservative or truncates
+    // its JSON response, while preserving AI selections at the top.
+    for (const candidate of baseline) {
+      if (selected.length >= limit) break;
+      addIfDistinct(candidate);
+    }
+
     if (!selected.length) throw new Error("AI returned no usable highlight selections.");
     return { candidates: selected.map((item, index) => ({ ...item, rank: index + 1 })), engine: "openai-highlights-v1" };
   } catch (error) {
