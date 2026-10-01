@@ -68,7 +68,7 @@ async function loadProject(projectId) {
   const videos = (await api(`/api/videos?projectId=${encodeURIComponent(project.id)}`)).videos;
   sourceVideo = videos[0];
   if (sourceVideo) restoreSourcePreview(sourceVideo); else clearSourcePreview();
-  clips = (await api("/api/clips")).clips;
+  clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject.id);
   renderClipLibrary();
 }
 
@@ -567,6 +567,8 @@ document.querySelector("#new-project").addEventListener("click", async () => {
     renderProjectSelector(refreshedProjects);
     document.querySelector("#workspace-title").textContent = currentProject.name;
     sourceVideo = undefined;
+    clips = [];
+    renderClipLibrary();
     if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
     sourcePreviewUrl = undefined;
     previewElement?.remove();
