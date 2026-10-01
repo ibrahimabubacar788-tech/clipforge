@@ -71,6 +71,10 @@ export class JsonDatabase {
     await this.load();
     return reader(this.data);
   }
+
+  async close() {
+    if (this.pool) await this.pool.end();
+  }
 }
 
 export const id = (prefix) => `${prefix}_${crypto.randomUUID()}`;
