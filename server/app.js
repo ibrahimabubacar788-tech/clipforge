@@ -107,6 +107,76 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       return json(res, 200, { videoId: video.id, count: segments.length, transcript: segments });
     }
 
+    const autoClipMatch = pathname.match(/^\/api\/videos\/([^/]+)\/auto-clip$/);
+    if (req.method === "POST" && autoClipMatch) {
+      const video = await db.read((d) => d.videos.find((item) => item.id === autoClipMatch[1] && item.userId === user.id));
+      if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
+      if (!video.sourceUrl) throw Object.assign(new Error("Video has no uploaded source file."), { status: 422 });
+
+      let segments = normalizeTranscript(Array.isArray(video.transcript) ? video.transcript : []);
+      let transcribed = false;
+      if (!segments.length) {
+        const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
+        const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
+        if (!source.startsWith(storageRoot + "/") && !source.startsWith(storageRoot + "\\\\")) {
+          throw Object.assign(new Error("Invalid video path."), { status: 403 });
+        }
+        segments = await transcribeVideo({ source, ffmpegPath: queue.ffmpegPath, language: payload.language || "en" });
+        if (!segments.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
+        transcribed = true;
+        await db.transaction((d) => {
+          const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+          item.transcript = segments;
+          item.transcriptFormat = "auto-stt";
+          item.transcriptUpdatedAt = now();
+        });
+      }
+
+      const limit = Math.max(1, Math.min(20, Number(payload.limit) || 12));
+      const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
+      const candidates = rankHighlights(segments, {
+        limit,
+        minDuration: 15,
+        maxDuration: Math.min(75, Math.max(20, Number(video.duration) || 75)),
+      });
+      if (!candidates.length) throw Object.assign(new Error("The AI could not find enough strong moments in this video."), { status: 422 });
+
+      const created = [];
+      for (const candidate of candidates) {
+        const clip = {
+          id: id("clip"),
+          userId: user.id,
+          videoId: video.id,
+          projectId: video.projectId,
+          sourceUrl: video.sourceUrl,
+          title: candidate.title,
+          start: candidate.start,
+          end: candidate.end,
+          format,
+          captions: true,
+          captionSegments: candidate.captionSegments,
+          style: payload.style || { color: "lime", weight: "bold" },
+          status: "queued",
+          highlightRank: candidate.rank,
+          highlightScore: candidate.score,
+          createdAt: now(),
+        };
+        await db.transaction((d) => d.clips.push(clip));
+        const job = await queue.enqueue(clip);
+        created.push({ clip, job });
+      }
+
+      return json(res, 202, {
+        videoId: video.id,
+        engine: "clipforge-auto-v2",
+        transcribed,
+        transcriptCount: segments.length,
+        requested: limit,
+        generated: created.length,
+        clips: created,
+      });
+    }
+
     const generateMatch = pathname.match(/^\/api\/videos\/([^/]+)\/generate-clips$/);
     if (req.method === "POST" && generateMatch) {
       const video = await db.read((d) => d.videos.find((item) => item.id === generateMatch[1] && item.userId === user.id));
