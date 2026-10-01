@@ -11,6 +11,10 @@ const formats = {
 };
 const captionColors = { lime: "d3e964", pink: "ff8fbe", sky: "8be1ff" };
 
+function escapeDrawtext(value) {
+  return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/:/g, "\\:").replace(/%/g, "\\%");
+}
+
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
