@@ -8,7 +8,7 @@ function run(command, args) {
     const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
     const timer = setTimeout(() => { child.kill("SIGKILL"); reject(new Error("Audio extraction timed out.")); }, 15 * 60 * 1000);
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.stderr.on("data", (chunk) => {\n      stderr += chunk.toString();\n      if (stderr.length > 12000) stderr = stderr.slice(-12000);\n    });
     child.on("error", (error) => { clearTimeout(timer); reject(error); });
     child.on("close", (code) => {
       clearTimeout(timer);
