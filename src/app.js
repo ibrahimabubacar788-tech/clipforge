@@ -160,23 +160,36 @@ async function uploadSource(file) {
   if (!contentType) throw new Error("Please choose a video file (MP4, MOV, WebM, or M4V).");
   showToast("Uploading video…");
   const upload = await new Promise((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open("POST", "/api/uploads");
-    request.setRequestHeader("content-type", contentType);
-    request.setRequestHeader("x-filename", file.name);
-    if (apiSession?.token) request.setRequestHeader("authorization", "Bearer " + apiSession.token);
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) showToast("Uploading video… " + Math.round((event.loaded / event.total) * 100) + "%");
+    let attempts = 0;
+    const send = () => {
+      attempts += 1;
+      const request = new XMLHttpRequest();
+      request.open("POST", "/api/uploads");
+      request.timeout = 15 * 60 * 1000;
+      request.setRequestHeader("content-type", contentType);
+      request.setRequestHeader("x-filename", file.name);
+      if (apiSession?.token) request.setRequestHeader("authorization", "Bearer " + apiSession.token);
+      request.upload.onprogress = (event) => {
+        if (event.lengthComputable) showToast("Uploading video… " + Math.round((event.loaded / event.total) * 100) + "%");
+      };
+      request.onload = () => {
+        let result = {};
+        try { result = JSON.parse(request.responseText || "{}"); } catch {}
+        if (request.status >= 200 && request.status < 300) resolve(result);
+        else reject(new Error(result.error || "Upload failed (HTTP " + request.status + ")."));
+      };
+      request.onerror = () => {
+        if (attempts < 2) { showToast("Connection interrupted. Retrying upload…"); send(); }
+        else reject(new Error("Upload failed: network connection was interrupted."));
+      };
+      request.ontimeout = () => {
+        if (attempts < 2) { showToast("Upload timed out. Retrying…"); send(); }
+        else reject(new Error("Upload timed out. Please try a smaller video or a stronger connection."));
+      };
+      request.onabort = () => reject(new Error("Upload was cancelled."));
+      request.send(file);
     };
-    request.onload = () => {
-      let result = {};
-      try { result = JSON.parse(request.responseText || "{}"); } catch {}
-      if (request.status >= 200 && request.status < 300) resolve(result);
-      else reject(new Error(result.error || "Upload failed (HTTP " + request.status + ")."));
-    };
-    request.onerror = () => reject(new Error("Upload failed: network connection was interrupted."));
-    request.onabort = () => reject(new Error("Upload was cancelled."));
-    request.send(file);
+    send();
   });
   if (!currentProject) {
     const { projects } = await api("/api/projects");
