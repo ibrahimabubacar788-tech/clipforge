@@ -156,9 +156,26 @@ async function uploadSource(file) {
   const fallbackMime = extension === "mp4" ? "video/mp4" : extension === "mov" ? "video/quicktime" : extension === "webm" ? "video/webm" : extension === "m4v" ? "video/x-m4v" : "";
   const contentType = file.type?.startsWith("video/") ? file.type : fallbackMime;
   if (!contentType) throw new Error("Please choose a video file (MP4, MOV, WebM, or M4V).");
-  const uploadResponse = await fetch("/api/uploads", { method: "POST", headers: { "content-type": contentType, "x-filename": file.name, ...(apiSession?.token ? { authorization: "Bearer " + apiSession.token } : {}) }, body: file });
-  if (!uploadResponse.ok) { const error = await uploadResponse.json().catch(() => ({})); throw new Error(error.error || "Upload failed."); }
-  const upload = await uploadResponse.json();
+  showToast("Uploading video…");
+  const upload = await new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", "/api/uploads");
+    request.setRequestHeader("content-type", contentType);
+    request.setRequestHeader("x-filename", file.name);
+    if (apiSession?.token) request.setRequestHeader("authorization", "Bearer " + apiSession.token);
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) showToast("Uploading video… " + Math.round((event.loaded / event.total) * 100) + "%");
+    };
+    request.onload = () => {
+      let result = {};
+      try { result = JSON.parse(request.responseText || "{}"); } catch {}
+      if (request.status >= 200 && request.status < 300) resolve(result);
+      else reject(new Error(result.error || "Upload failed (HTTP " + request.status + ")."));
+    };
+    request.onerror = () => reject(new Error("Upload failed: network connection was interrupted."));
+    request.onabort = () => reject(new Error("Upload was cancelled."));
+    request.send(file);
+  });
   if (!currentProject) {
     const { projects } = await api("/api/projects");
     currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
