@@ -17,6 +17,7 @@ const styleDialog = document.querySelector("#style-dialog");
 const sourceUpload = document.querySelector("#source-upload");
 const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
+const projectSelect = document.querySelector("#project-select");
 const fullscreenButton = document.querySelector("#fullscreen-button");
 let libraryQuery = "";
 let libraryFilter = "all";
@@ -43,6 +44,28 @@ const api = async (path, options = {}) => {
   return result;
 };
 
+function renderProjectSelector(projects = []) {
+  if (!projectSelect) return;
+  projectSelect.replaceChildren(...projects.map((project) => {
+    const option = document.createElement("option");
+    option.value = project.id;
+    option.textContent = project.name;
+    option.selected = project.id === currentProject?.id;
+    return option;
+  }));
+}
+
+async function loadProject(projectId) {
+  const { projects } = await api("/api/projects");
+  const project = projects.find((item) => item.id === projectId);
+  if (!project) throw new Error("Project not found.");
+  currentProject = project;
+  document.querySelector("#workspace-title").textContent = currentProject.name;
+  if (projectSelect) projectSelect.value = project.id;
+  clips = (await api("/api/clips")).clips;
+  renderClipLibrary();
+}
+
 async function ensureWorkspace() {
   try {
     if (!apiSession) {
@@ -53,6 +76,7 @@ async function ensureWorkspace() {
     const { projects } = await api("/api/projects");
     currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
     document.querySelector("#workspace-title").textContent = currentProject.name;
+    renderProjectSelector(projects);
     clips = (await api("/api/clips")).clips;
     renderClipLibrary();
     return true;
@@ -67,6 +91,7 @@ async function ensureWorkspace() {
         const { projects } = await api("/api/projects");
         currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
         document.querySelector("#workspace-title").textContent = currentProject.name;
+        renderProjectSelector(projects);
         clips = (await api("/api/clips")).clips;
         renderClipLibrary();
         return true;
@@ -312,6 +337,11 @@ document.querySelector("#save-style").addEventListener("click", () => {
   showToast("Caption style saved for future exports.");
 });
 
+projectSelect?.addEventListener("change", async () => {
+  try { await loadProject(projectSelect.value); showToast("Project switched."); }
+  catch (error) { showToast(error.message); }
+});
+
 document.querySelector("#new-project").addEventListener("click", async () => {
   stopPlayback();
   try {
@@ -320,6 +350,8 @@ document.querySelector("#new-project").addEventListener("click", async () => {
       if (!ready) throw new Error("ClipForge could not connect your workspace.");
     }
     currentProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: `Project ${new Date().toLocaleDateString()}` }) })).project;
+    const refreshedProjects = (await api("/api/projects")).projects;
+    renderProjectSelector(refreshedProjects);
     document.querySelector("#workspace-title").textContent = currentProject.name;
     sourceVideo = undefined;
     if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl);
