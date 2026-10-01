@@ -13,6 +13,19 @@ async function request(base, path, method = "GET", body, token) { const response
 async function waitForClip(base, token) { for (let i = 0; i < 100; i += 1) { const result = await request(base, "/api/clips", "GET", undefined, token); const clip = result.body.clips[0]; if (clip?.status !== "queued" && clip?.status !== "processing") return clip; await new Promise((resolve) => setTimeout(resolve, 50)); } throw new Error("Timed out waiting for render"); }
 async function uploadFixture(base, token, dir) { const source = join(dir, "source.mp4"); await command("ffmpeg", ["-y", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=24", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=44100", "-t", "3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", source]); const data = await readFile(source); const response = await fetch(`${base}/api/uploads`, { method: "POST", headers: { "content-type": "video/mp4", "x-filename": "source.mp4", authorization: `Bearer ${token}` }, body: data }); const upload = { status: response.status, body: await response.json() }; assert.equal(upload.status, 201); return upload.body.url; }
 
+test("uploaded videos can be streamed only by their owner", async (t) => {
+  const { dir, server, base } = await app(); t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "stream@example.com", password: "password-123" });
+  const project = await request(base, "/api/projects", "POST", { name: "Stream" }, user.body.token);
+  const sourceUrl = await uploadFixture(base, user.body.token, dir);
+  const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Episode", duration: 3, sourceUrl }, user.body.token);
+  const response = await fetch(`${base}/api/videos/${video.body.video.id}/stream`, { headers: { authorization: `Bearer ${user.body.token}`, range: "bytes=0-31" } });
+  assert.equal(response.status, 206); assert.equal(response.headers.get("accept-ranges"), "bytes"); assert.match(response.headers.get("content-range"), /^bytes 0-31\\/\\d+$/); assert.equal((await response.arrayBuffer()).byteLength, 32);
+  const other = await request(base, "/api/auth/register", "POST", { email: "other-stream@example.com", password: "password-123" });
+  const denied = await fetch(`${base}/api/videos/${video.body.video.id}/stream`, { headers: { authorization: `Bearer ${other.body.token}` } });
+  assert.equal(denied.status, 404);
+});
+
 test("FFmpeg renders an uploaded video into a downloadable MP4 clip", { skip: hasFfmpeg ? false : "FFmpeg and ffprobe are required for media integration tests" }, async (t) => {
   const { dir, server, base } = await app(); t.after(() => server.close());
   const registered = await request(base, "/api/auth/register", "POST", { email: "creator@example.com", password: "password-123" });
