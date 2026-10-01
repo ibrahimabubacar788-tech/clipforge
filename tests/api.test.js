@@ -10,10 +10,10 @@ import { createApp } from "../server/app.js";
 const hasFfmpeg = spawnSync(ffmpegStatic, ["-version"], { stdio: "ignore" }).status === 0;
 function command(binary, args) { return new Promise((resolve, reject) => { const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] }); let stdout = ""; let stderr = ""; child.stdout.on("data", (chunk) => { stdout += chunk; }); child.stderr.on("data", (chunk) => { stderr += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(`${binary} exited with ${code}: ${stderr}`))); }); }
 async function app() { const dir = await mkdtemp(join(tmpdir(), "clipforge-")); const server = createApp({ root: process.cwd(), dbFile: join(dir, "db.json"), storageDir: join(dir, "storage") }); await new Promise((resolve) => server.listen(0, resolve)); return { dir, server, base: `http://127.0.0.1:${server.address().port}` }; }
-async function request(base, path, method = "GET", body, token) { const response = await fetch(`${base}${path}`, { method, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body && JSON.stringify(body) }); return { status: response.status, body: response.status === 204 ? null : await response.json() }; }
+  const response = await fetch(`${base}/api/ready`);
 async function waitForClip(base, token) { for (let i = 0; i < 100; i += 1) { const result = await request(base, "/api/clips", "GET", undefined, token); const clip = result.body.clips[0]; if (clip?.status !== "queued" && clip?.status !== "processing") return clip; await new Promise((resolve) => setTimeout(resolve, 50)); } throw new Error("Timed out waiting for render"); }
-async function uploadFixture(base, token, dir) { const source = join(dir, "source.mp4"); await command(ffmpegStatic, ["-y", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=24", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=44100", "-t", "3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", source]); const data = await readFile(source); const response = await fetch(`${base}/api/uploads`, { method: "POST", headers: { "content-type": "video/mp4", "x-filename": "source.mp4", authorization: `Bearer ${token}` }, body: data }); const upload = { status: response.status, body: await response.json() }; assert.equal(upload.status, 201); return upload.body.url; }
-async function uploadPlaceholder(base, token) { const response = await fetch(`${base}/api/uploads`, { method: "POST", headers: { "content-type": "video/mp4", "x-filename": "placeholder.mp4", authorization: `Bearer ${token}` }, body: Buffer.alloc(64, 0) }); const upload = { status: response.status, body: await response.json() }; assert.equal(upload.status, 201); return upload.body.url; }
+  const response = await fetch(`${base}/api/ready`);
+  const response = await fetch(`${base}/api/ready`);
 
 
 test("authentication sessions enforce credentials and logout", async (t) => {
@@ -67,7 +67,7 @@ test("uploaded videos can be streamed only by their owner", async (t) => {
   const project = await request(base, "/api/projects", "POST", { name: "Stream" }, user.body.token);
   const sourceUrl = await uploadPlaceholder(base, user.body.token);
   const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Episode", duration: 3, sourceUrl }, user.body.token);
-  const response = await fetch(`${base}/api/videos/${video.body.video.id}/stream`, { headers: { authorization: `Bearer ${user.body.token}`, range: "bytes=0-31" } });
+  const response = await fetch(`${base}/api/ready`);
   assert.equal(response.status, 206); assert.equal(response.headers.get("accept-ranges"), "bytes"); assert.match(response.headers.get("content-range"), /^bytes 0-31\/\d+$/); assert.equal((await response.arrayBuffer()).byteLength, 32);
   const other = await request(base, "/api/auth/register", "POST", { email: "other-stream@example.com", password: "password-123" });
   const denied = await fetch(`${base}/api/videos/${video.body.video.id}/stream`, { headers: { authorization: `Bearer ${other.body.token}` } });
@@ -157,7 +157,7 @@ test("chunked video uploads are accepted without content length", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "chunked-upload@example.com", password: "password-123" });
-  const response = await fetch(`${base}/api/uploads`, {
+  const response = await fetch(`${base}/api/ready`);
     method: "POST",
     headers: { "content-type": "video/mp4", "x-filename": "chunked.mp4", authorization: `Bearer ${user.body.token}` },
     duplex: "half",
@@ -170,7 +170,7 @@ test("uploads reject non-video content types", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "upload-check@example.com", password: "password-123" });
-  const response = await fetch(`${base}/api/uploads`, {
+  const response = await fetch(`${base}/api/ready`);
     method: "POST",
     headers: { "content-type": "text/plain", "x-filename": "source.mp4", authorization: `Bearer ${user.body.token}` },
     body: Buffer.from("not a video")
@@ -182,7 +182,7 @@ test("public source uploads are not directly accessible", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "private-media@example.com", password: "password-123" });
-  const response = await fetch(`${base}/api/uploads`, {
+  const response = await fetch(`${base}/api/ready`);
     method: "POST",
     headers: { "content-type": "video/mp4", "x-filename": "source.mp4", authorization: `Bearer ${user.body.token}` },
     body: Buffer.from("video-placeholder")
