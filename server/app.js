@@ -348,7 +348,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
         const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
         const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === video.sourceUrl));
-        if (!stillReferenced && source.startsWith(storageRoot + "/")) await unlink(source).catch(() => {});
+        const relativeSource = requireRelative(storageRoot, source); if (!stillReferenced && !relativeSource.startsWith("..") && !relativeSource.startsWith("/") && !relativeSource.startsWith("\\")) await unlink(source).catch(() => {});
       }
       res.writeHead(204); res.end(); return;
     }
