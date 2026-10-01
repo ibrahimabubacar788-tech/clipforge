@@ -15,6 +15,42 @@ async function waitForClip(base, token) { for (let i = 0; i < 100; i += 1) { con
 async function uploadFixture(base, token, dir) { const source = join(dir, "source.mp4"); await command(ffmpegStatic, ["-y", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=24", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=44100", "-t", "3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", source]); const data = await readFile(source); const response = await fetch(`${base}/api/uploads`, { method: "POST", headers: { "content-type": "video/mp4", "x-filename": "source.mp4", authorization: `Bearer ${token}` }, body: data }); const upload = { status: response.status, body: await response.json() }; assert.equal(upload.status, 201); return upload.body.url; }
 async function uploadPlaceholder(base, token) { const response = await fetch(`${base}/api/uploads`, { method: "POST", headers: { "content-type": "video/mp4", "x-filename": "placeholder.mp4", authorization: `Bearer ${token}` }, body: Buffer.alloc(64, 0) }); const upload = { status: response.status, body: await response.json() }; assert.equal(upload.status, 201); return upload.body.url; }
 
+
+test("authentication sessions enforce credentials and logout", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+
+  const registered = await request(base, "/api/auth/register", "POST", {
+    email: "auth@example.com",
+    password: "correct-password"
+  });
+  assert.equal(registered.status, 201);
+  assert.ok(registered.body.token);
+
+  const me = await request(base, "/api/me", "GET", undefined, registered.body.token);
+  assert.equal(me.status, 200);
+  assert.equal(me.body.user.email, "auth@example.com");
+
+  const wrong = await request(base, "/api/auth/login", "POST", {
+    email: "auth@example.com",
+    password: "wrong-password"
+  });
+  assert.equal(wrong.status, 401);
+
+  const login = await request(base, "/api/auth/login", "POST", {
+    email: "auth@example.com",
+    password: "correct-password"
+  });
+  assert.equal(login.status, 200);
+  assert.notEqual(login.body.token, registered.body.token);
+
+  const logout = await request(base, "/api/auth/logout", "POST", undefined, login.body.token);
+  assert.equal(logout.status, 204);
+
+  const afterLogout = await request(base, "/api/me", "GET", undefined, login.body.token);
+  assert.equal(afterLogout.status, 401);
+});
+
 test("project videos endpoint returns only the owner project videos", async (t) => {
   const { dir, server, base } = await app(); t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "videos@example.com", password: "password-123" });
