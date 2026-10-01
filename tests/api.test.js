@@ -356,3 +356,37 @@ test("automatic AI clipping creates multiple ranked clips from a stored transcri
   assert.equal(generated.body.clips.length, generated.body.generated);
   assert.ok(generated.body.clips.every((item) => item.clip.videoId === video.body.video.id && item.job));
 });
+
+test("automatic AI clipping reuses an existing auto batch instead of duplicating clips", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "auto-dedupe@example.com", password: "password-123" });
+  const project = await request(base, "/api/projects", "POST", { name: "Auto dedupe" }, user.body.token);
+  const video = await request(base, "/api/videos", "POST", {
+    projectId: project.body.project.id,
+    name: "Episode",
+    duration: 150,
+    sourceUrl: "/storage/uploads/example.mp4"
+  }, user.body.token);
+  await request(base, `/api/videos/${video.body.video.id}/transcript`, "POST", {
+    format: "plain",
+    segments: [
+      { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
+      { start: 8, end: 16, text: "You need to know why this changed everything." },
+      { start: 24, end: 32, text: "The truth is this was the biggest mistake." },
+      { start: 32, end: 40, text: "But that means we finally found the result." },
+      { start: 100, end: 108, text: "Imagine what happens when you understand the secret." },
+      { start: 108, end: 116, text: "You need to know why the result surprised everyone." }
+    ]
+  }, user.body.token);
+  const first = await request(base, `/api/videos/${video.body.video.id}/auto-clip`, "POST", { limit: 2 }, user.body.token);
+  assert.equal(first.status, 202);
+  assert.equal(first.body.generated, 2);
+  const second = await request(base, `/api/videos/${video.body.video.id}/auto-clip`, "POST", { limit: 2 }, user.body.token);
+  assert.equal(second.status, 200);
+  assert.equal(second.body.reused, true);
+  assert.equal(second.body.generated, 2);
+  assert.equal(second.body.clips.length, 2);
+  const listed = await request(base, "/api/clips", "GET", undefined, user.body.token);
+  assert.equal(listed.body.clips.filter((clip) => clip.generation === "auto-ai").length, 2);
+});
