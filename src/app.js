@@ -376,7 +376,7 @@ function renderClipLibrary() {
 }
 
 async function refreshClipLibraryWhileRendering() {
-  for (let attempt = 0; attempt < 180; attempt += 1) {
+  for (let attempt = 0; attempt < 450; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     try {
       const result = await api("/api/clips");
