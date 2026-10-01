@@ -44,4 +44,18 @@ test("uploads reject non-video content types", async (t) => {
   assert.equal(response.status, 415);
 });
 
+test("public source uploads are not directly accessible", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "private-media@example.com", password: "password-123" });
+  const response = await fetch(`${base}/api/uploads`, {
+    method: "POST",
+    headers: { "content-type": "video/mp4", "x-filename": "source.mp4", authorization: `Bearer ${user.body.token}` },
+    body: Buffer.from("video-placeholder")
+  });
+  assert.equal(response.status, 201);
+  const media = await fetch(`${base}${(await response.json()).url}`);
+  assert.equal(media.status, 404);
+});
+
 test("clip validation rejects ranges outside the source duration", async (t) => { const { server, base } = await app(); t.after(() => server.close()); const user = await request(base, "/api/auth/register", "POST", { email: "range@example.com", password: "password-123" }); const project = await request(base, "/api/projects", "POST", { name: "P" }, user.body.token); const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, duration: 10, sourceUrl: "/storage/uploads/example.mp4" }, user.body.token); const bad = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 11 }, user.body.token); assert.equal(bad.status, 422); });
