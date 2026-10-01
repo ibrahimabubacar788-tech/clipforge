@@ -24,7 +24,10 @@ function run(command, args) {
       reject(new Error("FFmpeg render timed out."));
     }, 15 * 60 * 1000);
     let stderr = "";
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+      if (stderr.length > 12000) stderr = stderr.slice(-12000);
+    });
     child.on("error", (error) => { clearTimeout(timeout); reject(error); });
     child.on("close", (code) => { clearTimeout(timeout); code === 0 ? resolve() : reject(new Error(`FFmpeg exited with code ${code}: ${stderr.slice(-1000)}`)); });
   });
