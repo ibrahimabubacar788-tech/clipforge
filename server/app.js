@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { createReadStream, createWriteStream } from "node:fs";
-import { access, mkdir, unlink } from "node:fs/promises";
+import { access, mkdir, stat, unlink } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
@@ -29,6 +29,38 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); res.writeHead(204); res.end(); return; }
     const user = await requireUser(req, db);
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
+    const videoStreamMatch = pathname.match(/^\\/api\\/videos\\/([^/]+)\\/stream$/);
+    if (videoStreamMatch && req.method === "GET") {
+      const video = await db.read((d) => d.videos.find((item) => item.id === videoStreamMatch[1] && item.userId === user.id));
+      if (!video?.sourceUrl) throw Object.assign(new Error("Video not found."), { status: 404 });
+      const relativePath = video.sourceUrl.slice("/storage/".length);
+      const file = normalize(join(storageDir, relativePath));
+      const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
+      if (!file.startsWith(storageRoot + "/") && !file.startsWith(storageRoot + "\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
+      const info = await stat(file).catch(() => null);
+      if (!info?.isFile()) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
+      const total = info.size;
+      const rangeHeader = String(req.headers.range || "");
+      if (!rangeHeader) {
+        res.writeHead(200, { "content-type": "video/mp4", "content-length": total, "accept-ranges": "bytes" });
+        createReadStream(file).pipe(res);
+        return;
+      }
+      const match = rangeHeader.match(/^bytes=(\\d*)-(\\d*)$/);
+      if (!match) throw Object.assign(new Error("Invalid range."), { status: 416 });
+      const start = match[1] ? Number(match[1]) : Math.max(0, total - Number(match[2]));
+      const end = match[2] ? Number(match[2]) : total - 1;
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || start >= total) {
+        res.writeHead(416, { "content-range": `bytes */${total}` });
+        res.end();
+        return;
+      }
+      const boundedEnd = Math.min(end, total - 1);
+      res.writeHead(206, { "content-type": "video/mp4", "content-length": boundedEnd - start + 1, "content-range": `bytes ${start}-${boundedEnd}/${total}`, "accept-ranges": "bytes" });
+      createReadStream(file, { start, end: boundedEnd }).pipe(res);
+      return;
+    }
+
     if (req.method === "GET" && pathname === "/api/projects") return json(res, 200, { projects: await db.read((d) => own(d.projects, user)) });
     if (req.method === "POST" && pathname === "/api/projects") { if (!String(payload.name || "").trim()) throw Object.assign(new Error("A project name is required."), { status: 422 }); const project = { id: id("prj"), userId: user.id, name: payload.name.trim(), createdAt: now(), updatedAt: now() }; await db.transaction((d) => d.projects.push(project)); return json(res, 201, { project }); }
     const projectMatch = pathname.match(/^\/api\/projects\/([^/]+)$/);
