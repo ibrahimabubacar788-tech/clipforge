@@ -20,7 +20,7 @@ test("project videos endpoint returns only the owner project videos", async (t) 
   const sourceUrl = await uploadFixture(base, user.body.token, dir);
   await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Episode", duration: 3, sourceUrl }, user.body.token);
   const listed = await request(base, `/api/videos?projectId=${project.body.project.id}`, "GET", undefined, user.body.token);
-  assert.equal(listed.response.status, 200); assert.equal(listed.body.videos.length, 1); assert.equal(listed.body.videos[0].name, "Episode");
+  assert.equal(listed.status, 200); assert.equal(listed.body.videos.length, 1); assert.equal(listed.body.videos[0].name, "Episode");
 });
 
 test("uploaded videos can be streamed only by their owner", async (t) => {
