@@ -157,7 +157,8 @@ function getRange() { return normalizeClipRange(startInput.value, endInput.value
 
 function clearSourcePreview() {
   sourceVideo = null;
-  if (sourcePreviewUrl?.startsWith("/api/")) sourcePreviewUrl = null;
+  if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
+  sourcePreviewUrl = null;
   previewElement?.remove();
   previewElement = null;
   videoStage.innerHTML = '<div class="video-placeholder"><span>Upload a video to start</span></div>';
