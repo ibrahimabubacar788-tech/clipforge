@@ -20,7 +20,7 @@ const requireRelative = (base, target) => {
   return normalizedTarget.slice(normalizedBase.length + 1);
 };
 export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "data", "clipforge.json"), storageDir = join(process.cwd(), "storage") } = {}) {
-  const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);
+  const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);\n  const autoClipInFlight = new Set();
   async function api(req, res, pathname) {
     const payload = ["POST", "PATCH"].includes(req.method) && pathname !== "/api/uploads" ? await body(req) : {};
     if (req.method === "GET" && pathname === "/api/ready") {
@@ -156,12 +156,18 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
 
       const limit = Math.max(1, Math.min(20, Number(payload.limit) || 12));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
-      const existingAutoClips = await db.read((d) => d.clips.filter((clip) =>
-        clip.videoId === video.id &&
-        clip.userId === user.id &&
-        clip.generation === "auto-ai"
-      ));
-      if (existingAutoClips.length) {
+      if (autoClipInFlight.has(video.id)) {
+        throw Object.assign(new Error("Automatic clipping is already running for this video."), { status: 409 });
+      }
+      autoClipInFlight.add(video.id);
+      try {
+        const existingAutoClips = await db.read((d) => d.clips.filter((clip) =>
+          clip.videoId === video.id &&
+          clip.userId === user.id &&
+          clip.generation === "auto-ai"
+        ));
+        const activeAutoClips = existingAutoClips.filter((clip) => clip.status !== "failed");
+        if (activeAutoClips.length >= limit) {
         return json(res, 200, {
           videoId: video.id,
           engine: "clipforge-auto-existing",
@@ -172,11 +178,23 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           transcriptCount: segments.length,
           requested: limit,
           generated: existingAutoClips.length,
-          clips: existingAutoClips.map((clip) => ({
+          clips: activeAutoClips.slice(0, limit).map((clip) => ({
             clip,
             job: null,
           })),
           reused: true,
+        });
+      }
+      if (existingAutoClips.length && activeAutoClips.length === 0) {
+        await db.transaction((d) => {
+          const failedIds = new Set(d.clips.filter((clip) =>
+            clip.videoId === video.id &&
+            clip.userId === user.id &&
+            clip.generation === "auto-ai" &&
+            clip.status === "failed"
+          ).map((clip) => clip.id));
+          d.clips = d.clips.filter((clip) => !failedIds.has(clip.id));
+          d.jobs = d.jobs.filter((job) => !failedIds.has(job.clipId));
         });
       }
       const analysis = await rankHighlightsWithAI(segments, {
@@ -228,6 +246,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         generated: created.length,
         clips: created,
       });
+      } finally {
+        autoClipInFlight.delete(video.id);
+      }
     }
 
     const generateMatch = pathname.match(/^\/api\/videos\/([^/]+)\/generate-clips$/);
