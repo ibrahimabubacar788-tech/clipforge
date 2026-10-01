@@ -16,6 +16,18 @@ async function uploadFixture(base, token, dir) { const source = join(dir, "sourc
 async function uploadPlaceholder(base, token) { const response = await fetch(`${base}/api/uploads`, { method: "POST", headers: { "content-type": "video/mp4", "x-filename": "placeholder.mp4", authorization: `Bearer ${token}` }, body: Buffer.alloc(64, 0) }); const upload = { status: response.status, body: await response.json() }; assert.equal(upload.status, 201); return upload.body.url; }
 
 
+test("registration normalizes email and rejects oversized passwords", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const created = await request(base, "/api/auth/register", "POST", { email: "  MixedCase@example.com  ", password: "password-123" });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.user.email, "mixedcase@example.com");
+  const duplicate = await request(base, "/api/auth/register", "POST", { email: "mixedcase@example.com", password: "password-123" });
+  assert.equal(duplicate.status, 409);
+  const oversized = await request(base, "/api/auth/register", "POST", { email: "large@example.com", password: "x".repeat(257) });
+  assert.equal(oversized.status, 422);
+});
+
 test("authentication sessions enforce credentials and logout", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
