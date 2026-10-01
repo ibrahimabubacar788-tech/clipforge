@@ -46,11 +46,24 @@ export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
     form.append("chunking_strategy", "auto");
     if (language) form.append("language", language);
 
-    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15 * 60 * 1000);
+    let response;
+    try {
+      response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw Object.assign(new Error("Automatic transcription timed out."), { status: 504 });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
     const raw = await response.text();
     let result = {};
     try { result = JSON.parse(raw); } catch { result = { error: { message: raw } }; }
