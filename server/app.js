@@ -420,14 +420,16 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "POST" && pathname === "/api/clips") { const video = await db.read((d) => d.videos.find((v) => v.id === payload.videoId && v.userId === user.id)); if (!video) throw Object.assign(new Error("Video not found. Create or upload a source video first."), { status: 404 }); if (!video.sourceUrl) throw Object.assign(new Error("Video has no uploaded source file."), { status: 422 }); const start = Number(payload.start), end = Number(payload.end); if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start || end > video.duration) throw Object.assign(new Error("Clip range must be inside the source video."), { status: 422 }); const clip = { id: id("clip"), userId: user.id, videoId: video.id, projectId: video.projectId, sourceUrl: video.sourceUrl, title: String(payload.title || `${video.name} clip`), start, end, format: ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16", captions: Boolean(payload.captions), captionSegments: Array.isArray(payload.captionSegments) ? payload.captionSegments : [], style: payload.style || { color: "lime", weight: "bold" }, status: "queued", createdAt: now() }; await db.transaction((d) => d.clips.push(clip)); const job = await queue.enqueue(clip); return json(res, 202, { clip, job }); }
     const retryMatch = pathname.match(/^\/api\/clips\/([^/]+)\/retry$/);
     if (retryMatch && req.method === "POST") {
-      const clip = await db.transaction((d) => {
+      const { clip, previousDownloadUrl } = await db.transaction((d) => {
         const item = d.clips.find((x) => x.id === retryMatch[1] && x.userId === user.id);
         if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 });
         if (item.status !== "failed") throw Object.assign(new Error("Only failed clips can be retried."), { status: 409 });
         d.jobs = d.jobs.filter((job) => job.clipId !== item.id);
+        const previousDownloadUrl = item.downloadUrl;
         item.status = "queued"; item.updatedAt = now(); delete item.downloadUrl; delete item.error;
-        return { ...item };
+        return { clip: { ...item }, previousDownloadUrl };
       });
+      await queue.removeExport(previousDownloadUrl);
       const job = await queue.enqueue(clip);
       return json(res, 202, { clip, job });
     }
