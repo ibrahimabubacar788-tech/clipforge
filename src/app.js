@@ -63,6 +63,9 @@ async function loadProject(projectId) {
   currentProject = project;
   document.querySelector("#workspace-title").textContent = currentProject.name;
   if (projectSelect) projectSelect.value = project.id;
+  const videos = (await api(`/api/videos?projectId=${encodeURIComponent(project.id)}`)).videos;
+  sourceVideo = videos[0];
+  if (sourceVideo) restoreSourcePreview(sourceVideo);
   clips = (await api("/api/clips")).clips;
   renderClipLibrary();
 }
@@ -141,6 +144,27 @@ function showToast(message) {
 }
 
 function getRange() { return normalizeClipRange(startInput.value, endInput.value, timelineMaximum); }
+
+function restoreSourcePreview(video) {
+  if (!video?.id) return;
+  if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl);
+  sourcePreviewUrl = `/api/videos/${encodeURIComponent(video.id)}/stream`;
+  previewElement?.remove();
+  previewElement = document.createElement("video");
+  previewElement.className = "source-video";
+  previewElement.src = sourcePreviewUrl;
+  previewElement.muted = false;
+  previewElement.volume = Number(volumeInput?.value ?? 1);
+  previewElement.playsInline = true;
+  previewElement.preload = "metadata";
+  videoStage.querySelector(".video-placeholder")?.replaceWith(previewElement);
+  timelineMaximum = Math.max(1, Math.floor(video.duration));
+  startInput.max = timelineMaximum;
+  endInput.max = timelineMaximum;
+  startInput.value = 0;
+  endInput.value = Math.min(24, timelineMaximum);
+  updateRange();
+}
 
 function updateRange() {
   const clipRange = getRange();
