@@ -229,6 +229,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
               d.jobs = d.jobs.filter((job) => !failedIds.has(job.clipId));
             });
           }
+          const existingJobMap = new Map(await db.read((d) => d.jobs.filter((job) => activeAutoClips.some((clip) => clip.id === job.clipId)).map((job) => [job.clipId, job])));
           return json(res, 200, {
             videoId: video.id,
             engine: "clipforge-auto-existing",
@@ -241,7 +242,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
             generated: activeAutoClips.length,
             clips: activeAutoClips.slice(0, limit).map((clip) => ({
               clip,
-              job: null,
+              job: existingJobMap.get(clip.id) || null,
             })),
             reused: true,
           });
