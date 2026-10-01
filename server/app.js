@@ -58,7 +58,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       }
       return json(res, 201, { url: `/storage/uploads/${safe}` });
     }
-    const downloadMatch = pathname.match(/^\\/api\\/clips\\/([^/]+)\\/download$/);
+    const downloadMatch = pathname.match(/^\/api\/clips\/([^/]+)\/download$/);
     if (downloadMatch && req.method === "GET") {
       const clip = await db.read((d) => d.clips.find((c) => c.id === downloadMatch[1] && c.userId === user.id));
       if (!clip || !clip.downloadUrl) throw Object.assign(new Error("Clip export not found."), { status: 404 });
