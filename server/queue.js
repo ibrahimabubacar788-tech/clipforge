@@ -61,7 +61,7 @@ export class ClipQueue {
     });
     void this.work();
   }
-  async enqueue(clip) { const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work(); return job; }
+  async enqueue(clip) { const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
   async render(clip) {
     const source = sourcePath(this.storageDir, clip.sourceUrl);
     await access(source);
@@ -89,7 +89,7 @@ export class ClipQueue {
         const clip = await this.db.read((d) => d.clips.find((c) => c.id === job.clipId));
         if (!clip) throw new Error("Clip not found.");
         await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); if (j) j.progress = 35; });
-        const { filename } = await this.render(clip);
+        console.log(`ClipForge render started: ${job.id} clip=${clip.id} ffmpeg=${this.ffmpegPath}`);\n        const { filename } = await this.render(clip);
         await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "completed", progress: 100, completedAt: now() }); if (c) Object.assign(c, { status: "ready", downloadUrl: `/storage/exports/${filename}`, updatedAt: now() }); });
       } catch (error) {
         await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "failed", error: error.message, completedAt: now() }); if (c) Object.assign(c, { status: "failed", updatedAt: now() }); });
