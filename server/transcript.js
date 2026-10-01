@@ -50,8 +50,8 @@ export function parseTimestampedTranscript(text, format = "auto") {
     const timingIndex = lines.findIndex((line) => line.includes("-->"));
     if (timingIndex < 0) continue;
     const timing = lines[timingIndex].split("-->");
-    const start = parseTime(timing[0].split(/\s+/)[0]);
-    const end = parseTime(timing[1].split(/\s+/)[0]);
+    const start = parseTime(timing[0].trim().split(/\s+/)[0]);
+    const end = parseTime(timing[1].trim().split(/\s+/)[0]);
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
     const textLines = lines.slice(timingIndex + 1);
     let speaker;
