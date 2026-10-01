@@ -27,6 +27,7 @@ const storageKey = "clipforge-exports";
 const sessionKey = "clipforge-session";
 const styleKey = "clipforge-caption-style";
 let clips = [];
+const automaticClipFailures = new Set();
 let apiSession = JSON.parse(window.localStorage.getItem(sessionKey) || "null");
 let sourceVideo;
 let sourcePreviewUrl;
@@ -294,6 +295,7 @@ async function uploadSource(file) {
     showToast("AI is analyzing your video and finding the strongest moments…");
     void pollAutoClipStatus(sourceVideo.id);
     const result = await autoClipRequest;
+    automaticClipFailures.delete(sourceVideo.id);
     clips = [...result.clips.map((item) => item.clip), ...clips.filter((clip) => !result.clips.some((item) => item.clip.id === clip.id))];
     renderClipLibrary();
     startClipStatusPolling();
@@ -302,6 +304,7 @@ async function uploadSource(file) {
       : `AI found ${result.generated} clips and started rendering them.`);
     void refreshClipLibraryWhileRendering();
   } catch (error) {
+    if (sourceVideo?.id && error.status !== 409) automaticClipFailures.add(sourceVideo.id);
     if (error.status === 409) {
       showToast("Automatic clipping is already running for this video. We are using the existing job.");
       if (sourceVideo.id) void pollAutoClipStatus(sourceVideo.id);
@@ -699,6 +702,7 @@ window.addEventListener("keydown", (event) => {
 
 async function pollAutoClipStatus(videoId) {
   for (let attempt = 0; attempt < 450; attempt += 1) {
+    if (automaticClipFailures.has(videoId)) return;
     try {
       const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
       clips = [...status.clips, ...clips.filter((clip) => clip.videoId !== videoId && clip.projectId === currentProject?.id)];
