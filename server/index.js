@@ -9,3 +9,12 @@ app.listen(port, async () => {
   await app.clipQueue.recover();
   console.log(`ClipForge API and web app listening on port ${port}`);
 });
+
+const shutdown = async (signal) => {
+  console.log(\`Received \${signal}; shutting down ClipForge.\`);
+  await new Promise((resolve) => app.close(resolve));
+  await app.database.close();
+  process.exit(0);
+};
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
+process.once("SIGINT", () => void shutdown("SIGINT"));
