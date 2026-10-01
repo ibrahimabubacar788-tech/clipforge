@@ -417,12 +417,19 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const clip = await db.read((d) => d.clips.find((c) => c.id === downloadMatch[1] && c.userId === user.id));
       if (!clip || !clip.downloadUrl) throw Object.assign(new Error("Clip export not found."), { status: 404 });
       const candidate = normalize(join(storageDir, clip.downloadUrl.slice("/storage/".length)));
-      const exportDir = normalize(join(storageDir, "exports")); const relativeExport = requireRelative(exportDir, candidate); if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\")) throw Object.assign(new Error("Invalid export path."), { status: 403 });
+      const exportDir = normalize(join(storageDir, "exports"));
+      const relativeExport = requireRelative(exportDir, candidate);
+      if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\")) throw Object.assign(new Error("Invalid export path."), { status: 403 });
       try {
         await access(candidate);
+        const resolvedCandidate = await realpath(candidate);
+        const resolvedExportDir = await realpath(exportDir);
+        const relativeResolved = requireRelative(resolvedExportDir, resolvedCandidate);
+        if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid export path."), { status: 403 });
         res.writeHead(200, { "content-type": "video/mp4", "content-disposition": `attachment; filename="${clip.id}.mp4"` });
         return createReadStream(candidate).pipe(res);
-      } catch {
+      } catch (error) {
+        if (error?.status === 403) throw error;
         throw Object.assign(new Error("Clip export is no longer available on this server."), { status: 404 });
       }
     }
