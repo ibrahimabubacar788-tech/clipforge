@@ -258,6 +258,7 @@ test("queue recovery requeues interrupted processing jobs and clips", async (t) 
     d.clips.push({ id: "clip-recovery", userId: "user-recovery", status: "processing", start: 0, end: 2, sourceUrl: "/storage/uploads/example.mp4" });
     d.jobs.push({ id: "job-recovery", clipId: "clip-recovery", status: "processing", progress: 62, startedAt: "2026-10-01T00:00:00.000Z" });
   });
+  server.clipQueue.running = true;
   await server.clipQueue.recover();
   const state = await server.database.read((d) => ({
     job: d.jobs.find((item) => item.id === "job-recovery"),
