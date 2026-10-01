@@ -102,7 +102,7 @@ export class ClipQueue {
       child.stderr.on("data", (chunk) => { output += chunk; });
       child.on("error", (error) => { console.warn("ClipForge FFmpeg capability check failed:", error.message); resolve(false); });
       child.on("close", () => {
-        const supported = /\\bsubtitles\\b/.test(output);
+        const supported = /\bsubtitles\b/.test(output);
         console.log(`ClipForge FFmpeg subtitles filter: ${supported ? "available" : "unavailable"}`);
         resolve(supported);
       });
