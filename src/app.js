@@ -250,7 +250,7 @@ async function uploadSource(file) {
       request.open("POST", "/api/uploads");
       request.timeout = 15 * 60 * 1000;
       request.setRequestHeader("content-type", contentType);
-      request.setRequestHeader("x-filename", file.name);
+      request.setRequestHeader("x-filename", file.name);\n      request.setRequestHeader("x-upload-id", uploadId);
       if (apiSession?.token) request.setRequestHeader("authorization", "Bearer " + apiSession.token);
       request.upload.onprogress = (event) => {
         if (event.lengthComputable) showToast("Uploading video… " + Math.round((event.loaded / event.total) * 100) + "%");
