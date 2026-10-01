@@ -287,20 +287,20 @@ async function uploadSource(file) {
   showToast("Video uploaded. Automatic analysis is finding the best moments…");
   try {
     const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
-    const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/auto-clip`, {
+    const autoClipRequest = api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/auto-clip`, {
       method: "POST",
       body: JSON.stringify({ limit: 12, format, style: captionStyle, language: "en" })
     });
-    clips = [...result.clips.map((item) => item.clip), ...clips];
+    showToast("AI is analyzing your video and finding the strongest moments…");
+    void pollAutoClipStatus(sourceVideo.id);
+    const result = await autoClipRequest;
+    clips = [...result.clips.map((item) => item.clip), ...clips.filter((clip) => !result.clips.some((item) => item.clip.id === clip.id))];
     renderClipLibrary();
     startClipStatusPolling();
     showToast(result.aiFallback
       ? `Automatic analysis found ${result.generated} clips and started rendering them.`
       : `AI found ${result.generated} clips and started rendering them.`);
     void refreshClipLibraryWhileRendering();
-    if (sourceVideo.id) {
-      void pollAutoClipStatus(sourceVideo.id);
-    }
   } catch (error) {
     if (error.status === 409) {
       showToast("Automatic clipping is already running for this video. We are using the existing job.");
