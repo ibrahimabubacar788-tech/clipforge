@@ -11,7 +11,7 @@ app.listen(port, async () => {
 });
 
 const shutdown = async (signal) => {
-  console.log(\`Received \${signal}; shutting down ClipForge.\`);
+  console.log(`Received ${signal}; shutting down ClipForge.`);
   await new Promise((resolve) => app.close(resolve));
   await app.database.close();
   process.exit(0);
