@@ -131,8 +131,17 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
       data.output_text ||
       data.output?.find((item) => item.type === "message")?.content?.find((item) => item.type === "output_text")?.text ||
       ""
-    ).trim().replace(/^\x60\x60\x60json\s*/i, "").replace(/\x60\x60\x60$/i, "").trim();
-    const parsed = JSON.parse(text);
+    ).trim();
+    const cleaned = text.replace(/^\x60\x60\x60(?:json)?\s*/i, "").replace(/\x60\x60\x60$/i, "").trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace < 0 || lastBrace <= firstBrace) throw new Error("AI returned invalid highlight JSON.");
+      parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    }
     const selections = Array.isArray(parsed.selections) ? parsed.selections : [];
     const byId = new Map(baseline.map((item, id) => [id, item]));
     const ranked = selections.map((selection) => {
