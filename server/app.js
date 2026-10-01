@@ -7,6 +7,7 @@ import { JsonDatabase, id, now } from "./database.js";
 import { login, logout, publicUser, register, requireUser } from "./auth.js";
 import { ClipQueue } from "./queue.js";
 import { rankHighlights } from "./highlights.js";
+import { parseTimestampedTranscript, normalizeTranscript } from "./transcript.js";
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".mp4": "video/mp4" };
 const json = (res, status, value) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(value)); };
 async function body(req) { let raw = ""; for await (const part of req) { raw += part; if (raw.length > 25_000_000) throw Object.assign(new Error("Request body too large."), { status: 413 }); } try { return raw ? JSON.parse(raw) : {}; } catch { throw Object.assign(new Error("Malformed JSON body."), { status: 400 }); } }
@@ -69,13 +70,29 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       return json(res, 200, { videos: await db.read((d) => own(d.videos, user).filter((video) => !projectId || video.projectId === projectId)) });
     }
 
+    const transcriptMatch = pathname.match(/^\/api\/videos\/([^/]+)\/transcript$/);
+    if (req.method === "POST" && transcriptMatch) {
+      const video = await db.read((d) => d.videos.find((item) => item.id === transcriptMatch[1] && item.userId === user.id));
+      if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
+      const format = ["auto", "srt", "vtt", "plain"].includes(payload.format) ? payload.format : "auto";
+      const segments = normalizeTranscript(Array.isArray(payload.segments) ? payload.segments : parseTimestampedTranscript(payload.text || "", format));
+      if (!segments.length) throw Object.assign(new Error("No valid transcript cues were found."), { status: 422 });
+      await db.transaction((d) => {
+        const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+        item.transcript = segments;
+        item.transcriptFormat = format;
+        item.transcriptUpdatedAt = now();
+      });
+      return json(res, 200, { videoId: video.id, count: segments.length, transcript: segments });
+    }
+
     const generateMatch = pathname.match(/^\/api\/videos\/([^/]+)\/generate-clips$/);
     if (req.method === "POST" && generateMatch) {
       const video = await db.read((d) => d.videos.find((item) => item.id === generateMatch[1] && item.userId === user.id));
       if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
       if (!video.sourceUrl) throw Object.assign(new Error("Video has no uploaded source file."), { status: 422 });
-      const segments = Array.isArray(payload.segments) ? payload.segments : [];
-      if (!segments.length) throw Object.assign(new Error("Transcript segments are required to generate clips."), { status: 422 });
+      const segments = normalizeTranscript(Array.isArray(payload.segments) && payload.segments.length ? payload.segments : video.transcript || []);
+      if (!segments.length) throw Object.assign(new Error("Add or import a transcript before generating clips."), { status: 422 });
       const limit = Math.max(1, Math.min(40, Number(payload.limit) || 40));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
       const candidates = rankHighlights(segments, {
