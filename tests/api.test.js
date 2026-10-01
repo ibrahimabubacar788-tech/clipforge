@@ -414,6 +414,35 @@ test("automatic AI clipping creates multiple ranked clips from a stored transcri
   assert.ok(generated.body.clips.every((item) => item.clip.videoId === video.body.video.id && item.job));
 });
 
+test("automatic AI clipping tolerates missing video duration metadata", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "auto-duration@example.com", password: "password-123" });
+  const project = await request(base, "/api/projects", "POST", { name: "Auto duration" }, user.body.token);
+  const video = await request(base, "/api/videos", "POST", {
+    projectId: project.body.project.id,
+    name: "Episode",
+    sourceUrl: "/storage/uploads/example.mp4"
+  }, user.body.token);
+  await request(base, `/api/videos/${video.body.video.id}/transcript`, "POST", {
+    format: "plain",
+    segments: [
+      { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
+      { start: 8, end: 16, text: "You need to know why this changed everything." },
+      { start: 24, end: 32, text: "But the result surprised everyone." },
+      { start: 100, end: 108, text: "Imagine what happens when you understand the secret." },
+      { start: 108, end: 116, text: "You need to know why the result surprised everyone." }
+    ]
+  }, user.body.token);
+  const generated = await request(base, `/api/videos/${video.body.video.id}/auto-clip`, "POST", {
+    limit: 2,
+    format: "9:16"
+  }, user.body.token);
+  assert.equal(generated.status, 202);
+  assert.equal(generated.body.generated, 2);
+  assert.ok(generated.body.clips.every((item) => item.clip.end - item.clip.start >= 15));
+});
+
 test("automatic AI clipping rejects concurrent runs for the same video", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
