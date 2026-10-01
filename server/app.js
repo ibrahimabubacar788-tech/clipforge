@@ -64,7 +64,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         return;
       }
       const boundedEnd = Math.min(end, total - 1);
-      res.writeHead(206, { "content-type": "video/mp4", "content-length": boundedEnd - start + 1, "content-range": `bytes ${start}-${boundedEnd}/${total}`, "accept-ranges": "bytes" });
+      res.writeHead(206, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": boundedEnd - start + 1, "content-range": `bytes ${start}-${boundedEnd}/${total}`, "accept-ranges": "bytes" });
       createReadStream(file, { start, end: boundedEnd }).pipe(res);
       return;
     }
