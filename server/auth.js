@@ -21,6 +21,8 @@ export async function requireUser(req, db) {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
   const session = await db.read((d) => d.sessions.find((s) => s.token === token && Date.parse(s.expiresAt) > Date.now()));
   if (!session) throw Object.assign(new Error("Authentication required."), { status: 401 });
-  return db.read((d) => d.users.find((u) => u.id === session.userId));
+  const user = await db.read((d) => d.users.find((u) => u.id === session.userId));
+  if (!user) throw Object.assign(new Error("Authentication required."), { status: 401 });
+  return user;
 }
 export async function logout(req, db) { const token = req.headers.authorization?.replace(/^Bearer\s+/i, ""); await db.transaction((d) => { d.sessions = d.sessions.filter((s) => s.token !== token); }); }
