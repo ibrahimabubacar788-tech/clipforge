@@ -606,6 +606,9 @@ document.querySelectorAll("[data-go-editor]").forEach((button) => button.addEven
 clipLibrary.addEventListener("click", async (event) => {
   const retryButton = event.target.closest("[data-retry-clip]");
   if (retryButton) {
+    if (retryButton.disabled) return;
+    retryButton.disabled = true;
+    retryButton.textContent = "Retrying…";
     try {
       const result = await api(`/api/clips/${retryButton.dataset.retryClip}/retry`, { method: "POST" });
       clips = clips.map((clip) => clip.id === result.clip.id ? result.clip : clip);
@@ -618,7 +621,7 @@ clipLibrary.addEventListener("click", async (event) => {
       }
       clips = (await api("/api/clips")).clips;
       renderClipLibrary();
-    } catch (error) { showToast(error.message); }
+    } catch (error) { showToast(error.message); renderClipLibrary(); }
     return;
   }
   const downloadButton = event.target.closest("[data-download-clip]");
