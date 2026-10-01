@@ -126,14 +126,19 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         return { clips, jobs };
       });
       const counts = result.clips.reduce((acc, clip) => { acc[clip.status] = (acc[clip.status] || 0) + 1; return acc; }, {});
+      const jobsByClip = new Map(result.jobs.map((job) => [job.clipId, job]));
+      const clips = result.clips.map((clip) => {
+        const job = jobsByClip.get(clip.id);
+        return job ? { ...clip, renderProgress: Number(job.progress) || 0, renderJobStatus: job.status } : clip;
+      });
       return json(res, 200, {
         videoId: video.id,
         transcriptReady: Array.isArray(video.transcript) && video.transcript.length > 0,
-        total: result.clips.length,
+        total: clips.length,
         ready: counts.ready || 0,
         processing: (counts.processing || 0) + (counts.queued || 0),
         failed: counts.failed || 0,
-        clips: result.clips,
+        clips,
         jobs: result.jobs,
       });
     }
