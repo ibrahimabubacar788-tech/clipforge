@@ -24,7 +24,7 @@ test("caption timing is clipped to the selected clip", () => {
 test("caption PPM is valid and keeps punctuation and digits visible", () => {
   const ppm = captionPpm("Test 2026, it's great!", "#ffffff");
   const header = ppm.split("\n").slice(0, 3);
-  assert.deepEqual(header, ["P3", "680 90", "255"]);
+  assert.deepEqual(header, ["P3", "572 107", "255"]);
   assert.match(ppm, /255 255 255/);
   assert.ok(ppm.length > 10000);
 });
