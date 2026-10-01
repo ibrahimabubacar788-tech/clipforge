@@ -67,7 +67,8 @@ export class ClipQueue {
   async work() {
     if (this.running) return;
     this.running = true;
-    while (true) {
+    try {
+      while (true) {
       const job = await this.db.transaction((d) => { const next = d.jobs.find((j) => j.status === "queued"); if (next) { next.status = "processing"; next.progress = 15; next.startedAt = now(); } return next && { ...next }; });
       if (!job) break;
       try {
@@ -79,8 +80,10 @@ export class ClipQueue {
       } catch (error) {
         await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "failed", error: error.message, completedAt: now() }); if (c) Object.assign(c, { status: "failed", updatedAt: now() }); });
       }
+      }
+    } finally {
+      this.running = false;
     }
-    this.running = false;
   }
   async removeExport(downloadUrl) {
     if (!downloadUrl?.startsWith("/storage/exports/")) return;
