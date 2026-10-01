@@ -36,6 +36,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const filename = String(req.headers["x-filename"] || "video.mp4").slice(0, 120).replace(/[^a-zA-Z0-9._-]/g, "_");
       const contentLength = Number(req.headers["content-length"] || 0);
       const maxUploadBytes = 250 * 1024 * 1024;
+      const contentType = String(req.headers["content-type"] || "").toLowerCase();
+      if (!contentType.startsWith("video/")) throw Object.assign(new Error("Upload must be a video file."), { status: 415 });
       if (!Number.isFinite(contentLength) || contentLength < 0) throw Object.assign(new Error("Invalid content length."), { status: 400 });
       if (contentLength === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
       if (contentLength > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
