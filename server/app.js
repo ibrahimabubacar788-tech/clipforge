@@ -272,7 +272,16 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           createdAt: now(),
         };
         await db.transaction((d) => d.clips.push(clip));
-        const job = await queue.enqueue(clip);
+        let job;
+        try {
+          job = await queue.enqueue(clip);
+        } catch (error) {
+          await db.transaction((d) => {
+            d.clips = d.clips.filter((item) => item.id !== clip.id);
+            d.jobs = d.jobs.filter((item) => item.clipId !== clip.id);
+          });
+          throw error;
+        }
         created.push({ clip, job });
       }
 
