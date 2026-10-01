@@ -157,6 +157,28 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       }
       autoClipInFlight.add(video.id);
       try {
+        const existingAutoClipsBeforeAnalysis = await db.read((d) => d.clips.filter((clip) =>
+          clip.videoId === video.id &&
+          clip.userId === user.id &&
+          clip.generation === "auto-ai" &&
+          clip.status !== "failed"
+        ));
+        if (existingAutoClipsBeforeAnalysis.length > 0) {
+          const existingJobMap = new Map(await db.read((d) => d.jobs.filter((job) => existingAutoClipsBeforeAnalysis.some((clip) => clip.id === job.clipId)).map((job) => [job.clipId, job])));
+          return json(res, 200, {
+            videoId: video.id,
+            engine: "clipforge-auto-existing",
+            aiEngine: existingAutoClipsBeforeAnalysis[0].aiEngine || null,
+            aiFallback: existingAutoClipsBeforeAnalysis[0].aiFallback === true,
+            aiError: existingAutoClipsBeforeAnalysis[0].aiError || null,
+            transcribed: false,
+            transcriptCount: Array.isArray(video.transcript) ? video.transcript.length : 0,
+            requested: limit,
+            generated: existingAutoClipsBeforeAnalysis.length,
+            clips: existingAutoClipsBeforeAnalysis.slice(0, limit).map((clip) => ({ clip, job: existingJobMap.get(clip.id) || null })),
+            reused: true,
+          });
+        }
         let segments = normalizeTranscript(Array.isArray(video.transcript) ? video.transcript : []);
         let transcribed = false;
         if (!segments.length) {
