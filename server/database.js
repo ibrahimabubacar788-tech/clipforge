@@ -6,12 +6,20 @@ const { Pool } = pg;
 const now = () => new Date().toISOString();
 const emptyState = () => ({ users: [], sessions: [], projects: [], videos: [], clips: [], jobs: [] });
 
+const postgresUrl = process.env.DATABASE_URL;
+const hasPostgresUrl = typeof postgresUrl === "string" && /^(postgres|postgresql):\/\//i.test(postgresUrl);
+
 export class JsonDatabase {
   constructor(file) {
     this.file = file;
     this.data = null;
     this.pending = Promise.resolve();
-    this.pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false } }) : null;
+    this.pool = hasPostgresUrl
+      ? new Pool({
+          connectionString: postgresUrl,
+          ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false },
+        })
+      : null;
   }
 
   async load() {
