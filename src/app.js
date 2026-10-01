@@ -310,9 +310,25 @@ function renderClipLibrary() {
   clipLibrary.innerHTML = filtered.map((clip) => {
     const status = clip.status === "ready"
       ? `<button class="download-clip" type="button" data-download-clip="${clip.id}">Download</button>`
-      : `<small>${clip.status === "failed" ? "Render failed" : "Rendering…"}</small>`;
+      : clip.status === "failed"
+        ? `<small>Render failed</small>`
+        : `<small class="rendering-status">Rendering…</small>`;
     return `<article class="clip-card"><div class="clip-card-art ${clip.format.replace(":", "-")}"><span>${clip.format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${clip.title}</h3><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clip.id}" aria-label="Delete ${clip.title}">×</button></article>`;
   }).join("");
+}
+
+async function refreshClipLibraryWhileRendering() {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const result = await api("/api/clips");
+      clips = result.clips;
+      renderClipLibrary();
+      if (!clips.some((clip) => !["ready", "failed"].includes(clip.status))) break;
+    } catch {
+      break;
+    }
+  }
 }
 
 function stopPlayback() {
@@ -462,6 +478,7 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
     renderClipLibrary();
     startClipStatusPolling();
     showToast(`AI ranked ${result.generated} clips and queued them for rendering.`);
+    void refreshClipLibraryWhileRendering();
   } catch (error) {
     showToast(error.message);
   }
