@@ -335,6 +335,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         const videoIds = new Set(videos.map((item) => item.id));
         if (videos.some((item) => autoClipInFlight.has(item.id))) throw Object.assign(new Error("A video in this project is still being processed."), { status: 409 });
         const clips = d.clips.filter((item) => videoIds.has(item.videoId) && item.userId === user.id);
+        if (clips.some((clip) => d.jobs.some((job) => job.clipId === clip.id && job.status === "processing"))) throw Object.assign(new Error("A clip in this project is currently rendering."), { status: 409 });
         d.projects = d.projects.filter((item) => item.id !== project.id);
         d.videos = d.videos.filter((item) => !videoIds.has(item.id));
         d.clips = d.clips.filter((item) => !clips.some((clip) => clip.id === item.id));
@@ -360,6 +361,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
         if (autoClipInFlight.has(video.id)) throw Object.assign(new Error("Automatic clipping is still running for this video."), { status: 409 });
         const clips = d.clips.filter((item) => item.videoId === video.id && item.userId === user.id);
+        if (clips.some((clip) => d.jobs.some((job) => job.clipId === clip.id && job.status === "processing"))) throw Object.assign(new Error("A clip in this video is currently rendering."), { status: 409 });
         d.videos = d.videos.filter((item) => item.id !== video.id);
         d.clips = d.clips.filter((item) => item.videoId !== video.id || item.userId !== user.id);
         d.jobs = d.jobs.filter((job) => !clips.some((clip) => clip.id === job.clipId));
@@ -430,7 +432,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       return json(res, 202, { clip, job });
     }
     const jobMatch = pathname.match(/^\/api\/jobs\/([^/]+)$/); if (jobMatch && req.method === "GET") { const job = await db.read((d) => d.jobs.find((j) => j.id === jobMatch[1] && d.clips.some((c) => c.id === j.clipId && c.userId === user.id))); if (!job) throw Object.assign(new Error("Job not found."), { status: 404 }); return json(res, 200, { job }); }
-    const clipMatch = pathname.match(/^\/api\/clips\/([^/]+)$/); if (clipMatch && req.method === "DELETE") { const clip = await db.transaction((d) => { const item = d.clips.find((c) => c.id === clipMatch[1] && c.userId === user.id); if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 }); d.clips = d.clips.filter((c) => c.id !== item.id); d.jobs = d.jobs.filter((j) => j.clipId !== item.id); return item; }); await queue.removeExport(clip.downloadUrl); res.writeHead(204); res.end(); return; }
+    const clipMatch = pathname.match(/^\/api\/clips\/([^/]+)$/); if (clipMatch && req.method === "DELETE") { const clip = await db.transaction((d) => { const item = d.clips.find((c) => c.id === clipMatch[1] && c.userId === user.id); if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 }); if (d.jobs.some((job) => job.clipId === item.id && job.status === "processing")) throw Object.assign(new Error("Clip is currently rendering."), { status: 409 }); d.clips = d.clips.filter((c) => c.id !== item.id); d.jobs = d.jobs.filter((j) => j.clipId !== item.id); return item; }); await queue.removeExport(clip.downloadUrl); res.writeHead(204); res.end(); return; }
     throw Object.assign(new Error("API route not found."), { status: 404 });
   }
   const server = createServer(async (req, res) => { try {
