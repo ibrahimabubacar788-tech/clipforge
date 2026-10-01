@@ -87,7 +87,7 @@ async function ensureWorkspace() {
     }
     document.querySelector("#workspace-title").textContent = currentProject.name;
     renderProjectSelector(projects);
-    clips = (await api("/api/clips")).clips;
+    clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
     renderClipLibrary();
     return true;
   } catch (error) {
@@ -380,7 +380,7 @@ async function refreshClipLibraryWhileRendering() {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     try {
       const result = await api("/api/clips");
-      clips = result.clips;
+      clips = result.clips.filter((clip) => clip.projectId === currentProject?.id);
       renderClipLibrary();
       if (!clips.some((clip) => !["ready", "failed"].includes(clip.status))) break;
     } catch {
@@ -698,7 +698,7 @@ async function pollAutoClipStatus(videoId) {
   for (let attempt = 0; attempt < 450; attempt += 1) {
     try {
       const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
-      clips = [...status.clips, ...clips.filter((clip) => clip.videoId !== videoId)];
+      clips = [...status.clips, ...clips.filter((clip) => clip.videoId !== videoId && clip.projectId === currentProject?.id)];
       renderClipLibrary();
       if (status.total > 0 && status.processing === 0) {
         showToast(status.failed ? `Automatic clipping finished: ${status.ready} clips ready, ${status.failed} failed.` : `Automatic clipping finished: ${status.ready} clips are ready.`);
