@@ -106,7 +106,7 @@ async function ensureWorkspace() {
         }
         document.querySelector("#workspace-title").textContent = currentProject.name;
         renderProjectSelector(projects);
-        clips = (await api("/api/clips")).clips;
+        clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
         renderClipLibrary();
         return true;
       } catch (retryError) {
@@ -317,7 +317,7 @@ async function refreshClipStatuses({ showReadyToast = false } = {}) {
   if (!apiSession || !clips.length) return;
   try {
     const previous = new Map(clips.map((clip) => [clip.id, clip.status]));
-    clips = (await api("/api/clips")).clips;
+    clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
     renderClipLibrary();
     if (showReadyToast) {
       const becameReady = clips.filter((clip) => previous.get(clip.id) && previous.get(clip.id) !== "ready" && clip.status === "ready");
@@ -605,7 +605,7 @@ document.querySelector("#export-button").addEventListener("click", async () => {
       const jobResult = await api(`/api/jobs/${result.job.id}`);
       if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
     }
-    clips = (await api("/api/clips")).clips;
+    clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
     renderClipLibrary();
     const finished = clips.find((clip) => clip.id === result.clip.id);
     if (finished?.status === "ready") showToast("Your clip is ready to download.");
@@ -647,7 +647,7 @@ clipLibrary.addEventListener("click", async (event) => {
         const jobResult = await api(`/api/jobs/${result.job.id}`);
         if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
       }
-      clips = (await api("/api/clips")).clips;
+      clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
       renderClipLibrary();
     } catch (error) { showToast(error.message); renderClipLibrary(); }
     return;
