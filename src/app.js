@@ -15,6 +15,11 @@ const clipLibrary = document.querySelector("#clip-library");
 const clipsEmpty = document.querySelector("#clips-empty");
 const styleDialog = document.querySelector("#style-dialog");
 const sourceUpload = document.querySelector("#source-upload");
+const clipSearch = document.querySelector("#clip-search");
+const clipFilter = document.querySelector("#clip-filter");
+const fullscreenButton = document.querySelector("#fullscreen-button");
+let libraryQuery = "";
+let libraryFilter = "all";
 let timelineMaximum = Number(endInput.max);
 const storageKey = "clipforge-exports";
 const sessionKey = "clipforge-session";
@@ -170,8 +175,14 @@ async function uploadSource(file) {
 
 function renderClipLibrary() {
   clipCount.textContent = clips.length;
+  const query = libraryQuery.trim().toLowerCase();
+  const filtered = clips.filter((clip) => {
+    const matchesQuery = !query || clip.title.toLowerCase().includes(query);
+    const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter);
+    return matchesQuery && matchesFilter;
+  });
   clipsEmpty.hidden = clips.length > 0;
-  clipLibrary.innerHTML = clips.map((clip) => {
+  clipLibrary.innerHTML = filtered.map((clip) => {
     const status = clip.status === "ready"
       ? `<button class="download-clip" type="button" data-download-clip="${clip.id}">Download</button>`
       : `<small>${clip.status === "failed" ? "Render failed" : "Rendering…"}</small>`;
@@ -320,6 +331,20 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     const finished = clips.find((clip) => clip.id === result.clip.id);
     showToast(finished?.status === "ready" ? "Your clip is ready to download." : "Clip rendering did not complete.");
   } catch (error) { showToast(error.message); }
+});
+
+clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; renderClipLibrary(); });
+clipFilter?.addEventListener("change", () => { libraryFilter = clipFilter.value; renderClipLibrary(); });
+
+fullscreenButton?.addEventListener("click", async () => {
+  try {
+    if (!document.fullscreenElement) await videoStage.requestFullscreen();
+    else await document.exitFullscreen();
+  } catch { showToast("Full screen is not available on this device."); }
+});
+
+document.addEventListener("fullscreenchange", () => {
+  fullscreenButton.textContent = document.fullscreenElement ? "Exit full screen" : "Full screen";
 });
 
 document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("click", (event) => { event.preventDefault(); switchView(link.dataset.view); }));
