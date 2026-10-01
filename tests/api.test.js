@@ -41,6 +41,18 @@ test("readiness verifies database availability", async (t) => {
   assert.deepEqual(body, { ok: true, service: "clipforge" });
 });
 
+test("chunked video uploads are accepted without content length", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "chunked-upload@example.com", password: "password-123" });
+  const response = await fetch(`${base}/api/uploads`, {
+    method: "POST",
+    headers: { "content-type": "video/mp4", "x-filename": "chunked.mp4", authorization: `Bearer ${user.body.token}` },
+    body: ReadableStream.from([Buffer.from("video-"), Buffer.from("placeholder")])
+  });
+  assert.equal(response.status, 201);
+});
+
 test("uploads reject non-video content types", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
