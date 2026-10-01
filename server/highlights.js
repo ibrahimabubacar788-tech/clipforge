@@ -71,3 +71,94 @@ export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDura
   }
   return selected.map((item, index) => ({ ...item, rank: index + 1 }));
 }
+
+
+export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75 } = {}) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const fallback = () => rankHighlights(segments, { limit, minDuration, maxDuration });
+  if (!apiKey) return { candidates: fallback(), engine: "heuristic-fallback" };
+
+  const baseline = rankHighlights(segments, {
+    limit: Math.min(40, Math.max(limit * 3, limit)),
+    minDuration,
+    maxDuration,
+  });
+  if (!baseline.length) return { candidates: [], engine: "openai-highlights-v1" };
+
+  const candidates = baseline.map((item, id) => ({
+    id,
+    start: item.start,
+    end: item.end,
+    duration: item.duration,
+    transcript: item.transcript.slice(0, 1800),
+  }));
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90_000);
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { Authorization: \`Bearer \${apiKey}\`, "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: process.env.OPENAI_HIGHLIGHT_MODEL || "gpt-5.6-luna",
+        input: [
+          {
+            role: "system",
+            content: [{
+              type: "input_text",
+              text: \`Select the strongest short-form video moments from these transcript windows.
+Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.
+Reject filler, contextless fragments, repetitive introductions, and sponsor boilerplate.
+Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"reason":"brief reason","title":"short title"}]}.
+Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.\`,
+            }],
+          },
+          {
+            role: "user",
+            content: [{ type: "input_text", text: JSON.stringify({ requested: limit, candidates }) }],
+          },
+        ],
+        max_output_tokens: Math.max(800, limit * 120),
+      }),
+    });
+
+    const raw = await response.text();
+    let data = {};
+    try { data = JSON.parse(raw); } catch {}
+    if (!response.ok) throw new Error(data?.error?.message || "Highlight analysis failed.");
+    const text = String(data.output_text || "").trim().replace(/^\\\`\\\`\\\`json\\s*/i, "").replace(/\\\`\\\`\\\`$/i, "").trim();
+    const parsed = JSON.parse(text);
+    const selections = Array.isArray(parsed.selections) ? parsed.selections : [];
+    const byId = new Map(baseline.map((item, id) => [id, item]));
+    const ranked = selections.map((selection) => {
+      const base = byId.get(Number(selection.id));
+      if (!base) return null;
+      const score = Number(selection.score);
+      return {
+        ...base,
+        score: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : base.score,
+        aiScore: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null,
+        aiReason: String(selection.reason || "").trim().slice(0, 240),
+        title: String(selection.title || base.title).replace(/\s+/g, " ").trim().slice(0, 100) || base.title,
+      };
+    }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
+
+    const selected = [];
+    for (const candidate of ranked) {
+      if (selected.length >= limit) break;
+      const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
+      if (!overlaps) selected.push(candidate);
+    }
+    if (!selected.length) throw new Error("AI returned no usable highlight selections.");
+    return { candidates: selected.map((item, index) => ({ ...item, rank: index + 1 })), engine: "openai-highlights-v1" };
+  } catch (error) {
+    return {
+      candidates: fallback(),
+      engine: "heuristic-fallback",
+      aiError: error?.name === "AbortError" ? "Highlight analysis timed out." : String(error?.message || "Highlight analysis failed."),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
