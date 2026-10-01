@@ -14,10 +14,11 @@ const captionColors = { lime: "d3e964", pink: "ff8fbe", sky: "8be1ff" };
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
+    const timeout = setTimeout(() => {\n      child.kill("SIGKILL");\n      reject(new Error("FFmpeg render timed out."));\n    }, 15 * 60 * 1000);
     let stderr = "";
     child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.on("error", (error) => reject(error));
-    child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`FFmpeg exited with code ${code}: ${stderr.slice(-1000)}`)));
+    child.on("error", (error) => { clearTimeout(timeout); reject(error); });
+    child.on("close", (code) => { clearTimeout(timeout); code === 0 ? resolve() : reject(new Error(`FFmpeg exited with code ${code}: ${stderr.slice(-1000)}`)); });
   });
 }
 
