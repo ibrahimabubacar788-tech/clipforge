@@ -294,7 +294,9 @@ async function uploadSource(file) {
     clips = [...result.clips.map((item) => item.clip), ...clips];
     renderClipLibrary();
     startClipStatusPolling();
-    showToast(`AI found ${result.generated} clips and started rendering them.`);
+    showToast(result.aiFallback
+      ? `Automatic analysis found ${result.generated} clips and started rendering them.`
+      : `AI found ${result.generated} clips and started rendering them.`);
     void refreshClipLibraryWhileRendering();
     if (sourceVideo.id) {
       void pollAutoClipStatus(sourceVideo.id);
@@ -689,7 +691,7 @@ async function pollAutoClipStatus(videoId) {
       clips = [...status.clips, ...clips.filter((clip) => clip.videoId !== videoId)];
       renderClipLibrary();
       if (status.total > 0 && status.processing === 0) {
-        showToast(status.failed ? `AI finished: ${status.ready} clips ready, ${status.failed} failed.` : `AI finished: ${status.ready} clips are ready.`);
+        showToast(status.failed ? `Automatic clipping finished: ${status.ready} clips ready, ${status.failed} failed.` : `Automatic clipping finished: ${status.ready} clips are ready.`);
         return;
       }
     } catch {}
