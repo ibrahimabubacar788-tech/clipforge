@@ -108,4 +108,16 @@ test("public source uploads are not directly accessible", async (t) => {
   assert.equal(media.status, 404);
 });
 
+test("projects are isolated by user", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const owner = await request(base, "/api/auth/register", "POST", { email: "project-owner@example.com", password: "password-123" });
+  const other = await request(base, "/api/auth/register", "POST", { email: "project-other@example.com", password: "password-123" });
+  const created = await request(base, "/api/projects", "POST", { name: "Owner project" }, owner.body.token);
+  const listed = await request(base, "/api/projects", "GET", undefined, other.body.token);
+  assert.deepEqual(listed.body.projects, []);
+  const update = await request(base, `/api/projects/${created.body.project.id}`, "PATCH", { name: "Changed" }, other.body.token);
+  assert.equal(update.status, 404);
+});
+
 test("clip validation rejects ranges outside the source duration", async (t) => { const { server, base } = await app(); t.after(() => server.close()); const user = await request(base, "/api/auth/register", "POST", { email: "range@example.com", password: "password-123" }); const project = await request(base, "/api/projects", "POST", { name: "P" }, user.body.token); const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, duration: 10, sourceUrl: "/storage/uploads/example.mp4" }, user.body.token); const bad = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 11 }, user.body.token); assert.equal(bad.status, 422); });
