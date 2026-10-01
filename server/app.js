@@ -156,6 +156,29 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
 
       const limit = Math.max(1, Math.min(20, Number(payload.limit) || 12));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
+      const existingAutoClips = await db.read((d) => d.clips.filter((clip) =>
+        clip.videoId === video.id &&
+        clip.userId === user.id &&
+        clip.generation === "auto-ai"
+      ));
+      if (existingAutoClips.length) {
+        return json(res, 200, {
+          videoId: video.id,
+          engine: "clipforge-auto-existing",
+          aiEngine: existingAutoClips[0].aiEngine || null,
+          aiFallback: existingAutoClips[0].aiFallback === true,
+          aiError: existingAutoClips[0].aiError || null,
+          transcribed,
+          transcriptCount: segments.length,
+          requested: limit,
+          generated: existingAutoClips.length,
+          clips: existingAutoClips.map((clip) => ({
+            clip,
+            job: null,
+          })),
+          reused: true,
+        });
+      }
       const analysis = await rankHighlightsWithAI(segments, {
         limit,
         minDuration: 15,
@@ -180,6 +203,10 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           captionSegments: candidate.captionSegments,
           style: payload.style || { color: "lime", weight: "bold" },
           status: "queued",
+          generation: "auto-ai",
+          aiEngine: analysis.engine,
+          aiFallback: analysis.engine !== "openai-highlights-v1",
+          aiError: analysis.aiError || null,
           highlightRank: candidate.rank,
           highlightScore: candidate.score,
           createdAt: now(),
