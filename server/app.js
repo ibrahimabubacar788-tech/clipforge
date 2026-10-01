@@ -69,6 +69,53 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       return json(res, 200, { videos: await db.read((d) => own(d.videos, user).filter((video) => !projectId || video.projectId === projectId)) });
     }
 
+    const generateMatch = pathname.match(/^\/api\/videos\/([^/]+)\/generate-clips$/);
+    if (req.method === "POST" && generateMatch) {
+      const video = await db.read((d) => d.videos.find((item) => item.id === generateMatch[1] && item.userId === user.id));
+      if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
+      if (!video.sourceUrl) throw Object.assign(new Error("Video has no uploaded source file."), { status: 422 });
+      const segments = Array.isArray(payload.segments) ? payload.segments : [];
+      if (!segments.length) throw Object.assign(new Error("Transcript segments are required to generate clips."), { status: 422 });
+      const limit = Math.max(1, Math.min(40, Number(payload.limit) || 40));
+      const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
+      const candidates = rankHighlights(segments, {
+        limit,
+        minDuration: 15,
+        maxDuration: Math.min(75, Math.max(20, Number(video.duration) || 75)),
+      });
+      const created = [];
+      for (const candidate of candidates) {
+        const clip = {
+          id: id("clip"),
+          userId: user.id,
+          videoId: video.id,
+          projectId: video.projectId,
+          sourceUrl: video.sourceUrl,
+          title: candidate.title,
+          start: candidate.start,
+          end: candidate.end,
+          format,
+          captions: true,
+          captionSegments: candidate.captionSegments,
+          style: payload.style || { color: "lime", weight: "bold" },
+          status: "queued",
+          highlightRank: candidate.rank,
+          highlightScore: candidate.score,
+          createdAt: now(),
+        };
+        await db.transaction((d) => d.clips.push(clip));
+        const job = await queue.enqueue(clip);
+        created.push({ clip, job });
+      }
+      return json(res, 202, {
+        videoId: video.id,
+        engine: "clipforge-highlight-v1",
+        requested: limit,
+        generated: created.length,
+        clips: created,
+      });
+    }
+
     const analyzeMatch = pathname.match(/^\/api\/videos\/([^/]+)\/analyze$/);
     if (req.method === "POST" && analyzeMatch) {
       const video = await db.read((d) => d.videos.find((item) => item.id === analyzeMatch[1] && item.userId === user.id));
