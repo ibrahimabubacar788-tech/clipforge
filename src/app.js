@@ -383,6 +383,23 @@ document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("
 document.querySelectorAll("[data-go-editor]").forEach((button) => button.addEventListener("click", () => switchView("editor")));
 
 clipLibrary.addEventListener("click", async (event) => {
+  const retryButton = event.target.closest("[data-retry-clip]");
+  if (retryButton) {
+    try {
+      const result = await api(`/api/clips/${retryButton.dataset.retryClip}/retry`, { method: "POST" });
+      clips = clips.map((clip) => clip.id === result.clip.id ? result.clip : clip);
+      renderClipLibrary();
+      showToast("Render retry queued.");
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const jobResult = await api(`/api/jobs/${result.job.id}`);
+        if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
+      }
+      clips = (await api("/api/clips")).clips;
+      renderClipLibrary();
+    } catch (error) { showToast(error.message); }
+    return;
+  }
   const downloadButton = event.target.closest("[data-download-clip]");
   if (downloadButton) {
     try {
