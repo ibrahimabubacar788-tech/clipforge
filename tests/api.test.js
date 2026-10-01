@@ -32,6 +32,22 @@ test("FFmpeg renders an uploaded video into a downloadable MP4 clip", { skip: ha
   assert.equal(dimensions.trim(), "720x1280"); const unauthorized = await fetch(`${base}/api/clips/${rendered.id}/download`); assert.equal(unauthorized.status, 401); const publicMedia = await fetch(`${base}${rendered.downloadUrl}`); assert.equal(publicMedia.status, 404);
 });
 
+test("failed clips can be retried", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "retry@example.com", password: "password-123" });
+  const project = await request(base, "/api/projects", "POST", { name: "Retry" }, user.body.token);
+  const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Broken source", duration: 3, sourceUrl: "/storage/uploads/missing.mp4" }, user.body.token);
+  const created = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 2 }, user.body.token);
+  assert.equal(created.status, 202);
+  const failed = await waitForClip(base, user.body.token);
+  assert.equal(failed.status, "failed");
+  const retried = await request(base, `/api/clips/${failed.id}/retry`, "POST", undefined, user.body.token);
+  assert.equal(retried.status, 202);
+  assert.equal(retried.body.clip.status, "queued");
+  assert.notEqual(retried.body.job.id, created.body.job.id);
+});
+
 test("readiness verifies database availability", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
