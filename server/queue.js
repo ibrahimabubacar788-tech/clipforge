@@ -190,7 +190,11 @@ export class ClipQueue {
     const exportDir = resolve(this.storageDir, "exports");
     const candidate = resolve(this.storageDir, downloadUrl.slice("/storage/".length));
     const relativeExport = relative(exportDir, candidate);
-    if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\\\")) return;
+    if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\")) return;
+    const resolvedCandidate = await realpath(candidate).catch(() => null);
+    const resolvedExportDir = await realpath(exportDir).catch(() => null);
+    if (!resolvedCandidate || !resolvedExportDir) return;
+    const relativeResolved = relative(resolvedExportDir, resolvedCandidate);
+    if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) return;
     await unlink(candidate).catch(() => {});
-  }
-}
+  }}
