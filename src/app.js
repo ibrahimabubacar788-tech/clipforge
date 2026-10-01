@@ -172,7 +172,7 @@ function clearSourcePreview() {
 
 function restoreSourcePreview(video) {
   if (!video?.id) return;
-  if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl);
+  if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
   sourcePreviewUrl = `/api/videos/${encodeURIComponent(video.id)}/stream`;
   previewElement?.remove();
   previewElement = document.createElement("video");
