@@ -23,6 +23,7 @@ let apiSession = JSON.parse(window.localStorage.getItem(sessionKey) || "null");
 let sourceVideo;
 let sourcePreviewUrl;
 let previewElement;
+let currentProject;
 
 const api = async (path, options = {}) => {
   const response = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}), ...options.headers } });
@@ -40,7 +41,8 @@ async function ensureWorkspace() {
       window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
     }
     const { projects } = await api("/api/projects");
-    if (!projects[0]) await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) });
+    currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+    document.querySelector("#workspace-title").textContent = currentProject.name;
     clips = (await api("/api/clips")).clips;
     renderClipLibrary();
   } catch (error) { showToast(`Backend unavailable: ${error.message}`); clips = readSavedClips(); renderClipLibrary(); }
@@ -103,9 +105,11 @@ async function uploadSource(file) {
   const uploadResponse = await fetch("/api/uploads", { method: "POST", headers: { "content-type": file.type || "application/octet-stream", "x-filename": file.name, ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}) }, body: file });
   if (!uploadResponse.ok) { const error = await uploadResponse.json().catch(() => ({})); throw new Error(error.error || "Upload failed."); }
   const upload = await uploadResponse.json();
-  const { projects } = await api("/api/projects");
-  const project = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "My clips" }) })).project;
-  sourceVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: project.id, name: file.name, duration, sourceUrl: upload.url }) })).video;
+  if (!currentProject) {
+    const { projects } = await api("/api/projects");
+    currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+  }
+  sourceVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: currentProject.id, name: file.name, duration, sourceUrl: upload.url }) })).video;
   timelineMaximum = Math.max(1, Math.floor(duration));
   startInput.max = timelineMaximum;
   endInput.max = timelineMaximum;
@@ -220,13 +224,33 @@ document.querySelector("#save-style").addEventListener("click", () => {
   showToast("Caption style saved.");
 });
 
-document.querySelector("#new-project").addEventListener("click", () => {
+document.querySelector("#new-project").addEventListener("click", async () => {
   stopPlayback();
-  startInput.value = 0;
-  endInput.value = 24;
-  updateRange();
-  switchView("editor");
-  showToast("Fresh project workspace created.");
+  try {
+    currentProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: `Project ${new Date().toLocaleDateString()}` }) })).project;
+    document.querySelector("#workspace-title").textContent = currentProject.name;
+    sourceVideo = undefined;
+    if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl);
+    sourcePreviewUrl = undefined;
+    previewElement?.remove();
+    previewElement = undefined;
+    if (!videoStage.querySelector(".video-placeholder")) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "video-placeholder";
+      placeholder.innerHTML = "<span class=\"play-icon\">▶</span><p>Upload a source video to begin</p><small>Choose a video above</small>";
+      videoStage.prepend(placeholder);
+    }
+    timelineMaximum = 24;
+    startInput.max = 24;
+    endInput.max = 24;
+    startInput.value = 0;
+    endInput.value = 24;
+    updateRange();
+    switchView("editor");
+    showToast("New project created.");
+  } catch (error) {
+    showToast(`Could not create project: ${error.message}`);
+  }
 });
 
 document.querySelector("#export-button").addEventListener("click", async () => {
