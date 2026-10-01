@@ -46,7 +46,7 @@ function videoFilter(clip) {
     const emphasis = clip.style?.weight === "soft" ? "fontsize=32:fontcolor=white:borderw=2" : `fontsize=38:fontcolor=${color}:bordercolor=black:borderw=4`;
     // This intentionally uses a deterministic label until a transcription provider is configured.
     // It still gives exports a real burned-in caption treatment and applies the selected style.
-    filters.push(`drawtext=text='Captions enabled':x=(w-text_w)/2:y=h-(text_h*3):${emphasis}`);
+    filters.push(`drawtext=text='${escapeDrawtext("Captions enabled")}':x=(w-text_w)/2:y=h-(text_h*3):${emphasis}`);
   }
   return filters.join(",");
 }
