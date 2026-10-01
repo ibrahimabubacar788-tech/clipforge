@@ -130,6 +130,8 @@ function updateRange() {
 
 async function uploadSource(file) {
   if (!file) return;
+  const maxUploadBytes = 250 * 1024 * 1024;
+  if (file.size > maxUploadBytes) throw new Error("This video is too large. ClipForge currently accepts videos up to 250 MB.");
   if (!apiSession || !currentProject) {
     await ensureWorkspace();
     if (!apiSession || !currentProject) throw new Error("ClipForge could not connect your workspace. Refresh and try again.");
