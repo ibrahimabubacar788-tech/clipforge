@@ -4,6 +4,9 @@
   "private": true,
   "description": "ClipForge full-stack video clipping workspace.",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "node server/index.js",
     "test": "node --test",
