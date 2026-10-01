@@ -168,24 +168,36 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           clip.generation === "auto-ai"
         ));
         const activeAutoClips = existingAutoClips.filter((clip) => clip.status !== "failed");
-        if (activeAutoClips.length >= limit) {
-        return json(res, 200, {
-          videoId: video.id,
-          engine: "clipforge-auto-existing",
-          aiEngine: existingAutoClips[0].aiEngine || null,
-          aiFallback: existingAutoClips[0].aiFallback === true,
-          aiError: existingAutoClips[0].aiError || null,
-          transcribed,
-          transcriptCount: segments.length,
-          requested: limit,
-          generated: existingAutoClips.length,
-          clips: activeAutoClips.slice(0, limit).map((clip) => ({
-            clip,
-            job: null,
-          })),
-          reused: true,
-        });
-      }
+        if (activeAutoClips.length > 0) {
+          if (existingAutoClips.some((clip) => clip.status === "failed")) {
+            await db.transaction((d) => {
+              const failedIds = new Set(d.clips.filter((clip) =>
+                clip.videoId === video.id &&
+                clip.userId === user.id &&
+                clip.generation === "auto-ai" &&
+                clip.status === "failed"
+              ).map((clip) => clip.id));
+              d.clips = d.clips.filter((clip) => !failedIds.has(clip.id));
+              d.jobs = d.jobs.filter((job) => !failedIds.has(job.clipId));
+            });
+          }
+          return json(res, 200, {
+            videoId: video.id,
+            engine: "clipforge-auto-existing",
+            aiEngine: activeAutoClips[0].aiEngine || null,
+            aiFallback: activeAutoClips[0].aiFallback === true,
+            aiError: activeAutoClips[0].aiError || null,
+            transcribed,
+            transcriptCount: segments.length,
+            requested: limit,
+            generated: activeAutoClips.length,
+            clips: activeAutoClips.slice(0, limit).map((clip) => ({
+              clip,
+              job: null,
+            })),
+            reused: true,
+          });
+        }
       if (existingAutoClips.length && activeAutoClips.length === 0) {
         await db.transaction((d) => {
           const failedIds = new Set(d.clips.filter((clip) =>
