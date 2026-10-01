@@ -127,7 +127,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
     let data = {};
     try { data = JSON.parse(raw); } catch {}
     if (!response.ok) throw new Error(data?.error?.message || "Highlight analysis failed.");
-    const text = String(data.output_text || "").trim().replace(/^```json\\s*/i, "").replace(/```$/i, "").trim();
+    const text = String(data.output_text || "").trim().replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
     const parsed = JSON.parse(text);
     const selections = Array.isArray(parsed.selections) ? parsed.selections : [];
     const byId = new Map(baseline.map((item, id) => [id, item]));
