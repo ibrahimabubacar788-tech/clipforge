@@ -104,7 +104,7 @@ test("readiness verifies database availability", async (t) => {
   const response = await fetch(`${base}/api/ready`);
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.deepEqual(body, { ok: true, service: "clipforge" });
+  assert.deepEqual(body, { ok: true, service: "clipforge", mediaStorage: { mode: "local", persistent: false } });
 });
 
 test("chunked video uploads are accepted without content length", async (t) => {
