@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { createReadStream, createWriteStream } from "node:fs";
-import { access, mkdir, stat, unlink } from "node:fs/promises";
+import { access, mkdir, realpath, stat, unlink } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
