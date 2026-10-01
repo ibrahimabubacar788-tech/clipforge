@@ -10,15 +10,17 @@ const matchesDigest = (password, salt, stored) => {
 };
 export function publicUser(user) { return { id: user.id, email: user.email, createdAt: user.createdAt }; }
 export async function register(db, email, password) {
-  if (!/^\S+@\S+\.\S+$/.test(email || "") || typeof password !== "string" || password.length < 8) throw Object.assign(new Error("Use a valid email and a password with at least 8 characters."), { status: 422 });
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || typeof password !== "string" || password.length < 8 || password.length > 256) throw Object.assign(new Error("Use a valid email and a password with 8 to 256 characters."), { status: 422 });
   return db.transaction((data) => {
-    if (data.users.some((u) => u.email === email.toLowerCase())) throw Object.assign(new Error("That email is already registered."), { status: 409 });
-    const salt = randomBytes(16).toString("hex"); const user = { id: id("usr"), email: email.toLowerCase(), salt, passwordHash: digest(password, salt), createdAt: now() };
+    if (data.users.some((u) => u.email === normalizedEmail)) throw Object.assign(new Error("That email is already registered."), { status: 409 });
+    const salt = randomBytes(16).toString("hex"); const user = { id: id("usr"), email: normalizedEmail, salt, passwordHash: digest(password, salt), createdAt: now() };
     data.users.push(user); return user;
   });
 }
 export async function login(db, email, password) {
-  const user = await db.read((d) => d.users.find((u) => u.email === String(email).toLowerCase()));
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const user = await db.read((d) => d.users.find((u) => u.email === normalizedEmail));
   if (!user || !matchesDigest(password || "", user.salt, user.passwordHash)) throw Object.assign(new Error("Invalid email or password."), { status: 401 });
   if (user.passwordHash.length !== 128) {
     await db.transaction((d) => {
