@@ -45,11 +45,14 @@ function videoFilter(clip) {
 export class ClipQueue {
   constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; }
   async recover() {
-    await this.db.transaction((d) => {\n      for (const job of d.jobs) {\n        if (job.status === "processing") { job.status = "queued"; job.progress = 0; delete job.startedAt; }
+    await this.db.transaction((d) => {
+      for (const job of d.jobs) {
+        if (job.status === "processing") { job.status = "queued"; job.progress = 0; delete job.startedAt; }
       }
     });
     void this.work();
-  }\n  async enqueue(clip) { const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work(); return job; }
+  }
+  async enqueue(clip) { const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work(); return job; }
   async render(clip) {
     const source = sourcePath(this.storageDir, clip.sourceUrl);
     await access(source);
