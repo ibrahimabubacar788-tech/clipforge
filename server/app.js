@@ -20,7 +20,8 @@ const requireRelative = (base, target) => {
   return normalizedTarget.slice(normalizedBase.length + 1);
 };
 export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "data", "clipforge.json"), storageDir = join(process.cwd(), "storage") } = {}) {
-  const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);\n  const autoClipInFlight = new Set();
+  const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);
+  const autoClipInFlight = new Set();
   async function api(req, res, pathname) {
     const payload = ["POST", "PATCH"].includes(req.method) && pathname !== "/api/uploads" ? await body(req) : {};
     if (req.method === "GET" && pathname === "/api/ready") {
