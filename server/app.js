@@ -233,8 +233,17 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         minDuration: 15,
         maxDuration: Math.min(75, Math.max(20, Number(video.duration) || 75)),
       });
-      const candidates = analysis.candidates;
-      if (!candidates.length) throw Object.assign(new Error("The AI could not find enough strong moments in this video."), { status: 422 });
+      const candidates = analysis.candidates.filter((candidate) => {
+        const start = Number(candidate.start);
+        const end = Number(candidate.end);
+        return Number.isFinite(start) && Number.isFinite(end)
+          && start >= 0
+          && end > start
+          && end <= Number(video.duration)
+          && end - start >= 15
+          && end - start <= Math.min(75, Math.max(20, Number(video.duration) || 75));
+      });
+      if (!candidates.length) throw Object.assign(new Error("The AI could not find enough valid moments inside this video."), { status: 422 });
 
       const created = [];
       for (const candidate of candidates) {
