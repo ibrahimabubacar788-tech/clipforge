@@ -422,13 +422,12 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
   try {
     if (!sourceVideo) throw new Error("Upload a source video first.");
     const rawTranscript = transcriptInput.value.trim();
-    const segments = parseTranscript(rawTranscript);
-    if (!segments.length) throw new Error("Add at least one valid transcript line or import an SRT/VTT file.");
-    await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
+    if (!rawTranscript) throw new Error("Add or import a transcript before generating clips.");
+    const savedTranscript = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
     const format = document.querySelector(".format-option.selected").dataset.format;
     const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/generate-clips`, {
       method: "POST",
-      body: JSON.stringify({ segments, limit: 40, format, style: captionStyle })
+      body: JSON.stringify({ limit: 40, format, style: captionStyle })
     });
     transcriptDialog.close();
     clips = [...result.clips.map((item) => item.clip), ...clips];
