@@ -96,7 +96,7 @@ function renderClipLibrary() {
   clipsEmpty.hidden = clips.length > 0;
   clipLibrary.innerHTML = clips.map((clip) => {
     const status = clip.status === "ready"
-      ? `<a class="download-clip" href="${clip.downloadUrl}" download>Download</a>`
+      ? `<button class="download-clip" type="button" data-download-clip="${clip.id}">Download</button>`
       : `<small>${clip.status === "failed" ? "Render failed" : "Rendering…"}</small>`;
     return `<article class="clip-card"><div class="clip-card-art ${clip.format.replace(":", "-")}"><span>${clip.format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${clip.title}</h3><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clip.id}" aria-label="Delete ${clip.title}">×</button></article>`;
   }).join("");
@@ -223,6 +223,21 @@ document.querySelector("#export-button").addEventListener("click", async () => {
 document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("click", (event) => { event.preventDefault(); switchView(link.dataset.view); }));
 document.querySelectorAll("[data-go-editor]").forEach((button) => button.addEventListener("click", () => switchView("editor")));
 clipLibrary.addEventListener("click", async (event) => {
+  const downloadButton = event.target.closest("[data-download-clip]");
+  if (downloadButton) {
+    try {
+      const response = await fetch(`/api/clips/${downloadButton.dataset.downloadClip}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
+      if (!response.ok) throw new Error("Download failed.");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `clipforge-${downloadButton.dataset.downloadClip}.mp4`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) { showToast(error.message); }
+    return;
+  }
   const button = event.target.closest("[data-delete-clip]");
   if (!button) return;
   try { await api(`/api/clips/${button.dataset.deleteClip}`, { method: "DELETE" }); } catch { clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip); saveClips(); }
