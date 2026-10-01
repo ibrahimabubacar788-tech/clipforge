@@ -46,7 +46,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         createReadStream(file).pipe(res);
         return;
       }
-      const match = rangeHeader.match(/^bytes=(\\d*)-(\\d*)$/);
+      const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
       if (!match) throw Object.assign(new Error("Invalid range."), { status: 416 });
       const start = match[1] ? Number(match[1]) : Math.max(0, total - Number(match[2]));
       const end = match[2] ? Number(match[2]) : total - 1;
