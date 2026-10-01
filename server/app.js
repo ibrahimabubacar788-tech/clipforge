@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { createReadStream, createWriteStream } from "node:fs";
 import { access, mkdir, realpath, stat, unlink } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
 import { login, logout, publicUser, register, requireUser } from "./auth.js";
