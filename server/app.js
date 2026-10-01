@@ -14,12 +14,7 @@ const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; cha
 const json = (res, status, value) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(value)); };
 async function body(req) { let raw = ""; for await (const part of req) { raw += part; if (raw.length > 25_000_000) throw Object.assign(new Error("Request body too large."), { status: 413 }); } try { return raw ? JSON.parse(raw) : {}; } catch { throw Object.assign(new Error("Malformed JSON body."), { status: 400 }); } }
 const own = (items, user) => items.filter((item) => item.userId === user.id);
-const requireRelative = (base, target) => {
-  const normalizedBase = normalize(base).replace(/[\/]$/, "");
-  const normalizedTarget = normalize(target);
-  if (normalizedTarget === normalizedBase) return "";
-  return normalizedTarget.slice(normalizedBase.length + 1);
-};
+const requireRelative = (base, target) => relative(base, target);
 export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "data", "clipforge.json"), storageDir = join(process.cwd(), "storage") } = {}) {
   const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);
   const autoClipInFlight = new Set();
