@@ -19,6 +19,7 @@ const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
 const projectSelect = document.querySelector("#project-select");
 const fullscreenButton = document.querySelector("#fullscreen-button");
+const volumeInput = document.querySelector("#volume-input");
 let libraryQuery = "";
 let libraryFilter = "all";
 let timelineMaximum = Number(endInput.max);
@@ -174,7 +175,8 @@ async function uploadSource(file) {
   previewElement = document.createElement("video");
   previewElement.className = "source-video";
   previewElement.src = sourcePreviewUrl;
-  previewElement.muted = true;
+  previewElement.muted = false;
+  previewElement.volume = Number(volumeInput?.value ?? 1);
   previewElement.playsInline = true;
   previewElement.preload = "metadata";
   videoStage.querySelector(".video-placeholder")?.replaceWith(previewElement);
@@ -297,6 +299,7 @@ document.querySelectorAll(".format-option").forEach((button) => {
   });
 });
 
+volumeInput?.addEventListener("input", () => { if (previewElement) previewElement.volume = Number(volumeInput.value); });
 playbackButton.addEventListener("click", () => (playbackTimer ? stopPlayback() : startPlayback()));
 sourceUpload.addEventListener("change", async () => { try { await uploadSource(sourceUpload.files[0]); } catch (error) { showToast(error.message); } });
 captionToggle.addEventListener("change", () => {
@@ -385,7 +388,7 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     clips.unshift(result.clip);
     renderClipLibrary();
     showToast("Export queued. Your rendered clip will be ready shortly.");
-    for (let attempt = 0; attempt < 120; attempt += 1) {
+    for (let attempt = 0; attempt < 900; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const jobResult = await api(`/api/jobs/${result.job.id}`);
       if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
@@ -393,7 +396,9 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     clips = (await api("/api/clips")).clips;
     renderClipLibrary();
     const finished = clips.find((clip) => clip.id === result.clip.id);
-    showToast(finished?.status === "ready" ? "Your clip is ready to download." : "Clip rendering did not complete.");
+    if (finished?.status === "ready") showToast("Your clip is ready to download.");
+    else if (finished?.status === "failed") showToast("Clip render failed: " + (finished.error || "FFmpeg could not render this clip."));
+    else showToast("Clip is still rendering. Check My clips for its current status.");
   } catch (error) { showToast(error.message); }
 });
 
