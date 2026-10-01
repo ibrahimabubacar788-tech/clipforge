@@ -34,6 +34,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "POST" && pathname === "/api/auth/login") { const session = await login(db, payload.email, payload.password); res.setHeader("set-cookie", sessionCookie(session.token)); return json(res, 200, { token: session.token, user: publicUser(session.user) }); }
     if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); res.setHeader("set-cookie", sessionCookie("", 0)); res.writeHead(204); res.end(); return; }
     const user = await requireUser(req, db);
+    const bearerToken = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
+    if (!req.headers.cookie && bearerToken) res.setHeader("set-cookie", sessionCookie(bearerToken));
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
     const videoStreamMatch = pathname.match(/^\/api\/videos\/([^/]+)\/stream$/);
     if (videoStreamMatch && req.method === "GET") {
