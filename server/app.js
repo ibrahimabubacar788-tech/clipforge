@@ -213,7 +213,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const clip = await db.transaction((d) => {
         const item = d.clips.find((x) => x.id === retryMatch[1] && x.userId === user.id);
         if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 });
-        item.status = "queued"; item.updatedAt = now(); delete item.downloadUrl;
+        if (item.status !== "failed") throw Object.assign(new Error("Only failed clips can be retried."), { status: 409 });
+        d.jobs = d.jobs.filter((job) => job.clipId !== item.id);
+        item.status = "queued"; item.updatedAt = now(); delete item.downloadUrl; delete item.error;
         return { ...item };
       });
       const job = await queue.enqueue(clip);
