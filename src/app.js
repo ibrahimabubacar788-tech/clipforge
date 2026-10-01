@@ -296,6 +296,9 @@ async function uploadSource(file) {
     startClipStatusPolling();
     showToast(`AI found ${result.generated} clips and started rendering them.`);
     void refreshClipLibraryWhileRendering();
+    if (sourceVideo.id) {
+      void pollAutoClipStatus(sourceVideo.id);
+    }
   } catch (error) {
     if (error.status === 503) {
       showToast("AI transcription is not configured on the server yet.");
@@ -678,3 +681,18 @@ window.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "u") sourceUpload.click();
   if (event.key === "Escape" && styleDialog.open) styleDialog.close();
 });
+
+async function pollAutoClipStatus(videoId) {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    try {
+      const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
+      clips = [...status.clips, ...clips.filter((clip) => clip.videoId !== videoId)];
+      renderClipLibrary();
+      if (status.total > 0 && status.processing === 0) {
+        showToast(status.failed ? `AI finished: ${status.ready} clips ready, ${status.failed} failed.` : `AI finished: ${status.ready} clips are ready.`);
+        return;
+      }
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+}
