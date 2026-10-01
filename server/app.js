@@ -42,6 +42,11 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (!file.startsWith(storageRoot + "/") && !file.startsWith(storageRoot + "\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
       const info = await stat(file).catch(() => null);
       if (!info?.isFile()) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
+      const resolvedFile = await realpath(file).catch(() => null);
+      const resolvedStorageRoot = await realpath(storageDir).catch(() => null);
+      if (!resolvedFile || !resolvedStorageRoot) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
+      const relativeResolved = requireRelative(resolvedStorageRoot, resolvedFile);
+      if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
       const total = info.size;
       const rangeHeader = String(req.headers.range || "");
       if (!rangeHeader) {
