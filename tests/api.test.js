@@ -108,6 +108,18 @@ test("public source uploads are not directly accessible", async (t) => {
   assert.equal(media.status, 404);
 });
 
+test("clip downloads are protected by ownership", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const owner = await request(base, "/api/auth/register", "POST", { email: "download-owner@example.com", password: "password-123" });
+  const other = await request(base, "/api/auth/register", "POST", { email: "download-other@example.com", password: "password-123" });
+  const project = await request(base, "/api/projects", "POST", { name: "Owner project" }, owner.body.token);
+  const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Owner video", duration: 3, sourceUrl: "/storage/uploads/example.mp4" }, owner.body.token);
+  const clip = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 2 }, owner.body.token);
+  const denied = await fetch(`${base}/api/clips/${clip.body.clip.id}/download`, { headers: { authorization: `Bearer ${other.body.token}` } });
+  assert.equal(denied.status, 404);
+});
+
 test("clips cannot be created from another user's video", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
