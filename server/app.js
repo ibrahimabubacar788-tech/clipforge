@@ -29,7 +29,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); res.writeHead(204); res.end(); return; }
     const user = await requireUser(req, db);
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
-    const videoStreamMatch = pathname.match(/^\\/api\\/videos\\/([^/]+)\\/stream$/);
+    const videoStreamMatch = pathname.match(/^\/api\/videos\/([^/]+)\/stream$/);
     if (videoStreamMatch && req.method === "GET") {
       const video = await db.read((d) => d.videos.find((item) => item.id === videoStreamMatch[1] && item.userId === user.id));
       if (!video?.sourceUrl) throw Object.assign(new Error("Video not found."), { status: 404 });
@@ -62,6 +62,12 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     }
 
     if (req.method === "GET" && pathname === "/api/projects") return json(res, 200, { projects: await db.read((d) => own(d.projects, user)) });
+    const videosQuery = pathname.match(/^\/api\/videos$/);
+    if (videosQuery && req.method === "GET") {
+      const projectId = new URL(req.url, "http://clipforge.local").searchParams.get("projectId");
+      return json(res, 200, { videos: await db.read((d) => own(d.videos, user).filter((video) => !projectId || video.projectId === projectId)) });
+    }
+
     if (req.method === "POST" && pathname === "/api/projects") { if (!String(payload.name || "").trim()) throw Object.assign(new Error("A project name is required."), { status: 422 }); const project = { id: id("prj"), userId: user.id, name: payload.name.trim(), createdAt: now(), updatedAt: now() }; await db.transaction((d) => d.projects.push(project)); return json(res, 201, { project }); }
     const projectMatch = pathname.match(/^\/api\/projects\/([^/]+)$/);
     if (projectMatch && req.method === "PATCH") { const project = await db.transaction((d) => { const p = d.projects.find((x) => x.id === projectMatch[1] && x.userId === user.id); if (!p) throw Object.assign(new Error("Project not found."), { status: 404 }); p.name = String(payload.name || p.name).trim(); p.updatedAt = now(); return p; }); return json(res, 200, { project }); }
