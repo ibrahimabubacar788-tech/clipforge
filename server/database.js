@@ -20,6 +20,9 @@ export class JsonDatabase {
           ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false },
         })
       : null;
+    this.pool?.on("error", (error) => {
+      console.error("ClipForge PostgreSQL pool error:", error);
+    });
   }
 
   async load() {
