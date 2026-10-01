@@ -38,14 +38,56 @@ function sourcePath(storageDir, sourceUrl) {
   return file;
 }
 
+const watermarkGlyphs = {
+  C: ["01110","10001","10000","10000","10000","10001","01110"],
+  F: ["11111","10000","10000","11110","10000","10000","10000"],
+  L: ["10000","10000","10000","10000","10000","10000","11111"],
+  I: ["11111","00100","00100","00100","00100","00100","11111"],
+  P: ["11110","10001","10001","11110","10000","10000","10000"],
+  O: ["01110","10001","10001","10001","10001","10001","01110"],
+  R: ["11110","10001","10001","11110","10100","10010","10001"],
+  G: ["01110","10001","10000","10111","10001","10001","01110"],
+  E: ["11111","10000","10000","11110","10000","10000","11111"],
+};
+
+function watermarkPpm() {
+  const text = "CLIPFORGE";
+  const scale = 4;
+  const padding = 8;
+  const gap = 2;
+  const glyphWidth = 5;
+  const glyphHeight = 7;
+  const width = padding * 2 + text.length * glyphWidth * scale + (text.length - 1) * gap * scale;
+  const height = padding * 2 + glyphHeight * scale;
+  const pixels = Array.from({ length: width * height }, () => [18, 18, 18]);
+  const setPixel = (x, y, rgb) => {
+    if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] = rgb;
+  };
+  let cursor = padding;
+  for (const letter of text) {
+    const glyph = watermarkGlyphs[letter];
+    for (let gy = 0; gy < glyphHeight; gy += 1) {
+      for (let gx = 0; gx < glyphWidth; gx += 1) {
+        if (glyph[gy][gx] !== "1") continue;
+        for (let sy = 0; sy < scale; sy += 1) {
+          for (let sx = 0; sx < scale; sx += 1) setPixel(cursor + gx * scale + sx, padding + gy * scale + sy, [245, 245, 245]);
+        }
+      }
+    }
+    cursor += glyphWidth * scale + gap * scale;
+  }
+  const data = pixels.flat().join(" ");
+  return `P3\n${width} ${height}\n255\n${data}\n`;
+}
+
 function videoFilter(clip) {
   const { width, height } = formats[clip.format] || formats["9:16"];
-  const filters = [`scale=${width}:${height}:force_original_aspect_ratio=increase`, `crop=${width}:${height}`];
-  // ffmpeg-static used by the Render runtime does not include the drawtext filter.
-  // Keep the render path free of optional filters so a selected caption style cannot
-  // make the entire export fail. Real transcript-driven captions will be added through
-  // a supported subtitle renderer in the caption engine phase.
-  return filters.join(",");
+  const filters = [
+    `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}[base]`,
+    `[1:v]format=rgb24,colorkey=0x121212:0.08:0.02,format=rgba[wm]`,
+    `[base][wm]overlay=W-w-24:H-h-24:format=auto[v]`,
+  ];
+  return filters.join(";");
 }
 
 export class ClipQueue {
@@ -68,7 +110,14 @@ export class ClipQueue {
     const output = join(exportDir, filename);
     const duration = clip.end - clip.start;
     try {
-      await run(this.ffmpegPath, ["-y", "-i", source, "-ss", String(clip.start), "-t", String(duration), "-map", "0:v:0", "-map", "0:a?", "-vf", videoFilter(clip), "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", output]);
+      const watermarkPath = join(exportDir, `watermark-${clip.id}.ppm`);
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(watermarkPath, watermarkPpm(), "utf8");
+    try {
+      await run(this.ffmpegPath, ["-y", "-i", source, "-loop", "1", "-i", watermarkPath, "-ss", String(clip.start), "-t", String(duration), "-filter_complex", videoFilter(clip), "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-movflags", "+faststart", output]);
+    } finally {
+      await unlink(watermarkPath).catch(() => {});
+    }
     } catch (error) {
       await unlink(output).catch(() => {});
       throw error;
