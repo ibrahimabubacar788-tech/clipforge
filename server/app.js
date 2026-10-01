@@ -192,6 +192,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       return json(res, 202, {
         videoId: video.id,
         engine: analysis.engine === "openai-highlights-v1" ? "clipforge-auto-v3" : "clipforge-auto-v2",
+        aiEngine: analysis.engine,
+        aiFallback: analysis.engine !== "openai-highlights-v1",
+        aiError: analysis.aiError || null,
         transcribed,
         transcriptCount: segments.length,
         requested: limit,
