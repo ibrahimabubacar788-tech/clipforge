@@ -84,6 +84,10 @@ function updateRange() {
 
 async function uploadSource(file) {
   if (!file) return;
+  if (!apiSession || !currentProject) {
+    await ensureWorkspace();
+    if (!apiSession || !currentProject) throw new Error("ClipForge could not connect your workspace. Refresh and try again.");
+  }
   const probe = document.createElement("video");
   const probeUrl = URL.createObjectURL(file);
   const duration = await new Promise((resolve, reject) => {
@@ -102,7 +106,11 @@ async function uploadSource(file) {
   previewElement.preload = "metadata";
   videoStage.querySelector(".video-placeholder")?.replaceWith(previewElement);
 
-  const uploadResponse = await fetch("/api/uploads", { method: "POST", headers: { "content-type": file.type || "application/octet-stream", "x-filename": file.name, ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}) }, body: file });
+  const extension = file.name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  const fallbackMime = extension === "mp4" ? "video/mp4" : extension === "mov" ? "video/quicktime" : extension === "webm" ? "video/webm" : extension === "m4v" ? "video/x-m4v" : "";
+  const contentType = file.type?.startsWith("video/") ? file.type : fallbackMime;
+  if (!contentType) throw new Error("Please choose a video file (MP4, MOV, WebM, or M4V).");
+  const uploadResponse = await fetch("/api/uploads", { method: "POST", headers: { "content-type": contentType, "x-filename": file.name, ...(apiSession?.token ? { authorization: "Bearer " + apiSession.token } : {}) }, body: file });
   if (!uploadResponse.ok) { const error = await uploadResponse.json().catch(() => ({})); throw new Error(error.error || "Upload failed."); }
   const upload = await uploadResponse.json();
   if (!currentProject) {
