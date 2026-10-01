@@ -535,7 +535,7 @@ document.querySelector("#new-project").addEventListener("click", async () => {
     renderProjectSelector(refreshedProjects);
     document.querySelector("#workspace-title").textContent = currentProject.name;
     sourceVideo = undefined;
-    if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl);
+    if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
     sourcePreviewUrl = undefined;
     previewElement?.remove();
     previewElement = undefined;
