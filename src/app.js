@@ -94,7 +94,12 @@ async function uploadSource(file) {
 function renderClipLibrary() {
   clipCount.textContent = clips.length;
   clipsEmpty.hidden = clips.length > 0;
-  clipLibrary.innerHTML = clips.map((clip) => `<article class="clip-card"><div class="clip-card-art ${clip.format.replace(":", "-")}"><span>${clip.format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${clip.title}</h3><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small></div><button class="delete-clip" type="button" data-delete-clip="${clip.id}" aria-label="Delete ${clip.title}">×</button></article>`).join("");
+  clipLibrary.innerHTML = clips.map((clip) => {
+    const status = clip.status === "ready"
+      ? `<a class="download-clip" href="${clip.downloadUrl}" download>Download</a>`
+      : `<small>${clip.status === "failed" ? "Render failed" : "Rendering…"}</small>`;
+    return `<article class="clip-card"><div class="clip-card-art ${clip.format.replace(":", "-")}"><span>${clip.format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${clip.title}</h3><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clip.id}" aria-label="Delete ${clip.title}">×</button></article>`;
+  }).join("");
 }
 
 function stopPlayback() {
@@ -204,7 +209,15 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     if (!sourceVideo) throw new Error("Upload a source video before exporting.");
     const result = await api("/api/clips", { method: "POST", body: JSON.stringify({ videoId: sourceVideo.id, title: `Midnight Session · Clip ${clips.length + 1}`, start: Number(startInput.value), end: Number(endInput.value), format: selected, captions: captionToggle.checked, style: { color: document.querySelector("#highlight-color").value, weight: document.querySelector("#caption-weight").value } }) });
     clips.unshift(result.clip); renderClipLibrary(); showToast("Export queued. Your rendered clip will be ready shortly.");
-    window.setTimeout(async () => { clips = (await api("/api/clips")).clips; renderClipLibrary(); }, 500);
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const jobResult = await api(`/api/jobs/${result.job.id}`);
+      if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
+    }
+    clips = (await api("/api/clips")).clips;
+    renderClipLibrary();
+    const finished = clips.find((clip) => clip.id === result.clip.id);
+    showToast(finished?.status === "ready" ? "Your clip is ready to download." : "Clip rendering did not complete.");
   } catch (error) { showToast(error.message); }
 });
 document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("click", (event) => { event.preventDefault(); switchView(link.dataset.view); }));
