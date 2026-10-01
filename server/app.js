@@ -331,15 +331,24 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const removed = await db.transaction((d) => {
         const project = d.projects.find((item) => item.id === projectMatch[1] && item.userId === user.id);
         if (!project) throw Object.assign(new Error("Project not found."), { status: 404 });
-        const videoIds = new Set(d.videos.filter((item) => item.projectId === project.id && item.userId === user.id).map((item) => item.id));
+        const videos = d.videos.filter((item) => item.projectId === project.id && item.userId === user.id);
+        const videoIds = new Set(videos.map((item) => item.id));
+        if (videos.some((item) => autoClipInFlight.has(item.id))) throw Object.assign(new Error("A video in this project is still being processed."), { status: 409 });
         const clips = d.clips.filter((item) => videoIds.has(item.videoId) && item.userId === user.id);
         d.projects = d.projects.filter((item) => item.id !== project.id);
         d.videos = d.videos.filter((item) => !videoIds.has(item.id));
         d.clips = d.clips.filter((item) => !clips.some((clip) => clip.id === item.id));
         d.jobs = d.jobs.filter((job) => !clips.some((clip) => clip.id === job.clipId));
-        return { videos: [...videoIds].map((id) => d.videos.find((item) => item.id === id)).filter(Boolean), clips };
+        return { videos, clips };
       });
       for (const clip of removed.clips) await queue.removeExport(clip.downloadUrl);
+      for (const video of removed.videos) {
+        if (!video.sourceUrl) continue;
+        const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
+        const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
+        const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === video.sourceUrl));
+        if (!stillReferenced && source.startsWith(storageRoot + "/")) await unlink(source).catch(() => {});
+      }
       res.writeHead(204); res.end(); return;
     }
 
@@ -349,6 +358,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const removed = await db.transaction((d) => {
         const video = d.videos.find((item) => item.id === videoDeleteMatch[1] && item.userId === user.id);
         if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
+        if (autoClipInFlight.has(video.id)) throw Object.assign(new Error("Automatic clipping is still running for this video."), { status: 409 });
         const clips = d.clips.filter((item) => item.videoId === video.id && item.userId === user.id);
         d.videos = d.videos.filter((item) => item.id !== video.id);
         d.clips = d.clips.filter((item) => item.videoId !== video.id || item.userId !== user.id);
