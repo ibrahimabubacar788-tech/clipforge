@@ -688,7 +688,7 @@ window.addEventListener("keydown", (event) => {
 });
 
 async function pollAutoClipStatus(videoId) {
-  for (let attempt = 0; attempt < 180; attempt += 1) {
+  for (let attempt = 0; attempt < 450; attempt += 1) {
     try {
       const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
       clips = [...status.clips, ...clips.filter((clip) => clip.videoId !== videoId)];
