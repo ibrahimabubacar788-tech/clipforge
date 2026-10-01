@@ -65,7 +65,7 @@ async function loadProject(projectId) {
   if (projectSelect) projectSelect.value = project.id;
   const videos = (await api(`/api/videos?projectId=${encodeURIComponent(project.id)}`)).videos;
   sourceVideo = videos[0];
-  if (sourceVideo) restoreSourcePreview(sourceVideo);
+  if (sourceVideo) restoreSourcePreview(sourceVideo); else clearSourcePreview();
   clips = (await api("/api/clips")).clips;
   renderClipLibrary();
 }
@@ -144,6 +144,20 @@ function showToast(message) {
 }
 
 function getRange() { return normalizeClipRange(startInput.value, endInput.value, timelineMaximum); }
+
+function clearSourcePreview() {
+  sourceVideo = null;
+  if (sourcePreviewUrl?.startsWith("/api/")) sourcePreviewUrl = null;
+  previewElement?.remove();
+  previewElement = null;
+  videoStage.innerHTML = '<div class="video-placeholder"><span>Upload a video to start</span></div>';
+  timelineMaximum = 1;
+  startInput.max = 1;
+  endInput.max = 1;
+  startInput.value = 0;
+  endInput.value = 1;
+  updateRange();
+}
 
 function restoreSourcePreview(video) {
   if (!video?.id) return;
