@@ -288,13 +288,23 @@ async function uploadSource(file) {
   showToast("Video uploaded. Automatic analysis is finding the best moments…");
   try {
     const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
-    const autoClipRequest = api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/auto-clip`, {
+    const autoClipPayload = JSON.stringify({ limit: 12, format, style: captionStyle, language: "en" });
+    const requestAutomaticClipping = () => api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/auto-clip`, {
       method: "POST",
-      body: JSON.stringify({ limit: 12, format, style: captionStyle, language: "en" })
+      body: autoClipPayload
     });
     showToast("AI is analyzing your video and finding the strongest moments…");
     void pollAutoClipStatus(sourceVideo.id);
-    const result = await autoClipRequest;
+    let result;
+    try {
+      result = await requestAutomaticClipping();
+    } catch (firstError) {
+      const retryable = !firstError.status || [500, 502, 504].includes(firstError.status);
+      if (!retryable) throw firstError;
+      showToast("AI analysis was interrupted. Retrying automatically…");
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      result = await requestAutomaticClipping();
+    }
     automaticClipFailures.delete(sourceVideo.id);
     clips = [...result.clips.map((item) => item.clip), ...clips.filter((clip) => !result.clips.some((item) => item.clip.id === clip.id))];
     renderClipLibrary();
