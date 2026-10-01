@@ -101,7 +101,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        model: process.env.OPENAI_HIGHLIGHT_MODEL || "gpt-5.6-luna",
+        model: process.env.OPENAI_HIGHLIGHT_MODEL || "gpt-6-luna",
         input: [
           {
             role: "system",
