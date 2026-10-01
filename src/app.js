@@ -78,7 +78,11 @@ async function ensureWorkspace() {
       window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
     }
     const { projects } = await api("/api/projects");
-    currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+    if (projects.length) currentProject = projects[0];
+    else {
+      currentProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+      projects.push(currentProject);
+    }
     document.querySelector("#workspace-title").textContent = currentProject.name;
     renderProjectSelector(projects);
     clips = (await api("/api/clips")).clips;
@@ -93,7 +97,11 @@ async function ensureWorkspace() {
         apiSession = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password: crypto.randomUUID() }) });
         window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
         const { projects } = await api("/api/projects");
-        currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+        if (projects.length) currentProject = projects[0];
+        else {
+          currentProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+          projects.push(currentProject);
+        }
         document.querySelector("#workspace-title").textContent = currentProject.name;
         renderProjectSelector(projects);
         clips = (await api("/api/clips")).clips;
