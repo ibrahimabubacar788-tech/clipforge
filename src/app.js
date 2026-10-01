@@ -21,6 +21,9 @@ const sessionKey = "clipforge-session";
 let clips = [];
 let apiSession = JSON.parse(window.localStorage.getItem(sessionKey) || "null");
 let sourceVideo;
+let sourcePreviewUrl;
+let previewElement;
+
 const api = async (path, options = {}) => {
   const response = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}), ...options.headers } });
   if (response.status === 204) return null;
@@ -28,6 +31,7 @@ const api = async (path, options = {}) => {
   if (!response.ok) throw new Error(result.error || "Request failed.");
   return result;
 };
+
 async function ensureWorkspace() {
   try {
     if (!apiSession) {
@@ -36,11 +40,12 @@ async function ensureWorkspace() {
       window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
     }
     const { projects } = await api("/api/projects");
-    const project = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+    if (!projects[0]) await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) });
     clips = (await api("/api/clips")).clips;
     renderClipLibrary();
   } catch (error) { showToast(`Backend unavailable: ${error.message}`); clips = readSavedClips(); renderClipLibrary(); }
 }
+
 let playbackTimer;
 let toastTimer;
 let draggedHandle;
@@ -49,14 +54,10 @@ function readSavedClips() {
   try {
     const saved = JSON.parse(window.localStorage.getItem(storageKey) || "[]");
     return Array.isArray(saved) ? saved : [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
-function saveClips() {
-  window.localStorage.setItem(storageKey, JSON.stringify(clips));
-}
+function saveClips() { window.localStorage.setItem(storageKey, JSON.stringify(clips)); }
 
 function showToast(message) {
   window.clearTimeout(toastTimer);
@@ -65,9 +66,7 @@ function showToast(message) {
   toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 2600);
 }
 
-function getRange() {
-  return normalizeClipRange(startInput.value, endInput.value, timelineMaximum);
-}
+function getRange() { return normalizeClipRange(startInput.value, endInput.value, timelineMaximum); }
 
 function updateRange() {
   const clipRange = getRange();
@@ -78,17 +77,42 @@ function updateRange() {
   range.style.left = `${(clipRange.start / timelineMaximum) * 100}%`;
   range.style.width = `${(duration / timelineMaximum) * 100}%`;
   playhead.style.left = `${(clipRange.start / timelineMaximum) * 100}%`;
+  if (previewElement) previewElement.currentTime = Math.min(clipRange.start, Math.max(0, (previewElement.duration || timelineMaximum) - 0.05));
 }
 
 async function uploadSource(file) {
   if (!file) return;
   const probe = document.createElement("video");
-  const duration = await new Promise((resolve, reject) => { probe.onloadedmetadata = () => resolve(probe.duration); probe.onerror = () => reject(new Error("Could not read video duration.")); probe.src = URL.createObjectURL(file); });
-  const uploadResponse = await fetch("/api/uploads", { method: "POST", headers: { "content-type": file.type || "application/octet-stream", "x-filename": file.name, ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}) }, body: file }); if (!uploadResponse.ok) { const error = await uploadResponse.json().catch(() => ({})); throw new Error(error.error || "Upload failed."); } const upload = await uploadResponse.json();
+  const probeUrl = URL.createObjectURL(file);
+  const duration = await new Promise((resolve, reject) => {
+    probe.onloadedmetadata = () => { URL.revokeObjectURL(probeUrl); resolve(probe.duration); };
+    probe.onerror = () => { URL.revokeObjectURL(probeUrl); reject(new Error("Could not read video duration.")); };
+    probe.src = probeUrl;
+  });
+
+  if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl);
+  sourcePreviewUrl = URL.createObjectURL(file);
+  previewElement = document.createElement("video");
+  previewElement.className = "source-video";
+  previewElement.src = sourcePreviewUrl;
+  previewElement.muted = true;
+  previewElement.playsInline = true;
+  previewElement.preload = "metadata";
+  videoStage.querySelector(".video-placeholder")?.replaceWith(previewElement);
+
+  const uploadResponse = await fetch("/api/uploads", { method: "POST", headers: { "content-type": file.type || "application/octet-stream", "x-filename": file.name, ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}) }, body: file });
+  if (!uploadResponse.ok) { const error = await uploadResponse.json().catch(() => ({})); throw new Error(error.error || "Upload failed."); }
+  const upload = await uploadResponse.json();
   const { projects } = await api("/api/projects");
   const project = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "My clips" }) })).project;
   sourceVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: project.id, name: file.name, duration, sourceUrl: upload.url }) })).video;
-  timelineMaximum = Math.max(1, Math.floor(duration)); startInput.max = timelineMaximum; endInput.max = timelineMaximum; startInput.value = 0; endInput.value = Math.min(24, timelineMaximum); updateRange(); showToast(`${file.name} is ready to clip.`);
+  timelineMaximum = Math.max(1, Math.floor(duration));
+  startInput.max = timelineMaximum;
+  endInput.max = timelineMaximum;
+  startInput.value = 0;
+  endInput.value = Math.min(24, timelineMaximum);
+  updateRange();
+  showToast(`${file.name} is ready to clip.`);
 }
 
 function renderClipLibrary() {
@@ -105,22 +129,24 @@ function renderClipLibrary() {
 function stopPlayback() {
   window.clearInterval(playbackTimer);
   playbackTimer = undefined;
+  previewElement?.pause();
   playbackButton.textContent = "▶";
   playbackButton.setAttribute("aria-label", "Play clip");
 }
 
 function startPlayback() {
+  if (previewElement) {
+    previewElement.currentTime = Number(startInput.value);
+    void previewElement.play().catch(() => {});
+  }
   playbackButton.textContent = "❚❚";
   playbackButton.setAttribute("aria-label", "Pause clip");
   playbackTimer = window.setInterval(() => {
-    const nextSecond = Number(startInput.value) + 1;
-    if (nextSecond >= Number(endInput.value)) {
-      stopPlayback();
-      return;
-    }
-    startInput.value = nextSecond;
-    updateRange();
-  }, 500);
+    const current = previewElement ? previewElement.currentTime : Number(startInput.value);
+    playhead.style.left = `${(current / timelineMaximum) * 100}%`;
+    if (current >= Number(endInput.value)) { stopPlayback(); return; }
+    if (!previewElement) startInput.value = current + 1;
+  }, 250);
 }
 
 function updateFromPointer(event) {
@@ -166,21 +192,20 @@ timelineTrack.addEventListener("click", (event) => {
   endInput.value = clipRange.end;
   updateRange();
 });
+
 document.querySelectorAll(".handle").forEach((handle) => {
-  handle.addEventListener("pointerdown", (event) => {
-    draggedHandle = handle.classList.contains("start-handle") ? "start" : "end";
-    handle.setPointerCapture(event.pointerId);
-  });
+  handle.addEventListener("pointerdown", (event) => { draggedHandle = handle.classList.contains("start-handle") ? "start" : "end"; handle.setPointerCapture(event.pointerId); });
   handle.addEventListener("pointermove", (event) => { if (draggedHandle) updateFromPointer(event); });
   handle.addEventListener("pointerup", () => { draggedHandle = undefined; });
   handle.addEventListener("keydown", (event) => {
-    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
     event.preventDefault();
     const target = handle.classList.contains("start-handle") ? startInput : endInput;
     target.value = Number(target.value) + (event.key === "ArrowRight" ? 1 : -1);
     updateRange();
   });
 });
+
 document.querySelector("#apply-hook").addEventListener("click", () => { startInput.value = 124; endInput.value = 148; updateRange(); showToast("Smart-cut hook applied."); });
 
 function openStyleDialog() { styleDialog.showModal(); }
@@ -203,12 +228,15 @@ document.querySelector("#new-project").addEventListener("click", () => {
   switchView("editor");
   showToast("Fresh project workspace created.");
 });
+
 document.querySelector("#export-button").addEventListener("click", async () => {
   const selected = document.querySelector(".format-option.selected").dataset.format;
   try {
     if (!sourceVideo) throw new Error("Upload a source video before exporting.");
     const result = await api("/api/clips", { method: "POST", body: JSON.stringify({ videoId: sourceVideo.id, title: `Midnight Session · Clip ${clips.length + 1}`, start: Number(startInput.value), end: Number(endInput.value), format: selected, captions: captionToggle.checked, style: { color: document.querySelector("#highlight-color").value, weight: document.querySelector("#caption-weight").value } }) });
-    clips.unshift(result.clip); renderClipLibrary(); showToast("Export queued. Your rendered clip will be ready shortly.");
+    clips.unshift(result.clip);
+    renderClipLibrary();
+    showToast("Export queued. Your rendered clip will be ready shortly.");
     for (let attempt = 0; attempt < 120; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const jobResult = await api(`/api/jobs/${result.job.id}`);
@@ -220,8 +248,10 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     showToast(finished?.status === "ready" ? "Your clip is ready to download." : "Clip rendering did not complete.");
   } catch (error) { showToast(error.message); }
 });
+
 document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("click", (event) => { event.preventDefault(); switchView(link.dataset.view); }));
 document.querySelectorAll("[data-go-editor]").forEach((button) => button.addEventListener("click", () => switchView("editor")));
+
 clipLibrary.addEventListener("click", async (event) => {
   const downloadButton = event.target.closest("[data-download-clip]");
   if (downloadButton) {
@@ -241,7 +271,9 @@ clipLibrary.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-delete-clip]");
   if (!button) return;
   try { await api(`/api/clips/${button.dataset.deleteClip}`, { method: "DELETE" }); } catch { clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip); saveClips(); }
-  clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip); renderClipLibrary(); showToast("Clip removed from your library.");
+  clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip);
+  renderClipLibrary();
+  showToast("Clip removed from your library.");
 });
 
 renderClipLibrary();
