@@ -40,8 +40,10 @@ let captionStyle = (() => {
 const api = async (path, options = {}) => {
   const response = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}), ...options.headers } });
   if (response.status === 204) return null;
-  const result = await response.json();
-  if (!response.ok) { const error = new Error(result.error || "Request failed."); error.status = response.status; throw error; }
+  const raw = await response.text();
+  let result = {};
+  try { result = raw ? JSON.parse(raw) : {}; } catch { result = { error: raw || `Request failed (HTTP ${response.status}).` }; }
+  if (!response.ok) { const error = new Error(result.error || `Request failed (HTTP ${response.status}).`); error.status = response.status; throw error; }
   return result;
 };
 
