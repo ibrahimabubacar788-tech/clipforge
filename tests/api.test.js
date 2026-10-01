@@ -281,7 +281,7 @@ test("automatic AI clipping creates multiple ranked clips from a stored transcri
   const video = await request(base, "/api/videos", "POST", {
     projectId: project.body.project.id,
     name: "Episode",
-    duration: 80,
+    duration: 150,
     sourceUrl: "/storage/uploads/example.mp4"
   }, user.body.token);
 
@@ -292,9 +292,9 @@ test("automatic AI clipping creates multiple ranked clips from a stored transcri
       { start: 8, end: 16, text: "You need to know why this changed everything." },
       { start: 24, end: 32, text: "The truth is this was the biggest mistake." },
       { start: 32, end: 40, text: "But that means we finally found the result." },
-      { start: 50, end: 58, text: "Imagine what happens when you understand the secret." },
-      { start: 58, end: 66, text: "You need to know why the result surprised everyone." },
-      { start: 66, end: 74, text: "The truth is this is the biggest lesson." }
+      { start: 100, end: 108, text: "Imagine what happens when you understand the secret." },
+      { start: 108, end: 116, text: "You need to know why the result surprised everyone." },
+      { start: 116, end: 124, text: "The truth is this is the biggest lesson." }
     ]
   }, user.body.token);
 
