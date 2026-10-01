@@ -107,6 +107,28 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       return json(res, 200, { videoId: video.id, count: segments.length, transcript: segments });
     }
 
+    const autoClipStatusMatch = pathname.match(/^\/api\/videos\/([^/]+)\/auto-clip-status$/);
+    if (req.method === "GET" && autoClipStatusMatch) {
+      const video = await db.read((d) => d.videos.find((item) => item.id === autoClipStatusMatch[1] && item.userId === user.id));
+      if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
+      const result = await db.read((d) => {
+        const clips = d.clips.filter((item) => item.videoId === video.id && item.userId === user.id);
+        const jobs = d.jobs.filter((job) => clips.some((clip) => clip.id === job.clipId));
+        return { clips, jobs };
+      });
+      const counts = result.clips.reduce((acc, clip) => { acc[clip.status] = (acc[clip.status] || 0) + 1; return acc; }, {});
+      return json(res, 200, {
+        videoId: video.id,
+        transcriptReady: Array.isArray(video.transcript) && video.transcript.length > 0,
+        total: result.clips.length,
+        ready: counts.ready || 0,
+        processing: (counts.processing || 0) + (counts.queued || 0),
+        failed: counts.failed || 0,
+        clips: result.clips,
+        jobs: result.jobs,
+      });
+    }
+
     const autoClipMatch = pathname.match(/^\/api\/videos\/([^/]+)\/auto-clip$/);
     if (req.method === "POST" && autoClipMatch) {
       const video = await db.read((d) => d.videos.find((item) => item.id === autoClipMatch[1] && item.userId === user.id));
