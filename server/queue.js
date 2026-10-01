@@ -59,7 +59,7 @@ export class ClipQueue {
         if (job.status === "processing") { job.status = "queued"; job.progress = 0; delete job.startedAt; }
       }
     });
-    void this.work();
+    void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error));
   }
   async enqueue(clip) { const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
   async render(clip) {
@@ -93,6 +93,7 @@ export class ClipQueue {
         const { filename } = await this.render(clip);
         await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "completed", progress: 100, completedAt: now() }); if (c) Object.assign(c, { status: "ready", downloadUrl: `/storage/exports/${filename}`, updatedAt: now() }); });
       } catch (error) {
+        console.error(`ClipForge render failed: job=${job.id} clip=${job.clipId} error=${error.message}`);
         await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "failed", error: error.message, completedAt: now() }); if (c) Object.assign(c, { status: "failed", updatedAt: now() }); });
       }
       }
