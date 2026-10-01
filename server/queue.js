@@ -61,7 +61,12 @@ export class ClipQueue {
     const filename = `${clip.id}.mp4`;
     const output = join(exportDir, filename);
     const duration = clip.end - clip.start;
-    await run(this.ffmpegPath, ["-y", "-i", source, "-ss", String(clip.start), "-t", String(duration), "-map", "0:v:0", "-map", "0:a?", "-vf", videoFilter(clip), "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", output]);
+    try {
+      await run(this.ffmpegPath, ["-y", "-i", source, "-ss", String(clip.start), "-t", String(duration), "-map", "0:v:0", "-map", "0:a?", "-vf", videoFilter(clip), "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", output]);
+    } catch (error) {
+      await unlink(output).catch(() => {});
+      throw error;
+    }
     return { filename, output };
   }
   async work() {
