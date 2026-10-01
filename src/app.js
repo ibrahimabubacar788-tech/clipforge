@@ -715,7 +715,7 @@ async function pollAutoClipStatus(videoId) {
     if (automaticClipFailures.has(videoId)) return;
     try {
       const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
-      clips = [...status.clips, ...clips.filter((clip) => clip.videoId !== videoId && clip.projectId === currentProject?.id)];
+      clips = [...status.clips, ...clips.filter((clip) => clip.projectId === currentProject?.id && (clip.videoId !== videoId || clip.generation !== "auto-ai"))];
       renderClipLibrary();
       if (status.total === 0) {
         showToast(status.analysisInProgress
