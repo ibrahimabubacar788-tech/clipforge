@@ -34,7 +34,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "POST" && pathname === "/api/uploads") {
       const user = await requireUser(req, db);
       const filename = String(req.headers["x-filename"] || "video.mp4").slice(0, 120).replace(/[^a-zA-Z0-9._-]/g, "_");
-      const contentLength = Number(req.headers["content-length"] || 0);
+      const rawContentLength = req.headers["content-length"];\n      const contentLength = rawContentLength === undefined ? null : Number(rawContentLength);
       const maxUploadBytes = 250 * 1024 * 1024;
       const contentType = String(req.headers["content-type"] || "").toLowerCase();
       if (!contentType.startsWith("video/")) throw Object.assign(new Error("Upload must be a video file."), { status: 415 });
@@ -45,7 +45,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const safe = `${user.id}-${id("upload")}-${filename}`;
       const target = join(storageDir, "uploads", safe);
       let bytes = 0;
-      const limited = async function* () { for await (const chunk of req) { bytes += chunk.length; if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 }); yield chunk; } };
+      const limited = async function* () { for await (const chunk of req) { bytes += chunk.length; if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 }); yield chunk; } if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 }); };
       try {
         await pipeline(limited(), createWriteStream(target));
       } catch (error) {
