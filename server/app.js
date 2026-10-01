@@ -28,10 +28,13 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "POST" && pathname === "/api/uploads") {
       const filename = String(req.headers["x-filename"] || "video.bin").replace(/[^a-zA-Z0-9._-]/g, "_");
       const contentLength = Number(req.headers["content-length"] || 0);
-      const maxUploadBytes = 250 * 1024 * 1024;\n      if (contentLength > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
+      const maxUploadBytes = 250 * 1024 * 1024;
+      if (contentLength > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
       await mkdir(join(storageDir, "uploads"), { recursive: true });
-      const safe = `${id("upload")}-${filename}`;\n      const target = join(storageDir, "uploads", safe);
-      let bytes = 0;\n      const limited = async function* () { for await (const chunk of req) { bytes += chunk.length; if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 }); yield chunk; } };
+      const safe = `${id("upload")}-${filename}`;
+      const target = join(storageDir, "uploads", safe);
+      let bytes = 0;
+      const limited = async function* () { for await (const chunk of req) { bytes += chunk.length; if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 }); yield chunk; } };
       await pipeline(limited(), createWriteStream(target));
       return json(res, 201, { url: `/storage/uploads/${safe}` });
     }
