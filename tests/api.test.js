@@ -24,12 +24,12 @@ test("FFmpeg renders an uploaded video into a downloadable MP4 clip", { skip: ha
   assert.equal(clip.status, 202); assert.equal(clip.body.job.status, "queued");
   const rendered = await waitForClip(base, token);
   assert.equal(rendered.status, "ready"); assert.match(rendered.downloadUrl, /^\/storage\/exports\/.*\.mp4$/);
-  const download = await fetch(`${base}${rendered.downloadUrl}`);
+  const download = await fetch(`${base}/api/clips/${rendered.id}/download`, { headers: { authorization: `Bearer ${token}` } });
   assert.equal(download.status, 200); assert.equal(download.headers.get("content-type"), "video/mp4");
   const bytes = Buffer.from(await download.arrayBuffer());
   assert.ok(bytes.length > 1_000); assert.equal(bytes.subarray(4, 8).toString(), "ftyp");
   const dimensions = await command("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0", join(dir, "storage", rendered.downloadUrl.slice(1))]);
-  assert.equal(dimensions.trim(), "720x1280"); const unauthorized = await fetch(`${base}/api/clips/${rendered.id}/download`); assert.equal(unauthorized.status, 401);
+  assert.equal(dimensions.trim(), "720x1280"); const unauthorized = await fetch(`${base}/api/clips/${rendered.id}/download`); assert.equal(unauthorized.status, 401); const publicMedia = await fetch(`${base}${rendered.downloadUrl}`); assert.equal(publicMedia.status, 404);
 });
 
 test("clip validation rejects ranges outside the source duration", async (t) => { const { server, base } = await app(); t.after(() => server.close()); const user = await request(base, "/api/auth/register", "POST", { email: "range@example.com", password: "password-123" }); const project = await request(base, "/api/projects", "POST", { name: "P" }, user.body.token); const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, duration: 10, sourceUrl: "/storage/uploads/example.mp4" }, user.body.token); const bad = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 11 }, user.body.token); assert.equal(bad.status, 422); });
