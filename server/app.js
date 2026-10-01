@@ -133,6 +133,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       });
       return json(res, 200, {
         videoId: video.id,
+        analysisInProgress: autoClipInFlight.has(video.id),
         transcriptReady: Array.isArray(video.transcript) && video.transcript.length > 0,
         total: clips.length,
         ready: counts.ready || 0,
