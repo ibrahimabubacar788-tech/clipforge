@@ -373,6 +373,7 @@ document.querySelector("#apply-hook").addEventListener("click", () => { startInp
 const transcriptDialog = document.querySelector("#transcript-dialog");
 const transcriptInput = document.querySelector("#transcript-input");
 const transcriptFile = document.querySelector("#transcript-file");
+const autoTranscribeButton = document.querySelector("#auto-transcribe");
 
 function parseTranscript(rawText) {
   return rawText.split("\n").map((line) => {
@@ -392,6 +393,23 @@ transcriptFile?.addEventListener("change", async () => {
   if (!file) return;
   transcriptInput.value = await file.text();
   showToast(`${file.name} loaded. Review it, then generate clips.`);
+});
+
+autoTranscribeButton?.addEventListener("click", async () => {
+  try {
+    if (!sourceVideo) throw new Error("Upload a source video first.");
+    autoTranscribeButton.disabled = true;
+    autoTranscribeButton.textContent = "Transcribing…";
+    showToast("Transcribing your video…");
+    const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcribe`, { method: "POST", body: JSON.stringify({ language: "en" }) });
+    transcriptInput.value = result.transcript.map((segment) => `${segment.start} | ${segment.end} | ${segment.speaker || ""} | ${segment.text}`).join("\n");
+    showToast(`Transcript ready: ${result.count} timed segments.`);
+  } catch (error) {
+    showToast(error.status === 503 ? "Automatic transcription needs the server transcription key configured." : error.message);
+  } finally {
+    autoTranscribeButton.disabled = false;
+    autoTranscribeButton.textContent = "Transcribe video automatically";
+  }
 });
 
 document.querySelector("#generate-ai-clips")?.addEventListener("click", () => {
