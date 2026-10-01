@@ -18,12 +18,17 @@ const sourceUpload = document.querySelector("#source-upload");
 let timelineMaximum = Number(endInput.max);
 const storageKey = "clipforge-exports";
 const sessionKey = "clipforge-session";
+const styleKey = "clipforge-caption-style";
 let clips = [];
 let apiSession = JSON.parse(window.localStorage.getItem(sessionKey) || "null");
 let sourceVideo;
 let sourcePreviewUrl;
 let previewElement;
 let currentProject;
+let captionStyle = (() => {
+  try { return JSON.parse(window.localStorage.getItem(styleKey) || "{\"color\":\"lime\",\"weight\":\"bold\"}"); }
+  catch { return { color: "lime", weight: "bold" }; }
+})();
 
 const api = async (path, options = {}) => {
   const response = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}), ...options.headers } });
@@ -84,6 +89,18 @@ function readSavedClips() {
 }
 
 function saveClips() { window.localStorage.setItem(storageKey, JSON.stringify(clips)); }
+
+function applyCaptionStyle(style = captionStyle) {
+  captionStyle = { color: style.color || "lime", weight: style.weight || "bold" };
+  document.documentElement.dataset.captionColor = captionStyle.color;
+  document.documentElement.dataset.captionWeight = captionStyle.weight;
+  const colorField = document.querySelector("#highlight-color");
+  const weightField = document.querySelector("#caption-weight");
+  if (colorField) colorField.value = captionStyle.color;
+  if (weightField) weightField.value = captionStyle.weight;
+  document.querySelector("#brand-style-description").textContent = `${captionStyle.weight === "bold" ? "Bold" : "Soft"} ${captionStyle.color} highlight`;
+  window.localStorage.setItem(styleKey, JSON.stringify(captionStyle));
+}
 
 function showToast(message) {
   window.clearTimeout(toastTimer);
@@ -248,17 +265,17 @@ function openStyleDialog() { styleDialog.showModal(); }
 document.querySelector("#style-button").addEventListener("click", openStyleDialog);
 document.querySelectorAll("[data-open-style]").forEach((button) => button.addEventListener("click", openStyleDialog));
 document.querySelector("#save-style").addEventListener("click", () => {
-  const color = document.querySelector("#highlight-color").value;
-  const weight = document.querySelector("#caption-weight").value;
-  document.documentElement.dataset.captionColor = color;
-  document.documentElement.dataset.captionWeight = weight;
-  document.querySelector("#brand-style-description").textContent = `${weight === "bold" ? "Bold" : "Soft"} ${color} highlight`;
-  showToast("Caption style saved.");
+  applyCaptionStyle({ color: document.querySelector("#highlight-color").value, weight: document.querySelector("#caption-weight").value });
+  showToast("Caption style saved for future exports.");
 });
 
 document.querySelector("#new-project").addEventListener("click", async () => {
   stopPlayback();
   try {
+    if (!apiSession || !currentProject) {
+      const ready = await ensureWorkspace();
+      if (!ready) throw new Error("ClipForge could not connect your workspace.");
+    }
     currentProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: `Project ${new Date().toLocaleDateString()}` }) })).project;
     document.querySelector("#workspace-title").textContent = currentProject.name;
     sourceVideo = undefined;
@@ -334,4 +351,13 @@ clipLibrary.addEventListener("click", async (event) => {
 
 renderClipLibrary();
 updateRange();
+applyCaptionStyle();
 ensureWorkspace();
+
+window.addEventListener("keydown", (event) => {
+  if (event.target.matches("input, select, textarea")) return;
+  if (event.key === " ") { event.preventDefault(); playbackButton.click(); }
+  if (event.key.toLowerCase() === "e") document.querySelector("#export-button").click();
+  if (event.key.toLowerCase() === "u") sourceUpload.click();
+  if (event.key === "Escape" && styleDialog.open) styleDialog.close();
+});
