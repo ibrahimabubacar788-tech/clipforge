@@ -5,6 +5,7 @@ import { extname, join, normalize } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
 import { login, logout, publicUser, register, requireUser } from "./auth.js";
+const sessionCookie = (token, maxAge = 60 * 60 * 24 * 14) => `clipforge_session=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`;
 import { ClipQueue } from "./queue.js";
 import { rankHighlights, rankHighlightsWithAI } from "./highlights.js";
 import { parseTimestampedTranscript, normalizeTranscript } from "./transcript.js";
@@ -29,9 +30,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const mediaPersistent = String(process.env.MEDIA_STORAGE_PERSISTENT || "").toLowerCase() === "true";
       return json(res, 200, { ok: true, service: "clipforge", mediaStorage: { mode: "local", persistent: mediaPersistent } });
     }
-    if (req.method === "POST" && pathname === "/api/auth/register") { const user = await register(db, payload.email, payload.password); const session = await login(db, payload.email, payload.password); return json(res, 201, { token: session.token, user: publicUser(user) }); }
-    if (req.method === "POST" && pathname === "/api/auth/login") { const session = await login(db, payload.email, payload.password); return json(res, 200, { token: session.token, user: publicUser(session.user) }); }
-    if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); res.writeHead(204); res.end(); return; }
+    if (req.method === "POST" && pathname === "/api/auth/register") { const user = await register(db, payload.email, payload.password); const session = await login(db, payload.email, payload.password); res.setHeader("set-cookie", sessionCookie(session.token)); return json(res, 201, { token: session.token, user: publicUser(user) }); }
+    if (req.method === "POST" && pathname === "/api/auth/login") { const session = await login(db, payload.email, payload.password); res.setHeader("set-cookie", sessionCookie(session.token)); return json(res, 200, { token: session.token, user: publicUser(session.user) }); }
+    if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); res.setHeader("set-cookie", sessionCookie("", 0)); res.writeHead(204); res.end(); return; }
     const user = await requireUser(req, db);
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
     const videoStreamMatch = pathname.match(/^\/api\/videos\/([^/]+)\/stream$/);
