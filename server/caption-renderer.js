@@ -1,0 +1,33 @@
+export function captionSegmentsForClip(clip) {
+  if (!clip.captions || !Array.isArray(clip.captionSegments)) return [];
+  const start = Number(clip.start), duration = Number(clip.end) - start;
+  return clip.captionSegments.map((s) => {
+    const a = Number(s.start), b = Number(s.end), text = String(s.text || "").trim();
+    if (!text || !Number.isFinite(a) || !Number.isFinite(b) || b <= a) return null;
+    const localStart = Math.max(0, a - start), localEnd = Math.min(duration, b - start);
+    if (localEnd <= localStart) return null;
+    const speaker = String(s.speaker || "").trim();
+    return { start: localStart, end: localEnd, text: speaker ? speaker + ": " + text : text };
+  }).filter(Boolean);
+}
+
+const glyphs = {
+A:["01110","10001","10001","11111","10001","10001","10001"],B:["11110","10001","10001","11110","10001","10001","11110"],C:["01110","10001","10000","10000","10000","10001","01110"],D:["11110","10001","10001","10001","10001","10001","11110"],E:["11111","10000","10000","11110","10000","10000","11111"],F:["11111","10000","10000","11110","10000","10000","10000"],G:["01110","10001","10000","10111","10001","10001","01110"],H:["10001","10001","10001","11111","10001","10001","10001"],I:["11111","00100","00100","00100","00100","00100","11111"],J:["00111","00010","00010","00010","10010","10010","01100"],K:["10001","10010","10100","11000","10100","10010","10001"],L:["10000","10000","10000","10000","10000","10000","11111"],M:["10001","11011","10101","10101","10001","10001","10001"],N:["10001","11001","10101","10011","10001","10001","10001"],O:["01110","10001","10001","10001","10001","10001","01110"],P:["11110","10001","10001","11110","10000","10000","10000"],Q:["01110","10001","10001","10001","10101","10010","01101"],R:["11110","10001","10001","11110","10100","10010","10001"],S:["01111","10000","10000","01110","00001","00001","11110"],T:["11111","00100","00100","00100","00100","00100","00100"],U:["10001","10001","10001","10001","10001","10001","01110"],V:["10001","10001","10001","10001","10001","01010","00100"],W:["10001","10001","10001","10101","10101","11011","10001"],X:["10001","10001","01010","00100","01010","10001","10001"],Y:["10001","10001","01010","00100","00100","00100","00100"],Z:["11111","00001","00010","00100","01000","10000","11111"]," ":["00000","00000","00000","00000","00000","00000","00000"],".":["00000","00000","00000","00000","00000","00110","00110"],"?":["01110","10001","00001","00010","00100","00000","00100"],":":["00000","00110","00110","00000","00110","00110","00000"],"-":["00000","00000","00000","11111","00000","00000","00000"],"!":["00100","00100","00100","00100","00100","00000","00100"]
+};
+
+function rgb(hex) {
+  const v = String(hex || "d3e964").replace("#", "");
+  return /^[0-9a-f]{6}$/i.test(v) ? [parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16),parseInt(v.slice(4,6),16)] : [211,233,100];
+}
+
+export function captionPpm(text, color) {
+  const scale=5, pad=16, value=String(text||"").toUpperCase().slice(0,54);
+  const lines=[]; for(let i=0;i<value.length;i+=18) lines.push(value.slice(i,i+18));
+  const safe=lines.length?lines:[" "], width=Math.max(220,Math.min(680,Math.max(...safe.map(x=>x.length*6))*scale+pad*2));
+  const height=pad*2+safe.length*7*scale+(safe.length-1)*scale, pixels=Array.from({length:width*height},()=>[10,10,10]), fg=rgb(color);
+  const set=(x,y,c)=>{if(x>=0&&x<width&&y>=0&&y<height)pixels[y*width+x]=c;};
+  safe.forEach((line,li)=>{let x=Math.max(pad,Math.floor((width-line.length*6*scale)/2)),y=pad+li*(7*scale+scale);
+    for(const ch of line){const g=glyphs[ch]||glyphs[" "];for(let gy=0;gy<7;gy++)for(let gx=0;gx<5;gx++)if(g[gy][gx]==="1")for(let sy=0;sy<scale;sy++)for(let sx=0;sx<scale;sx++)set(x+gx*scale+sx,y+gy*scale+sy,fg);x+=6*scale;}
+  });
+  return "P3\n"+width+" "+height+"\n255\n"+pixels.flat().join(" ")+"\n";
+}
