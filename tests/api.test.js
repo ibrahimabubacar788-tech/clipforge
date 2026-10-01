@@ -48,6 +48,7 @@ test("chunked video uploads are accepted without content length", async (t) => {
   const response = await fetch(`${base}/api/uploads`, {
     method: "POST",
     headers: { "content-type": "video/mp4", "x-filename": "chunked.mp4", authorization: `Bearer ${user.body.token}` },
+    duplex: "half",
     body: ReadableStream.from([Buffer.from("video-"), Buffer.from("placeholder")])
   });
   assert.equal(response.status, 201);
