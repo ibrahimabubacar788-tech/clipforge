@@ -1,11 +1,16 @@
 const parseTime = (value) => {
   const text = String(value || "").trim().replace(",", ".");
-  const parts = text.split(":").map(Number);
-  if (!parts.length || parts.some((part) => !Number.isFinite(part) || part < 0)) return NaN;
-  if (parts.length === 1) return parts[0];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return NaN;
+  const match = text.match(/^(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$/);
+  if (match) {
+    const hours = Number(match[1] || 0);
+    const minutes = Number(match[2]);
+    const seconds = Number(match[3]);
+    if ([hours, minutes, seconds].every(Number.isFinite) && minutes < 60 && seconds < 60) {
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+  }
+  const seconds = Number(text);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : NaN;
 };
 
 const cleanText = (value) => String(value || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
