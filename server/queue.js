@@ -41,13 +41,10 @@ function sourcePath(storageDir, sourceUrl) {
 function videoFilter(clip) {
   const { width, height } = formats[clip.format] || formats["9:16"];
   const filters = [`scale=${width}:${height}:force_original_aspect_ratio=increase`, `crop=${width}:${height}`];
-  if (clip.captions) {
-    const color = captionColors[clip.style?.color] || captionColors.lime;
-    const emphasis = clip.style?.weight === "soft" ? "fontsize=32:fontcolor=white:borderw=2" : `fontsize=38:fontcolor=${color}:bordercolor=black:borderw=4`;
-    // This intentionally uses a deterministic label until a transcription provider is configured.
-    // It still gives exports a real burned-in caption treatment and applies the selected style.
-    filters.push(`drawtext=text='${escapeDrawtext("Captions enabled")}':x=(w-text_w)/2:y=h-(text_h*3):${emphasis}`);
-  }
+  // ffmpeg-static used by the Render runtime does not include the drawtext filter.
+  // Keep the render path free of optional filters so a selected caption style cannot
+  // make the entire export fail. Real transcript-driven captions will be added through
+  // a supported subtitle renderer in the caption engine phase.
   return filters.join(",");
 }
 
