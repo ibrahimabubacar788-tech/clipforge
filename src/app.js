@@ -284,7 +284,7 @@ async function uploadSource(file) {
   startInput.value = 0;
   endInput.value = Math.min(24, timelineMaximum);
   updateRange();
-  showToast("Video uploaded. AI is analyzing it for the best moments…");
+  showToast("Video uploaded. Automatic analysis is finding the best moments…");
   try {
     const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
     const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/auto-clip`, {
