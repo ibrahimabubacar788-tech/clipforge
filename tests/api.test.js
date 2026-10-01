@@ -273,6 +273,35 @@ test("queue recovery requeues interrupted processing jobs and clips", async (t) 
 });
 test("clip validation rejects ranges outside the source duration", async (t) => { const { server, base } = await app(); t.after(() => server.close()); const user = await request(base, "/api/auth/register", "POST", { email: "range@example.com", password: "password-123" }); const project = await request(base, "/api/projects", "POST", { name: "P" }, user.body.token); const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, duration: 10, sourceUrl: "/storage/uploads/example.mp4" }, user.body.token); const bad = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 11 }, user.body.token); assert.equal(bad.status, 422); });
 
+test("AI highlight analyzer parses a valid Responses API JSON result", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    output_text: JSON.stringify({
+      selections: [
+        { id: 0, score: 91, reason: "Strong hook and payoff", title: "The biggest lesson" },
+        { id: 1, score: 84, reason: "Clear surprising insight", title: "Why it changed" }
+      ]
+    })
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
+      { start: 8, end: 16, text: "You need to know why this changed everything." },
+      { start: 24, end: 32, text: "The truth is this was the biggest mistake." }
+    ], { limit: 2 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 2);
+    assert.equal(result.candidates[0].aiScore, 91);
+    assert.equal(result.candidates[0].title, "The biggest lesson");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
 test("AI highlight analyzer falls back safely when no API key is configured", async () => {
   const previous = process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_API_KEY;
