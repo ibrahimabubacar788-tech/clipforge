@@ -136,31 +136,32 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
       if (!video.sourceUrl) throw Object.assign(new Error("Video has no uploaded source file."), { status: 422 });
 
-      let segments = normalizeTranscript(Array.isArray(video.transcript) ? video.transcript : []);
-      let transcribed = false;
-      if (!segments.length) {
-        const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
-        const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
-        if (!source.startsWith(storageRoot + "/") && !source.startsWith(storageRoot + "\\\\")) {
-          throw Object.assign(new Error("Invalid video path."), { status: 403 });
-        }
-        segments = await transcribeVideo({ source, ffmpegPath: queue.ffmpegPath, language: payload.language || "en" });
-        if (!segments.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
-        transcribed = true;
-        await db.transaction((d) => {
-          const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
-          item.transcript = segments;
-          item.transcriptFormat = "auto-stt";
-          item.transcriptUpdatedAt = now();
-        });
-      }
-
       const limit = Math.max(1, Math.min(20, Number(payload.limit) || 12));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
       if (autoClipInFlight.has(video.id)) {
         throw Object.assign(new Error("Automatic clipping is already running for this video."), { status: 409 });
       }
       autoClipInFlight.add(video.id);
+      try {
+        let segments = normalizeTranscript(Array.isArray(video.transcript) ? video.transcript : []);
+        let transcribed = false;
+        if (!segments.length) {
+          const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
+          const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
+          if (!source.startsWith(storageRoot + "/") && !source.startsWith(storageRoot + "\\")) {
+            throw Object.assign(new Error("Invalid video path."), { status: 403 });
+          }
+          segments = await transcribeVideo({ source, ffmpegPath: queue.ffmpegPath, language: payload.language || "en" });
+          if (!segments.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
+          transcribed = true;
+          await db.transaction((d) => {
+            const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+            item.transcript = segments;
+            item.transcriptFormat = "auto-stt";
+            item.transcriptUpdatedAt = now();
+          });
+        }
+
       try {
         const existingAutoClips = await db.read((d) => d.clips.filter((clip) =>
           clip.videoId === video.id &&
