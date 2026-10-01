@@ -98,7 +98,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
-      headers: { Authorization: \`Bearer \${apiKey}\`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
         model: process.env.OPENAI_HIGHLIGHT_MODEL || "gpt-5.6-luna",
@@ -107,11 +107,11 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
             role: "system",
             content: [{
               type: "input_text",
-              text: \`Select the strongest short-form video moments from these transcript windows.
+              text: `Select the strongest short-form video moments from these transcript windows.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.
 Reject filler, contextless fragments, repetitive introductions, and sponsor boilerplate.
 Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"reason":"brief reason","title":"short title"}]}.
-Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.\`,
+Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.`,
             }],
           },
           {
