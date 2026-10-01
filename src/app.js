@@ -82,10 +82,9 @@ function updateRange() {
 
 async function uploadSource(file) {
   if (!file) return;
-  const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error("Could not read video file.")); reader.readAsDataURL(file); });
   const probe = document.createElement("video");
   const duration = await new Promise((resolve, reject) => { probe.onloadedmetadata = () => resolve(probe.duration); probe.onerror = () => reject(new Error("Could not read video duration.")); probe.src = URL.createObjectURL(file); });
-  const upload = await api("/api/uploads", { method: "POST", body: JSON.stringify({ filename: file.name, data }) });
+  const uploadResponse = await fetch("/api/uploads", { method: "POST", headers: { "content-type": file.type || "application/octet-stream", "x-filename": file.name, ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}) }, body: file }); if (!uploadResponse.ok) { const error = await uploadResponse.json().catch(() => ({})); throw new Error(error.error || "Upload failed."); } const upload = await uploadResponse.json();
   const { projects } = await api("/api/projects");
   const project = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "My clips" }) })).project;
   sourceVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: project.id, name: file.name, duration, sourceUrl: upload.url }) })).video;
