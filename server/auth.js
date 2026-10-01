@@ -36,12 +36,19 @@ export async function login(db, email, password) {
   });
   return { token, user };
 }
+function sessionToken(req) {
+  const bearer = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
+  if (bearer) return bearer;
+  const cookie = String(req.headers.cookie || "");
+  const match = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("clipforge_session="));
+  return match ? decodeURIComponent(match.slice("clipforge_session=".length)) : "";
+}
 export async function requireUser(req, db) {
-  const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
+  const token = sessionToken(req);
   const session = await db.read((d) => d.sessions.find((s) => s.token === token && Date.parse(s.expiresAt) > Date.now()));
   if (!session) throw Object.assign(new Error("Authentication required."), { status: 401 });
   const user = await db.read((d) => d.users.find((u) => u.id === session.userId));
   if (!user) throw Object.assign(new Error("Authentication required."), { status: 401 });
   return user;
 }
-export async function logout(req, db) { const token = req.headers.authorization?.replace(/^Bearer\s+/i, ""); await db.transaction((d) => { d.sessions = d.sessions.filter((s) => s.token !== token); }); }
+export async function logout(req, db) { const token = sessionToken(req); await db.transaction((d) => { d.sessions = d.sessions.filter((s) => s.token !== token); }); }
