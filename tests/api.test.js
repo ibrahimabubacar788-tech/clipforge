@@ -74,6 +74,18 @@ test("failed clips can be retried", async (t) => {
   assert.notEqual(retried.body.job.id, created.body.job.id);
 });
 
+test("clip retry rejects non-failed clips", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "retry-state@example.com", password: "password-123" });
+  const project = await request(base, "/api/projects", "POST", { name: "Retry state" }, user.body.token);
+  const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Video", duration: 3, sourceUrl: "/storage/uploads/missing.mp4" }, user.body.token);
+  const created = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 2 }, user.body.token);
+  const immediate = await request(base, `/api/clips/${created.body.clip.id}/retry`, "POST", undefined, user.body.token);
+  assert.equal(immediate.status, 409);
+  assert.match(immediate.body.error, /Only failed clips/);
+});
+
 test("clip retry is protected by clip ownership", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
