@@ -319,6 +319,63 @@ test("AI highlight analyzer falls back safely when no API key is configured", as
     else process.env.OPENAI_API_KEY = previous;
   }
 });
+test("AI highlight analyzer accepts nested Responses API output text", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    output: [{
+      type: "message",
+      content: [{
+        type: "output_text",
+        text: JSON.stringify({
+          selections: [{ id: 0, score: 88, reason: "Strong payoff", title: "Nested result" }]
+        })
+      }]
+    }]
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
+      { start: 8, end: 16, text: "You need to know why this changed everything." },
+      { start: 90, end: 98, text: "The truth is this was the biggest mistake." },
+      { start: 98, end: 106, text: "But the result surprised everyone." }
+    ], { limit: 1 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 1);
+    assert.equal(result.candidates[0].aiScore, 88);
+    assert.equal(result.candidates[0].title, "Nested result");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
+test("AI highlight analyzer falls back when the model returns invalid JSON", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({ output_text: "{not-json" }), {
+    status: 200,
+    headers: { "content-type": "application/json" }
+  });
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
+      { start: 8, end: 16, text: "You need to know why this changed everything." },
+      { start: 24, end: 32, text: "But the result surprised everyone." }
+    ], { limit: 1 });
+    assert.equal(result.engine, "heuristic-fallback");
+    assert.ok(result.aiError);
+    assert.ok(result.candidates.length >= 1);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
 test("automatic AI clipping creates multiple ranked clips from a stored transcript", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
