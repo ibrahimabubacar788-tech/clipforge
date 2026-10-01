@@ -6,8 +6,13 @@ const storageDir = process.env.CLIPFORGE_STORAGE_DIR || join(dataDir, "storage")
 const dbFile = process.env.CLIPFORGE_DB_FILE || join(dataDir, "clipforge.json");
 const app = createApp({ dbFile, storageDir });
 app.listen(port, async () => {
-  await app.clipQueue.recover();
-  console.log(`ClipForge API and web app listening on port ${port}`);
+  try {
+    await app.clipQueue.recover();
+    console.log(`ClipForge API and web app listening on port ${port}`);
+  } catch (error) {
+    console.error("ClipForge startup recovery failed:", error);
+    process.exitCode = 1;
+  }
 });
 
 const shutdown = async (signal) => {
