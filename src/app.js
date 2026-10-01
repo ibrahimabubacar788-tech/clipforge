@@ -306,22 +306,37 @@ function startClipStatusPolling() {
   }, 2500);
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[character]));
+}
+
 function renderClipLibrary() {
   clipCount.textContent = clips.length;
   const query = libraryQuery.trim().toLowerCase();
   const filtered = clips.filter((clip) => {
-    const matchesQuery = !query || clip.title.toLowerCase().includes(query);
+    const title = String(clip.title || "");
+    const matchesQuery = !query || title.toLowerCase().includes(query);
     const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter);
     return matchesQuery && matchesFilter;
   });
   clipsEmpty.hidden = clips.length > 0;
   clipLibrary.innerHTML = filtered.map((clip) => {
+    const title = escapeHtml(clip.title || "Untitled clip");
+    const format = escapeHtml(clip.format || "9:16");
+    const formatClass = format.replace(/:/g, "-");
+    const clipId = escapeHtml(clip.id);
     const status = clip.status === "ready"
-      ? `<button class="download-clip" type="button" data-download-clip="${clip.id}">Download</button>`
+      ? `<button class="download-clip" type="button" data-download-clip="${clipId}">Download</button>`
       : clip.status === "failed"
         ? `<small>Render failed</small>`
         : `<small class="rendering-status">Rendering…</small>`;
-    return `<article class="clip-card"><div class="clip-card-art ${clip.format.replace(":", "-")}"><span>${clip.format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${clip.title}</h3><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clip.id}" aria-label="Delete ${clip.title}">×</button></article>`;
+    return `<article class="clip-card"><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
   }).join("");
 }
 
