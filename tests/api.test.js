@@ -53,7 +53,7 @@ test("FFmpeg renders an uploaded video into a downloadable MP4 clip with bitmap 
   assert.equal(download.status, 200); assert.equal(download.headers.get("content-type"), "video/mp4");
   const bytes = Buffer.from(await download.arrayBuffer());
   assert.ok(bytes.length > 1_000); assert.equal(bytes.subarray(4, 8).toString(), "ftyp");
-  const mediaPath = join(dir, "storage", rendered.downloadUrl.slice(1));
+  const mediaPath = join(dir, rendered.downloadUrl.slice(1));
   await command(ffmpegStatic, ["-v", "error", "-i", mediaPath, "-f", "null", "-"]);
   assert.equal(rendered.captionSegments.length, 1); assert.equal(rendered.captionSegments[0].speaker, "SPEAKER A"); const unauthorized = await fetch(`${base}/api/clips/${rendered.id}/download`); assert.equal(unauthorized.status, 401); const publicMedia = await fetch(`${base}${rendered.downloadUrl}`); assert.equal(publicMedia.status, 404);
 });
