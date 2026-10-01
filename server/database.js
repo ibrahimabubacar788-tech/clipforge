@@ -58,11 +58,12 @@ export class JsonDatabase {
   async transaction(mutator) {
     await this.load();
     let result;
-    this.pending = this.pending.then(async () => {
+    const operation = this.pending.then(async () => {
       result = await mutator(this.data);
       await this.flush();
     });
-    await this.pending;
+    this.pending = operation.catch(() => {});
+    await operation;
     return result;
   }
 
