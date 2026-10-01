@@ -302,7 +302,10 @@ async function uploadSource(file) {
       void pollAutoClipStatus(sourceVideo.id);
     }
   } catch (error) {
-    if (error.status === 503) {
+    if (error.status === 409) {
+      showToast("Automatic clipping is already running for this video. We are using the existing job.");
+      if (sourceVideo.id) void pollAutoClipStatus(sourceVideo.id);
+    } else if (error.status === 503) {
       showToast("AI transcription is not configured on the server yet.");
     } else {
       showToast(`Video uploaded, but AI clipping failed: ${error.message}`);
