@@ -25,7 +25,7 @@ function sourcePath(storageDir, sourceUrl) {
   if (typeof sourceUrl !== "string" || !sourceUrl.startsWith("/storage/uploads/")) throw new Error("Source video must be an uploaded file.");
   const uploadsDir = resolve(storageDir, "uploads");
   const file = resolve(storageDir, sourceUrl.slice("/storage/".length));
-  if (relative(uploadsDir, file).startsWith("..")) throw new Error("Invalid source video path.");
+  const relativeSource = relative(uploadsDir, file);\n  if (relativeSource.startsWith("..") || relativeSource.startsWith("/") || relativeSource.startsWith("\\\\")) throw new Error("Invalid source video path.");
   return file;
 }
 
@@ -94,7 +94,7 @@ export class ClipQueue {
     if (!downloadUrl?.startsWith("/storage/exports/")) return;
     const exportDir = resolve(this.storageDir, "exports");
     const candidate = resolve(this.storageDir, downloadUrl.slice("/storage/".length));
-    if (relative(exportDir, candidate).startsWith("..")) return;
+    const relativeExport = relative(exportDir, candidate);\n    if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\\\")) return;
     await unlink(candidate).catch(() => {});
   }
 }
