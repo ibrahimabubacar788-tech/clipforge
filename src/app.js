@@ -284,7 +284,25 @@ async function uploadSource(file) {
   startInput.value = 0;
   endInput.value = Math.min(24, timelineMaximum);
   updateRange();
-  showToast(`${file.name} is ready to clip.`);
+  showToast("Video uploaded. AI is analyzing it for the best moments…");
+  try {
+    const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
+    const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/auto-clip`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 12, format, style: captionStyle, language: "en" })
+    });
+    clips = [...result.clips.map((item) => item.clip), ...clips];
+    renderClipLibrary();
+    startClipStatusPolling();
+    showToast(`AI found ${result.generated} clips and started rendering them.`);
+    void refreshClipLibraryWhileRendering();
+  } catch (error) {
+    if (error.status === 503) {
+      showToast("AI transcription is not configured on the server yet.");
+    } else {
+      showToast(`Video uploaded, but AI clipping failed: ${error.message}`);
+    }
+  }
 }
 
 async function refreshClipStatuses({ showReadyToast = false } = {}) {
