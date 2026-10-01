@@ -1,6 +1,13 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { id, now } from "./database.js";
-const digest = (password, salt) => createHash("sha256").update(`${salt}:${password}`).digest("hex");
+const legacyDigest = (password, salt) => createHash("sha256").update(`${salt}:${password}`).digest("hex");
+const digest = (password, salt) => scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 }).toString("hex");
+const matchesDigest = (password, salt, stored) => {
+  const candidate = stored.length === 128 ? digest(password, salt) : legacyDigest(password, salt);
+  const a = Buffer.from(candidate, "hex");
+  const b = Buffer.from(stored, "hex");
+  return a.length === b.length && timingSafeEqual(a, b);
+};
 export function publicUser(user) { return { id: user.id, email: user.email, createdAt: user.createdAt }; }
 export async function register(db, email, password) {
   if (!/^\S+@\S+\.\S+$/.test(email || "") || typeof password !== "string" || password.length < 8) throw Object.assign(new Error("Use a valid email and a password with at least 8 characters."), { status: 422 });
@@ -12,7 +19,7 @@ export async function register(db, email, password) {
 }
 export async function login(db, email, password) {
   const user = await db.read((d) => d.users.find((u) => u.email === String(email).toLowerCase()));
-  if (!user || digest(password || "", user.salt) !== user.passwordHash) throw Object.assign(new Error("Invalid email or password."), { status: 401 });
+  if (!user || !matchesDigest(password || "", user.salt, user.passwordHash)) throw Object.assign(new Error("Invalid email or password."), { status: 401 });
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString();
   await db.transaction((d) => {
