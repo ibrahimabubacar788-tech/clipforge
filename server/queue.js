@@ -87,6 +87,9 @@ export class ClipQueue {
   }
   async removeExport(downloadUrl) {
     if (!downloadUrl?.startsWith("/storage/exports/")) return;
-    await unlink(join(this.storageDir, downloadUrl.slice("/storage/".length))).catch(() => {});
+    const exportDir = resolve(this.storageDir, "exports");
+    const candidate = resolve(this.storageDir, downloadUrl.slice("/storage/".length));
+    if (relative(exportDir, candidate).startsWith("..")) return;
+    await unlink(candidate).catch(() => {});
   }
 }
