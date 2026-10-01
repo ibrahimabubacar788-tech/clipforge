@@ -131,7 +131,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
       data.output_text ||
       data.output?.find((item) => item.type === "message")?.content?.find((item) => item.type === "output_text")?.text ||
       ""
-    ).trim().replace(/^\`\`\`json\s*/i, "").replace(/\`\`\`$/i, "").trim();
+    ).trim().replace(/^\x60\x60\x60json\s*/i, "").replace(/\x60\x60\x60$/i, "").trim();
     const parsed = JSON.parse(text);
     const selections = Array.isArray(parsed.selections) ? parsed.selections : [];
     const byId = new Map(baseline.map((item, id) => [id, item]));
