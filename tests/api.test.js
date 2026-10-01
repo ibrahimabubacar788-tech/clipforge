@@ -32,7 +32,16 @@ test("FFmpeg renders an uploaded video into a downloadable MP4 clip", { skip: ha
   assert.equal(dimensions.trim(), "720x1280"); const unauthorized = await fetch(`${base}/api/clips/${rendered.id}/download`); assert.equal(unauthorized.status, 401); const publicMedia = await fetch(`${base}${rendered.downloadUrl}`); assert.equal(publicMedia.status, 404);
 });
 
-test("readiness verifies database availability", async (t) => {\n  const { server, base } = await app();\n  t.after(() => server.close());\n  const response = await fetch(`${base}/api/ready`);\n  assert.equal(response.status, 200);\n  const body = await response.json();\n  assert.deepEqual(body, { ok: true, service: "clipforge" });\n});\n\ntest("uploads reject non-video content types", async (t) => {
+test("readiness verifies database availability", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const response = await fetch(`${base}/api/ready`);
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(body, { ok: true, service: "clipforge" });
+});
+
+test("uploads reject non-video content types", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "upload-check@example.com", password: "password-123" });
