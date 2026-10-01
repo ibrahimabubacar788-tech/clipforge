@@ -667,10 +667,15 @@ clipLibrary.addEventListener("click", async (event) => {
   }
   const button = event.target.closest("[data-delete-clip]");
   if (!button) return;
-  try { await api(`/api/clips/${button.dataset.deleteClip}`, { method: "DELETE" }); } catch { clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip); saveClips(); }
-  clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip);
-  renderClipLibrary();
-  showToast("Clip removed from your library.");
+  try {
+    await api(`/api/clips/${button.dataset.deleteClip}`, { method: "DELETE" });
+    clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip);
+    saveClips();
+    renderClipLibrary();
+    showToast("Clip removed from your library.");
+  } catch (error) {
+    showToast(error.status === 409 ? "This clip is still rendering. Try again when rendering finishes." : `Could not remove clip: ${error.message}`);
+  }
 });
 
 renderClipLibrary();
