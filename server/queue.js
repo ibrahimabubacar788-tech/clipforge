@@ -14,7 +14,10 @@ const captionColors = { lime: "d3e964", pink: "ff8fbe", sky: "8be1ff" };
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
-    const timeout = setTimeout(() => {\n      child.kill("SIGKILL");\n      reject(new Error("FFmpeg render timed out."));\n    }, 15 * 60 * 1000);
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error("FFmpeg render timed out."));
+    }, 15 * 60 * 1000);
     let stderr = "";
     child.stderr.on("data", (chunk) => { stderr += chunk; });
     child.on("error", (error) => { clearTimeout(timeout); reject(error); });
@@ -26,7 +29,8 @@ function sourcePath(storageDir, sourceUrl) {
   if (typeof sourceUrl !== "string" || !sourceUrl.startsWith("/storage/uploads/")) throw new Error("Source video must be an uploaded file.");
   const uploadsDir = resolve(storageDir, "uploads");
   const file = resolve(storageDir, sourceUrl.slice("/storage/".length));
-  const relativeSource = relative(uploadsDir, file);\n  if (relativeSource.startsWith("..") || relativeSource.startsWith("/") || relativeSource.startsWith("\\\\")) throw new Error("Invalid source video path.");
+  const relativeSource = relative(uploadsDir, file);
+  if (relativeSource.startsWith("..") || relativeSource.startsWith("/") || relativeSource.startsWith("\\\\")) throw new Error("Invalid source video path.");
   return file;
 }
 
@@ -95,7 +99,8 @@ export class ClipQueue {
     if (!downloadUrl?.startsWith("/storage/exports/")) return;
     const exportDir = resolve(this.storageDir, "exports");
     const candidate = resolve(this.storageDir, downloadUrl.slice("/storage/".length));
-    const relativeExport = relative(exportDir, candidate);\n    if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\\\")) return;
+    const relativeExport = relative(exportDir, candidate);
+    if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\\\")) return;
     await unlink(candidate).catch(() => {});
   }
 }
