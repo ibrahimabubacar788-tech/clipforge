@@ -1,4 +1,4 @@
-import { access, mkdir, unlink } from "node:fs/promises";
+import { access, mkdir, realpath, unlink } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { join, relative, resolve } from "node:path";
 import { id, now } from "./database.js";
@@ -30,13 +30,13 @@ function run(command, args) {
   });
 }
 
-function sourcePath(storageDir, sourceUrl) {
+async function sourcePath(storageDir, sourceUrl) {
   if (typeof sourceUrl !== "string" || !sourceUrl.startsWith("/storage/uploads/")) throw new Error("Source video must be an uploaded file.");
   const uploadsDir = resolve(storageDir, "uploads");
   const file = resolve(storageDir, sourceUrl.slice("/storage/".length));
   const relativeSource = relative(uploadsDir, file);
   if (relativeSource.startsWith("..") || relativeSource.startsWith("/") || relativeSource.startsWith("\\\\")) throw new Error("Invalid source video path.");
-  return file;
+  return { file, uploadsDir };
 }
 
 const watermarkGlyphs = {
@@ -129,8 +129,12 @@ export class ClipQueue {
   }
   async enqueue(clip) { const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
   async render(clip) {
-    const source = sourcePath(this.storageDir, clip.sourceUrl);
+    const { file: source, uploadsDir } = await sourcePath(this.storageDir, clip.sourceUrl);
     await access(source);
+    const resolvedSource = await realpath(source);
+    const resolvedUploadsDir = await realpath(uploadsDir);
+    const relativeResolved = relative(resolvedUploadsDir, resolvedSource);
+    if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\\\")) throw new Error("Invalid source video path.");
     const exportDir = join(this.storageDir, "exports");
     await mkdir(exportDir, { recursive: true });
     const filename = `${clip.id}.mp4`;
