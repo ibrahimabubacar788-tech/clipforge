@@ -29,7 +29,9 @@ test("FFmpeg renders an uploaded video into a downloadable MP4 clip", { skip: ha
   const bytes = Buffer.from(await download.arrayBuffer());
   assert.ok(bytes.length > 1_000); assert.equal(bytes.subarray(4, 8).toString(), "ftyp");
   const dimensions = await command("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0", join(dir, "storage", rendered.downloadUrl.slice(1))]);
-  assert.equal(dimensions.trim(), "720x1280"); const unauthorized = await fetch(`${base}/api/clips/${rendered.id}/download`); assert.equal(unauthorized.status, 401); const publicMedia = await fetch(`${base}${rendered.downloadUrl}`); assert.equal(publicMedia.status, 404);
+  assert.equal(dimensions.trim(), "720x1280");
+  const audioStreams = await command("ffprobe", ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1", join(dir, "storage", rendered.downloadUrl.slice(1))]);
+  assert.equal(audioStreams.trim(), "aac"); const unauthorized = await fetch(`${base}/api/clips/${rendered.id}/download`); assert.equal(unauthorized.status, 401); const publicMedia = await fetch(`${base}${rendered.downloadUrl}`); assert.equal(publicMedia.status, 404);
 });
 
 test("failed clips can be retried", async (t) => {
