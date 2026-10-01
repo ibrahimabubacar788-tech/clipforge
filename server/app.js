@@ -6,7 +6,7 @@ import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
 import { login, logout, publicUser, register, requireUser } from "./auth.js";
 import { ClipQueue } from "./queue.js";
-import { rankHighlights } from "./highlights.js";
+import { rankHighlights, rankHighlightsWithAI } from "./highlights.js";
 import { parseTimestampedTranscript, normalizeTranscript } from "./transcript.js";
 import { transcribeVideo } from "./stt.js";
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".mp4": "video/mp4" };
@@ -190,7 +190,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
 
       return json(res, 202, {
         videoId: video.id,
-        engine: "clipforge-auto-v2",
+        engine: analysis.engine === "openai-highlights-v1" ? "clipforge-auto-v3" : "clipforge-auto-v2",
         transcribed,
         transcriptCount: segments.length,
         requested: limit,
