@@ -108,6 +108,7 @@ export class ClipQueue {
   }
 
   async recover() {
+    await this.checkSubtitleSupport();
     await this.db.transaction((d) => {
       for (const job of d.jobs) {
         if (job.status === "processing") { job.status = "queued"; job.progress = 0; delete job.startedAt; }
