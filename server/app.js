@@ -134,6 +134,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       return json(res, 200, {
         videoId: video.id,
         transcriptReady: Array.isArray(video.transcript) && video.transcript.length > 0,
+        analysisStatus: video.autoClipStatus || "idle",
+        analysisError: video.autoClipError || null,
+        analysisUpdatedAt: video.autoClipUpdatedAt || null,
         total: clips.length,
         ready: counts.ready || 0,
         processing: (counts.processing || 0) + (counts.queued || 0),
@@ -155,7 +158,14 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         throw Object.assign(new Error("Automatic clipping is already running for this video."), { status: 409 });
       }
       autoClipInFlight.add(video.id);
+      const setAutoClipStatus = async (status, error = null) => {
+        await db.transaction((d) => {
+          const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+          if (item) { item.autoClipStatus = status; item.autoClipError = error; item.autoClipUpdatedAt = now(); }
+        });
+      };
       try {
+        await setAutoClipStatus("transcribing");
         let segments = normalizeTranscript(Array.isArray(video.transcript) ? video.transcript : []);
         let transcribed = false;
         if (!segments.length) {
@@ -236,6 +246,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const candidates = analysis.candidates;
       if (!candidates.length) throw Object.assign(new Error("The AI could not find enough strong moments in this video."), { status: 422 });
 
+      await setAutoClipStatus("rendering");
       const created = [];
       for (const candidate of candidates) {
         const clip = {
@@ -265,6 +276,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         created.push({ clip, job });
       }
 
+      await setAutoClipStatus("completed");
       return json(res, 202, {
         videoId: video.id,
         engine: analysis.engine === "openai-highlights-v1" ? "clipforge-auto-v3" : "clipforge-auto-v2",
@@ -277,6 +289,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         generated: created.length,
         clips: created,
       });
+      } catch (error) {
+        await setAutoClipStatus("failed", error?.message || "Automatic clipping failed.").catch(() => {});
+        throw error;
       } finally {
         autoClipInFlight.delete(video.id);
       }
