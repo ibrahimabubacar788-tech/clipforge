@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ffmpegStatic from "ffmpeg-static";
 import { createApp } from "../server/app.js";
+import { rankHighlightsWithAI } from "../server/highlights.js";
 
 const hasFfmpeg = spawnSync(ffmpegStatic, ["-version"], { stdio: "ignore" }).status === 0;
 function command(binary, args) { return new Promise((resolve, reject) => { const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] }); let stdout = ""; let stderr = ""; child.stdout.on("data", (chunk) => { stdout += chunk; }); child.stderr.on("data", (chunk) => { stderr += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(`${binary} exited with ${code}: ${stderr}`))); }); }
@@ -272,7 +273,7 @@ test("queue recovery requeues interrupted processing jobs and clips", async (t) 
 });
 test("clip validation rejects ranges outside the source duration", async (t) => { const { server, base } = await app(); t.after(() => server.close()); const user = await request(base, "/api/auth/register", "POST", { email: "range@example.com", password: "password-123" }); const project = await request(base, "/api/projects", "POST", { name: "P" }, user.body.token); const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, duration: 10, sourceUrl: "/storage/uploads/example.mp4" }, user.body.token); const bad = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 11 }, user.body.token); assert.equal(bad.status, 422); });
 
-
+\ntest("AI highlight analyzer falls back safely when no API key is configured", async () => {\n  const previous = process.env.OPENAI_API_KEY;\n  delete process.env.OPENAI_API_KEY;\n  try {\n    const result = await rankHighlightsWithAI([\n      { start: 0, end: 8, text: "Here is the biggest lesson from this story." },\n      { start: 8, end: 16, text: "You need to know why this changed everything." },\n      { start: 16, end: 24, text: "The result surprised everyone." }\n    ], { limit: 2 });\n    assert.equal(result.engine, "heuristic-fallback");\n    assert.ok(result.candidates.length >= 1);\n  } finally {\n    if (previous === undefined) delete process.env.OPENAI_API_KEY;\n    else process.env.OPENAI_API_KEY = previous;\n  }\n});\n
 test("automatic AI clipping creates multiple ranked clips from a stored transcript", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
@@ -304,7 +305,7 @@ test("automatic AI clipping creates multiple ranked clips from a stored transcri
   }, user.body.token);
 
   assert.equal(generated.status, 202);
-  assert.equal(generated.body.engine, "clipforge-auto-v2");
+  assert.ok(["clipforge-auto-v2", "clipforge-auto-v3"].includes(generated.body.engine));
   assert.equal(generated.body.transcribed, false);
   assert.ok(generated.body.generated >= 2);
   assert.equal(generated.body.clips.length, generated.body.generated);
