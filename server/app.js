@@ -113,7 +113,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const video = await db.read((d) => d.videos.find((item) => item.id === autoClipStatusMatch[1] && item.userId === user.id));
       if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
       const result = await db.read((d) => {
-        const clips = d.clips.filter((item) => item.videoId === video.id && item.userId === user.id);
+        const clips = d.clips.filter((item) => item.videoId === video.id && item.userId === user.id && item.generation === "auto-ai");
         const jobs = d.jobs.filter((job) => clips.some((clip) => clip.id === job.clipId));
         return { clips, jobs };
       });
