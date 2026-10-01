@@ -273,7 +273,22 @@ test("queue recovery requeues interrupted processing jobs and clips", async (t) 
 });
 test("clip validation rejects ranges outside the source duration", async (t) => { const { server, base } = await app(); t.after(() => server.close()); const user = await request(base, "/api/auth/register", "POST", { email: "range@example.com", password: "password-123" }); const project = await request(base, "/api/projects", "POST", { name: "P" }, user.body.token); const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, duration: 10, sourceUrl: "/storage/uploads/example.mp4" }, user.body.token); const bad = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 11 }, user.body.token); assert.equal(bad.status, 422); });
 
-\ntest("AI highlight analyzer falls back safely when no API key is configured", async () => {\n  const previous = process.env.OPENAI_API_KEY;\n  delete process.env.OPENAI_API_KEY;\n  try {\n    const result = await rankHighlightsWithAI([\n      { start: 0, end: 8, text: "Here is the biggest lesson from this story." },\n      { start: 8, end: 16, text: "You need to know why this changed everything." },\n      { start: 16, end: 24, text: "The result surprised everyone." }\n    ], { limit: 2 });\n    assert.equal(result.engine, "heuristic-fallback");\n    assert.ok(result.candidates.length >= 1);\n  } finally {\n    if (previous === undefined) delete process.env.OPENAI_API_KEY;\n    else process.env.OPENAI_API_KEY = previous;\n  }\n});\n
+test("AI highlight analyzer falls back safely when no API key is configured", async () => {
+  const previous = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
+      { start: 8, end: 16, text: "You need to know why this changed everything." },
+      { start: 16, end: 24, text: "The result surprised everyone." }
+    ], { limit: 2 });
+    assert.equal(result.engine, "heuristic-fallback");
+    assert.ok(result.candidates.length >= 1);
+  } finally {
+    if (previous === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previous;
+  }
+});
 test("automatic AI clipping creates multiple ranked clips from a stored transcript", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
