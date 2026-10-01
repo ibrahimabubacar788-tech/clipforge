@@ -343,7 +343,7 @@ function renderClipLibrary() {
     const status = clip.status === "ready"
       ? `<button class="download-clip" type="button" data-download-clip="${clipId}">Download</button>`
       : clip.status === "failed"
-        ? `<small>Render failed</small>`
+        ? `<div class="clip-status-actions"><small>Render failed</small><button class="retry-clip" type="button" data-retry-clip="${clipId}">Retry</button></div>`
         : `<small class="rendering-status">Rendering…</small>`;
     return `<article class="clip-card"><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
   }).join("");
