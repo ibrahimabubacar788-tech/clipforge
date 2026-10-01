@@ -372,6 +372,7 @@ document.querySelector("#apply-hook").addEventListener("click", () => { startInp
 
 const transcriptDialog = document.querySelector("#transcript-dialog");
 const transcriptInput = document.querySelector("#transcript-input");
+const transcriptFile = document.querySelector("#transcript-file");
 
 function parseTranscript(rawText) {
   return rawText.split("\n").map((line) => {
@@ -386,6 +387,13 @@ function parseTranscript(rawText) {
   }).filter(Boolean);
 }
 
+transcriptFile?.addEventListener("change", async () => {
+  const file = transcriptFile.files?.[0];
+  if (!file) return;
+  transcriptInput.value = await file.text();
+  showToast(`${file.name} loaded. Review it, then generate clips.`);
+});
+
 document.querySelector("#generate-ai-clips")?.addEventListener("click", () => {
   if (!sourceVideo) { showToast("Upload a source video first."); return; }
   transcriptDialog.showModal();
@@ -395,8 +403,10 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
   event.preventDefault();
   try {
     if (!sourceVideo) throw new Error("Upload a source video first.");
-    const segments = parseTranscript(transcriptInput.value);
-    if (!segments.length) throw new Error("Add at least one valid transcript line.");
+    const rawTranscript = transcriptInput.value.trim();
+    const segments = parseTranscript(rawTranscript);
+    if (!segments.length) throw new Error("Add at least one valid transcript line or import an SRT/VTT file.");
+    await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
     const format = document.querySelector(".format-option.selected").dataset.format;
     const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/generate-clips`, {
       method: "POST",
