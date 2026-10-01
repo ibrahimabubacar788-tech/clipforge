@@ -30,7 +30,7 @@ test("uploaded videos can be streamed only by their owner", async (t) => {
   const sourceUrl = await uploadFixture(base, user.body.token, dir);
   const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Episode", duration: 3, sourceUrl }, user.body.token);
   const response = await fetch(`${base}/api/videos/${video.body.video.id}/stream`, { headers: { authorization: `Bearer ${user.body.token}`, range: "bytes=0-31" } });
-  assert.equal(response.status, 206); assert.equal(response.headers.get("accept-ranges"), "bytes"); assert.match(response.headers.get("content-range"), /^bytes 0-31\\/\\d+$/); assert.equal((await response.arrayBuffer()).byteLength, 32);
+  assert.equal(response.status, 206); assert.equal(response.headers.get("accept-ranges"), "bytes"); assert.match(response.headers.get("content-range"), /^bytes 0-31\/\d+$/); assert.equal((await response.arrayBuffer()).byteLength, 32);
   const other = await request(base, "/api/auth/register", "POST", { email: "other-stream@example.com", password: "password-123" });
   const denied = await fetch(`${base}/api/videos/${video.body.video.id}/stream`, { headers: { authorization: `Bearer ${other.body.token}` } });
   assert.equal(denied.status, 404);
