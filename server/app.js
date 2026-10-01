@@ -84,6 +84,11 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
       const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
       if (!source.startsWith(storageRoot + "/") && !source.startsWith(storageRoot + "\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
+      const resolvedSource = await realpath(source).catch(() => null);
+      const resolvedStorageRoot = await realpath(storageDir).catch(() => null);
+      if (!resolvedSource || !resolvedStorageRoot) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
+      const relativeResolved = requireRelative(resolvedStorageRoot, resolvedSource);
+      if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
       const transcript = await transcribeVideo({ source, ffmpegPath: queue.ffmpegPath });
       if (!transcript.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
       await db.transaction((d) => {
