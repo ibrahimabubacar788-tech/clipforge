@@ -33,9 +33,11 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "POST" && pathname === "/api/videos") { const project = await db.read((d) => d.projects.find((p) => p.id === payload.projectId && p.userId === user.id)); if (!project) throw Object.assign(new Error("Project not found."), { status: 404 }); const sourceUrl = payload.sourceUrl || null; if (sourceUrl && (typeof sourceUrl !== "string" || !sourceUrl.startsWith("/storage/uploads/"))) throw Object.assign(new Error("Source video must reference an uploaded file."), { status: 422 }); const video = { id: id("vid"), userId: user.id, projectId: project.id, name: String(payload.name || "Untitled video"), duration: Math.max(1, Number(payload.duration) || 519), sourceUrl, createdAt: now() }; await db.transaction((d) => d.videos.push(video)); return json(res, 201, { video }); }
     if (req.method === "POST" && pathname === "/api/uploads") {
       const user = await requireUser(req, db);
-      const filename = String(req.headers["x-filename"] || "video.bin").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filename = String(req.headers["x-filename"] || "video.mp4").slice(0, 120).replace(/[^a-zA-Z0-9._-]/g, "_");
       const contentLength = Number(req.headers["content-length"] || 0);
       const maxUploadBytes = 250 * 1024 * 1024;
+      if (!Number.isFinite(contentLength) || contentLength < 0) throw Object.assign(new Error("Invalid content length."), { status: 400 });
+      if (contentLength === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
       if (contentLength > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
       await mkdir(join(storageDir, "uploads"), { recursive: true });
       const safe = `${user.id}-${id("upload")}-${filename}`;
