@@ -29,7 +29,7 @@ const api = async (path, options = {}) => {
   const response = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}), ...options.headers } });
   if (response.status === 204) return null;
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Request failed.");
+  if (!response.ok) { const error = new Error(result.error || "Request failed."); error.status = response.status; throw error; }
   return result;
 };
 
@@ -45,7 +45,31 @@ async function ensureWorkspace() {
     document.querySelector("#workspace-title").textContent = currentProject.name;
     clips = (await api("/api/clips")).clips;
     renderClipLibrary();
-  } catch (error) { showToast(`Backend unavailable: ${error.message}`); clips = readSavedClips(); renderClipLibrary(); }
+    return true;
+  } catch (error) {
+    if (error.status === 401) {
+      apiSession = null;
+      window.localStorage.removeItem(sessionKey);
+      try {
+        const email = `creator-${crypto.randomUUID().slice(0, 8)}@clipforge.local`;
+        apiSession = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password: crypto.randomUUID() }) });
+        window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+        const { projects } = await api("/api/projects");
+        currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+        document.querySelector("#workspace-title").textContent = currentProject.name;
+        clips = (await api("/api/clips")).clips;
+        renderClipLibrary();
+        return true;
+      } catch (retryError) {
+        showToast(`Backend unavailable: ${retryError.message}`);
+      }
+    } else {
+      showToast(`Backend unavailable: ${error.message}`);
+    }
+    clips = readSavedClips();
+    renderClipLibrary();
+    return false;
+  }
 }
 
 let playbackTimer;
