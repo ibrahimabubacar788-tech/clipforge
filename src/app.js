@@ -492,7 +492,7 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
     if (!sourceVideo) throw new Error("Upload a source video first.");
     const rawTranscript = transcriptInput.value.trim();
     if (!rawTranscript) throw new Error("Add or import a transcript before generating clips.");
-    const savedTranscript = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
+    await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
     const format = document.querySelector(".format-option.selected").dataset.format;
     const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/generate-clips`, {
       method: "POST",
