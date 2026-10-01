@@ -327,7 +327,44 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
 
     if (req.method === "POST" && pathname === "/api/projects") { if (!String(payload.name || "").trim()) throw Object.assign(new Error("A project name is required."), { status: 422 }); const project = { id: id("prj"), userId: user.id, name: payload.name.trim(), createdAt: now(), updatedAt: now() }; await db.transaction((d) => d.projects.push(project)); return json(res, 201, { project }); }
     const projectMatch = pathname.match(/^\/api\/projects\/([^/]+)$/);
+    if (projectMatch && req.method === "DELETE") {
+      const removed = await db.transaction((d) => {
+        const project = d.projects.find((item) => item.id === projectMatch[1] && item.userId === user.id);
+        if (!project) throw Object.assign(new Error("Project not found."), { status: 404 });
+        const videoIds = new Set(d.videos.filter((item) => item.projectId === project.id && item.userId === user.id).map((item) => item.id));
+        const clips = d.clips.filter((item) => videoIds.has(item.videoId) && item.userId === user.id);
+        d.projects = d.projects.filter((item) => item.id !== project.id);
+        d.videos = d.videos.filter((item) => !videoIds.has(item.id));
+        d.clips = d.clips.filter((item) => !clips.some((clip) => clip.id === item.id));
+        d.jobs = d.jobs.filter((job) => !clips.some((clip) => clip.id === job.clipId));
+        return { videos: [...videoIds].map((id) => d.videos.find((item) => item.id === id)).filter(Boolean), clips };
+      });
+      for (const clip of removed.clips) await queue.removeExport(clip.downloadUrl);
+      res.writeHead(204); res.end(); return;
+    }
+
     if (projectMatch && req.method === "PATCH") { const project = await db.transaction((d) => { const p = d.projects.find((x) => x.id === projectMatch[1] && x.userId === user.id); if (!p) throw Object.assign(new Error("Project not found."), { status: 404 }); p.name = String(payload.name || p.name).trim(); p.updatedAt = now(); return p; }); return json(res, 200, { project }); }
+    const videoDeleteMatch = pathname.match(/^\/api\/videos\/([^/]+)$/);
+    if (videoDeleteMatch && req.method === "DELETE") {
+      const removed = await db.transaction((d) => {
+        const video = d.videos.find((item) => item.id === videoDeleteMatch[1] && item.userId === user.id);
+        if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
+        const clips = d.clips.filter((item) => item.videoId === video.id && item.userId === user.id);
+        d.videos = d.videos.filter((item) => item.id !== video.id);
+        d.clips = d.clips.filter((item) => item.videoId !== video.id || item.userId !== user.id);
+        d.jobs = d.jobs.filter((job) => !clips.some((clip) => clip.id === job.clipId));
+        return { video, clips };
+      });
+      for (const clip of removed.clips) await queue.removeExport(clip.downloadUrl);
+      if (removed.video.sourceUrl) {
+        const source = normalize(join(storageDir, removed.video.sourceUrl.slice("/storage/".length)));
+        const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
+        const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === removed.video.sourceUrl));
+        if (!stillReferenced && source.startsWith(storageRoot + "/")) await unlink(source).catch(() => {});
+      }
+      res.writeHead(204); res.end(); return;
+    }
+
     if (req.method === "POST" && pathname === "/api/videos") { const project = await db.read((d) => d.projects.find((p) => p.id === payload.projectId && p.userId === user.id)); if (!project) throw Object.assign(new Error("Project not found."), { status: 404 }); const sourceUrl = payload.sourceUrl || null; if (sourceUrl && (typeof sourceUrl !== "string" || !sourceUrl.startsWith("/storage/uploads/"))) throw Object.assign(new Error("Source video must reference an uploaded file."), { status: 422 }); const duration = Number(payload.duration); if (!Number.isFinite(duration) || duration <= 0) throw Object.assign(new Error("A valid video duration is required."), { status: 422 }); const video = { id: id("vid"), userId: user.id, projectId: project.id, name: String(payload.name || "Untitled video"), duration, sourceUrl, createdAt: now() }; await db.transaction((d) => d.videos.push(video)); return json(res, 201, { video }); }
     if (req.method === "POST" && pathname === "/api/uploads") {
       const user = await requireUser(req, db);
