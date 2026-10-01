@@ -14,7 +14,11 @@ export async function login(db, email, password) {
   const user = await db.read((d) => d.users.find((u) => u.email === String(email).toLowerCase()));
   if (!user || digest(password || "", user.salt) !== user.passwordHash) throw Object.assign(new Error("Invalid email or password."), { status: 401 });
   const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString();\n  await db.transaction((d) => {\n    d.sessions = d.sessions.filter((session) => Date.parse(session.expiresAt) > Date.now());\n    d.sessions.push({ id: id("ses"), token, userId: user.id, expiresAt });\n  });
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString();
+  await db.transaction((d) => {
+    d.sessions = d.sessions.filter((session) => Date.parse(session.expiresAt) > Date.now());
+    d.sessions.push({ id: id("ses"), token, userId: user.id, expiresAt });
+  });
   return { token, user };
 }
 export async function requireUser(req, db) {
