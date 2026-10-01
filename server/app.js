@@ -160,22 +160,29 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         const existingAutoClipsBeforeAnalysis = await db.read((d) => d.clips.filter((clip) =>
           clip.videoId === video.id &&
           clip.userId === user.id &&
-          clip.generation === "auto-ai" &&
-          clip.status !== "failed"
+          clip.generation === "auto-ai"
         ));
-        if (existingAutoClipsBeforeAnalysis.length > 0) {
-          const existingJobMap = new Map(await db.read((d) => d.jobs.filter((job) => existingAutoClipsBeforeAnalysis.some((clip) => clip.id === job.clipId)).map((job) => [job.clipId, job])));
+        const activeAutoClipsBeforeAnalysis = existingAutoClipsBeforeAnalysis.filter((clip) => clip.status !== "failed");
+        if (activeAutoClipsBeforeAnalysis.length > 0) {
+          if (existingAutoClipsBeforeAnalysis.some((clip) => clip.status === "failed")) {
+            const failedIds = new Set(existingAutoClipsBeforeAnalysis.filter((clip) => clip.status === "failed").map((clip) => clip.id));
+            await db.transaction((d) => {
+              d.clips = d.clips.filter((clip) => !failedIds.has(clip.id));
+              d.jobs = d.jobs.filter((job) => !failedIds.has(job.clipId));
+            });
+          }
+          const existingJobMap = new Map(await db.read((d) => d.jobs.filter((job) => activeAutoClipsBeforeAnalysis.some((clip) => clip.id === job.clipId)).map((job) => [job.clipId, job])));
           return json(res, 200, {
             videoId: video.id,
             engine: "clipforge-auto-existing",
-            aiEngine: existingAutoClipsBeforeAnalysis[0].aiEngine || null,
-            aiFallback: existingAutoClipsBeforeAnalysis[0].aiFallback === true,
-            aiError: existingAutoClipsBeforeAnalysis[0].aiError || null,
+            aiEngine: activeAutoClipsBeforeAnalysis[0].aiEngine || null,
+            aiFallback: activeAutoClipsBeforeAnalysis[0].aiFallback === true,
+            aiError: activeAutoClipsBeforeAnalysis[0].aiError || null,
             transcribed: false,
             transcriptCount: Array.isArray(video.transcript) ? video.transcript.length : 0,
             requested: limit,
-            generated: existingAutoClipsBeforeAnalysis.length,
-            clips: existingAutoClipsBeforeAnalysis.slice(0, limit).map((clip) => ({ clip, job: existingJobMap.get(clip.id) || null })),
+            generated: activeAutoClipsBeforeAnalysis.length,
+            clips: activeAutoClipsBeforeAnalysis.slice(0, limit).map((clip) => ({ clip, job: existingJobMap.get(clip.id) || null })),
             reused: true,
           });
         }
