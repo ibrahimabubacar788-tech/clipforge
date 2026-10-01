@@ -77,5 +77,6 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const relativeCandidate = requireRelative(baseDir, candidate);
       if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\") ) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); createReadStream(candidate).pipe(res); } catch { if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } } } catch (error) { json(res, error.status || 500, { error: error.message || "Internal server error" }); } });
   server.clipQueue = queue;
+  server.database = db;
   return server;
 }
