@@ -289,7 +289,8 @@ test("AI highlight analyzer parses a valid Responses API JSON result", async () 
     const result = await rankHighlightsWithAI([
       { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
       { start: 8, end: 16, text: "You need to know why this changed everything." },
-      { start: 24, end: 32, text: "The truth is this was the biggest mistake." }
+      { start: 90, end: 98, text: "The truth is this was the biggest mistake." },
+      { start: 98, end: 106, text: "But the result surprised everyone." }
     ], { limit: 2 });
     assert.equal(result.engine, "openai-highlights-v1");
     assert.equal(result.candidates.length, 2);
