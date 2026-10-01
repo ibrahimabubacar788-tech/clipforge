@@ -233,7 +233,13 @@ async function uploadSource(file) {
   const extension = file.name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
   const fallbackMime = extension === "mp4" ? "video/mp4" : extension === "mov" ? "video/quicktime" : extension === "webm" ? "video/webm" : extension === "m4v" ? "video/x-m4v" : "";
   const contentType = file.type?.startsWith("video/") ? file.type : fallbackMime;
-  if (!contentType) throw new Error("Please choose a video file (MP4, MOV, WebM, or M4V).");
+  if (!contentType) {
+    if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
+    sourcePreviewUrl = null;
+    previewElement?.remove();
+    previewElement = null;
+    throw new Error("Please choose a video file (MP4, MOV, WebM, or M4V).");
+  }
   showToast("Uploading video…");
   const upload = await new Promise((resolve, reject) => {
     let attempts = 0;
