@@ -156,11 +156,12 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
 
       const limit = Math.max(1, Math.min(20, Number(payload.limit) || 12));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
-      const candidates = rankHighlights(segments, {
+      const analysis = await rankHighlightsWithAI(segments, {
         limit,
         minDuration: 15,
         maxDuration: Math.min(75, Math.max(20, Number(video.duration) || 75)),
       });
+      const candidates = analysis.candidates;
       if (!candidates.length) throw Object.assign(new Error("The AI could not find enough strong moments in this video."), { status: 422 });
 
       const created = [];
