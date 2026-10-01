@@ -314,7 +314,20 @@ async function uploadSource(file) {
       : `AI found ${result.generated} clips and started rendering them.`);
     void refreshClipLibraryWhileRendering();
   } catch (error) {
-    if (sourceVideo?.id && error.status !== 409) automaticClipFailures.add(sourceVideo.id);
+    if (sourceVideo?.id && error.status !== 409) {
+      try {
+        const status = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/auto-clip-status`);
+        const hasAutomaticWork = status.total > 0 || status.analysisInProgress;
+        if (hasAutomaticWork) {
+          automaticClipFailures.delete(sourceVideo.id);
+          void pollAutoClipStatus(sourceVideo.id);
+        } else {
+          automaticClipFailures.add(sourceVideo.id);
+        }
+      } catch {
+        automaticClipFailures.add(sourceVideo.id);
+      }
+    }
     if (error.status === 409) {
       showToast("Automatic clipping is already running for this video. We are using the existing job.");
       if (sourceVideo.id) void pollAutoClipStatus(sourceVideo.id);
