@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { createReadStream, createWriteStream } from "node:fs";
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, unlink, writeFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
@@ -42,7 +42,12 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const target = join(storageDir, "uploads", safe);
       let bytes = 0;
       const limited = async function* () { for await (const chunk of req) { bytes += chunk.length; if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 }); yield chunk; } };
-      await pipeline(limited(), createWriteStream(target));
+      try {
+        await pipeline(limited(), createWriteStream(target));
+      } catch (error) {
+        await unlink(target).catch(() => {});
+        throw error;
+      }
       return json(res, 201, { url: `/storage/uploads/${safe}` });
     }
     const downloadMatch = pathname.match(/^\\/api\\/clips\\/([^/]+)\\/download$/);
@@ -65,10 +70,10 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     const clipMatch = pathname.match(/^\/api\/clips\/([^/]+)$/); if (clipMatch && req.method === "DELETE") { const clip = await db.transaction((d) => { const item = d.clips.find((c) => c.id === clipMatch[1] && c.userId === user.id); if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 }); d.clips = d.clips.filter((c) => c.id !== item.id); d.jobs = d.jobs.filter((j) => j.clipId !== item.id); return item; }); await queue.removeExport(clip.downloadUrl); res.writeHead(204); res.end(); return; }
     throw Object.assign(new Error("API route not found."), { status: 404 });
   }
-  const server = createServer(async (req, res) => { try { const url = new URL(req.url, "http://localhost"); if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname); const isStorage = url.pathname.startsWith("/storage/"); const baseDir = isStorage ? storageDir : root;
-      const candidate = normalize(join(baseDir, isStorage ? url.pathname.slice(9) : (url.pathname === "/" ? "index.html" : url.pathname)));
+  const server = createServer(async (req, res) => { try { const url = new URL(req.url, "http://localhost"); if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname); const isStorage = url.pathname.startsWith("/storage/"); if (isStorage) return json(res, 404, { error: "Not found" }); const baseDir = root;
+      const candidate = normalize(join(baseDir, url.pathname === "/" ? "index.html" : url.pathname));
       const relativeCandidate = requireRelative(baseDir, candidate);
-      if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\") ) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); createReadStream(candidate).pipe(res); } catch { if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } else json(res, 404, { error: "Not found" }); } } catch (error) { json(res, error.status || 500, { error: error.message || "Internal server error" }); } });
+      if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\") ) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); createReadStream(candidate).pipe(res); } catch { if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } } } catch (error) { json(res, error.status || 500, { error: error.message || "Internal server error" }); } });
   server.clipQueue = queue;
   return server;
 }
