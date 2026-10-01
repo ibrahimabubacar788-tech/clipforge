@@ -7,12 +7,26 @@ function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
-    const timer = setTimeout(() => { child.kill("SIGKILL"); reject(new Error("Audio extraction timed out.")); }, 15 * 60 * 1000);
-    child.stderr.on("data", (chunk) => {\n      stderr += chunk.toString();\n      if (stderr.length > 12000) stderr = stderr.slice(-12000);\n    });
-    child.on("error", (error) => { clearTimeout(timer); reject(error); });
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error("Audio extraction timed out."));
+    }, 15 * 60 * 1000);
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+      if (stderr.length > 12000) stderr = stderr.slice(-12000);
+    });
+
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+
     child.on("close", (code) => {
       clearTimeout(timer);
-      code === 0 ? resolve() : reject(new Error(`FFmpeg audio extraction failed: ${stderr.slice(-1200)}`));
+      code === 0
+        ? resolve()
+        : reject(new Error(`FFmpeg audio extraction failed: ${stderr.slice(-1200)}`));
     });
   });
 }
@@ -64,6 +78,7 @@ export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
     } finally {
       clearTimeout(timer);
     }
+
     const raw = await response.text();
     let result = {};
     try { result = JSON.parse(raw); } catch { result = { error: { message: raw } }; }
