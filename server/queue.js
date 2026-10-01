@@ -113,7 +113,16 @@ export class ClipQueue {
     await this.checkSubtitleSupport();
     await this.db.transaction((d) => {
       for (const job of d.jobs) {
-        if (job.status === "processing") { job.status = "queued"; job.progress = 0; delete job.startedAt; }
+        if (job.status === "processing") {
+          job.status = "queued";
+          job.progress = 0;
+          delete job.startedAt;
+          const clip = d.clips.find((item) => item.id === job.clipId);
+          if (clip && clip.status === "processing") {
+            clip.status = "queued";
+            clip.updatedAt = now();
+          }
+        }
       }
     });
     void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error));
