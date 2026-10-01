@@ -8,6 +8,7 @@ import { login, logout, publicUser, register, requireUser } from "./auth.js";
 import { ClipQueue } from "./queue.js";
 import { rankHighlights } from "./highlights.js";
 import { parseTimestampedTranscript, normalizeTranscript } from "./transcript.js";
+import { transcribeVideo } from "./stt.js";
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".mp4": "video/mp4" };
 const json = (res, status, value) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(value)); };
 async function body(req) { let raw = ""; for await (const part of req) { raw += part; if (raw.length > 25_000_000) throw Object.assign(new Error("Request body too large."), { status: 413 }); } try { return raw ? JSON.parse(raw) : {}; } catch { throw Object.assign(new Error("Malformed JSON body."), { status: 400 }); } }
@@ -68,6 +69,25 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (videosQuery && req.method === "GET") {
       const projectId = new URL(req.url, "http://clipforge.local").searchParams.get("projectId");
       return json(res, 200, { videos: await db.read((d) => own(d.videos, user).filter((video) => !projectId || video.projectId === projectId)) });
+    }
+
+    const autoTranscriptMatch = pathname.match(/^\/api\/videos\/([^/]+)\/transcribe$/);
+    if (req.method === "POST" && autoTranscriptMatch) {
+      const video = await db.read((d) => d.videos.find((item) => item.id === autoTranscriptMatch[1] && item.userId === user.id));
+      if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
+      if (!video.sourceUrl) throw Object.assign(new Error("Video has no uploaded source file."), { status: 422 });
+      const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
+      const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
+      if (!source.startsWith(storageRoot + "/") && !source.startsWith(storageRoot + "\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
+      const transcript = await transcribeVideo({ source, ffmpegPath: queue.ffmpegPath });
+      if (!transcript.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
+      await db.transaction((d) => {
+        const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+        item.transcript = transcript;
+        item.transcriptFormat = "auto-stt";
+        item.transcriptUpdatedAt = now();
+      });
+      return json(res, 200, { videoId: video.id, count: transcript.length, transcript, provider: "openai" });
     }
 
     const transcriptMatch = pathname.match(/^\/api\/videos\/([^/]+)\/transcript$/);
