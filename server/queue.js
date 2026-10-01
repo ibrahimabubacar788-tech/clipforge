@@ -92,6 +92,21 @@ function videoFilter(clip) {
 
 export class ClipQueue {
   constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; }
+  async checkSubtitleSupport() {
+    return new Promise((resolve) => {
+      const child = spawn(this.ffmpegPath, ["-hide_banner", "-filters"], { stdio: ["ignore", "pipe", "pipe"] });
+      let output = "";
+      child.stdout.on("data", (chunk) => { output += chunk; });
+      child.stderr.on("data", (chunk) => { output += chunk; });
+      child.on("error", (error) => { console.warn("ClipForge FFmpeg capability check failed:", error.message); resolve(false); });
+      child.on("close", () => {
+        const supported = /\\bsubtitles\\b/.test(output);
+        console.log(`ClipForge FFmpeg subtitles filter: ${supported ? "available" : "unavailable"}`);
+        resolve(supported);
+      });
+    });
+  }
+
   async recover() {
     await this.db.transaction((d) => {
       for (const job of d.jobs) {
