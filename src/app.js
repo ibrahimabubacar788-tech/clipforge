@@ -270,6 +270,34 @@ async function uploadSource(file) {
   showToast(`${file.name} is ready to clip.`);
 }
 
+async function refreshClipStatuses({ showReadyToast = false } = {}) {
+  if (!apiSession || !clips.length) return;
+  try {
+    const previous = new Map(clips.map((clip) => [clip.id, clip.status]));
+    clips = (await api("/api/clips")).clips;
+    renderClipLibrary();
+    if (showReadyToast) {
+      const becameReady = clips.filter((clip) => previous.get(clip.id) && previous.get(clip.id) !== "ready" && clip.status === "ready");
+      if (becameReady.length) showToast(`${becameReady.length} clip${becameReady.length === 1 ? "" : "s"} ready to download.`);
+    }
+  } catch {
+    // A temporary polling failure should not interrupt editing.
+  }
+}
+
+let statusPollTimer;
+function startClipStatusPolling() {
+  window.clearInterval(statusPollTimer);
+  if (!clips.some((clip) => !["ready", "failed"].includes(clip.status))) return;
+  statusPollTimer = window.setInterval(async () => {
+    await refreshClipStatuses({ showReadyToast: true });
+    if (!clips.some((clip) => !["ready", "failed"].includes(clip.status))) {
+      window.clearInterval(statusPollTimer);
+      statusPollTimer = undefined;
+    }
+  }, 2500);
+}
+
 function renderClipLibrary() {
   clipCount.textContent = clips.length;
   const query = libraryQuery.trim().toLowerCase();
@@ -432,6 +460,7 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
     transcriptDialog.close();
     clips = [...result.clips.map((item) => item.clip), ...clips];
     renderClipLibrary();
+    startClipStatusPolling();
     showToast(`AI ranked ${result.generated} clips and queued them for rendering.`);
   } catch (error) {
     showToast(error.message);
@@ -569,6 +598,7 @@ clipLibrary.addEventListener("click", async (event) => {
 renderClipLibrary();
 updateRange();
 applyCaptionStyle();
+startClipStatusPolling();
 ensureWorkspace();
 
 window.addEventListener("keydown", (event) => {
