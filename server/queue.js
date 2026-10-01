@@ -143,7 +143,6 @@ export class ClipQueue {
         await unlink(watermarkPath).catch(()=>{});
         for(const p of captionPaths) await unlink(p).catch(()=>{});
       }
-    }
     } catch (error) {
       await unlink(output).catch(() => {});
       throw error;
