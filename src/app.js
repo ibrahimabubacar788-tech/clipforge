@@ -366,11 +366,14 @@ function renderClipLibrary() {
     const format = escapeHtml(clip.format || "9:16");
     const formatClass = format.replace(/:/g, "-");
     const clipId = escapeHtml(clip.id);
+    const progress = Math.max(0, Math.min(100, Number(clip.renderProgress) || 0));
     const status = clip.status === "ready"
       ? `<button class="download-clip" type="button" data-download-clip="${clipId}">Download</button>`
       : clip.status === "failed"
         ? `<div class="clip-status-actions"><small>Render failed</small><button class="retry-clip" type="button" data-retry-clip="${clipId}">Retry</button></div>`
-        : `<small class="rendering-status">Rendering…</small>`;
+        : clip.renderJobStatus === "queued"
+          ? `<small class="rendering-status">Queued for rendering…</small>`
+          : `<small class="rendering-status">Rendering… ${progress}%</small>`;
     return `<article class="clip-card"><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
   }).join("");
 }
