@@ -10,6 +10,12 @@ const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; cha
 const json = (res, status, value) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(value)); };
 async function body(req) { let raw = ""; for await (const part of req) { raw += part; if (raw.length > 25_000_000) throw Object.assign(new Error("Request body too large."), { status: 413 }); } try { return raw ? JSON.parse(raw) : {}; } catch { throw Object.assign(new Error("Malformed JSON body."), { status: 400 }); } }
 const own = (items, user) => items.filter((item) => item.userId === user.id);
+const requireRelative = (base, target) => {
+  const normalizedBase = normalize(base).replace(/[\\/]$/, "");
+  const normalizedTarget = normalize(target);
+  if (normalizedTarget === normalizedBase) return "";
+  return normalizedTarget.slice(normalizedBase.length + 1);
+};
 export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "data", "clipforge.json"), storageDir = join(process.cwd(), "storage") } = {}) {
   const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);
   async function api(req, res, pathname) {
@@ -59,7 +65,10 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     const clipMatch = pathname.match(/^\/api\/clips\/([^/]+)$/); if (clipMatch && req.method === "DELETE") { const clip = await db.transaction((d) => { const item = d.clips.find((c) => c.id === clipMatch[1] && c.userId === user.id); if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 }); d.clips = d.clips.filter((c) => c.id !== item.id); d.jobs = d.jobs.filter((j) => j.clipId !== item.id); return item; }); await queue.removeExport(clip.downloadUrl); return json(res, 204, {}); }
     throw Object.assign(new Error("API route not found."), { status: 404 });
   }
-  const server = createServer(async (req, res) => { try { const url = new URL(req.url, "http://localhost"); if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname); const isStorage = url.pathname.startsWith("/storage/"); const candidate = normalize(join(isStorage ? storageDir : root, isStorage ? url.pathname.slice(9) : (url.pathname === "/" ? "index.html" : url.pathname))); if (!candidate.startsWith(isStorage ? storageDir : root)) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); createReadStream(candidate).pipe(res); } catch { if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } else json(res, 404, { error: "Not found" }); } } catch (error) { json(res, error.status || 500, { error: error.message || "Internal server error" }); } });
+  const server = createServer(async (req, res) => { try { const url = new URL(req.url, "http://localhost"); if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname); const isStorage = url.pathname.startsWith("/storage/"); const baseDir = isStorage ? storageDir : root;
+      const candidate = normalize(join(baseDir, isStorage ? url.pathname.slice(9) : (url.pathname === "/" ? "index.html" : url.pathname)));
+      const relativeCandidate = requireRelative(baseDir, candidate);
+      if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\") ) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); createReadStream(candidate).pipe(res); } catch { if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } else json(res, 404, { error: "Not found" }); } } catch (error) { json(res, error.status || 500, { error: error.message || "Internal server error" }); } });
   server.clipQueue = queue;
   return server;
 }
