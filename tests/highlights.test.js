@@ -1,0 +1,35 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { rankHighlights } from "../server/highlights.js";
+
+test("highlight engine returns ranked non-overlapping candidates with speaker data", () => {
+  const segments = [];
+  for (let i = 0; i < 12; i += 1) {
+    const start = i * 5;
+    const text = i === 2
+      ? "Here is the thing: the biggest mistake creators make is waiting too long because the audience needs the answer now!"
+      : `This is supporting transcript sentence number ${i} with useful context for the audience.`;
+    segments.push({ start, end: start + 5, text, speaker: i % 2 ? "SPEAKER B" : "SPEAKER A" });
+  }
+  const candidates = rankHighlights(segments, { limit: 40, minDuration: 15, maxDuration: 75 });
+  assert.ok(candidates.length > 0);
+  assert.ok(candidates.length <= 40);
+  assert.equal(candidates[0].rank, 1);
+  assert.ok(candidates[0].score > 0);
+  assert.ok(candidates[0].transcript.includes("biggest mistake"));
+  assert.ok(candidates[0].speakers.includes("SPEAKER A"));
+  assert.ok(candidates.every((item) => item.duration >= 15 && item.duration <= 75));
+  for (let i = 1; i < candidates.length; i += 1) {
+    assert.ok(Math.max(candidates[i - 1].start, candidates[i].start) >= Math.min(candidates[i - 1].end, candidates[i].end) - 2);
+  }
+});
+
+test("highlight engine ignores malformed transcript segments", () => {
+  const candidates = rankHighlights([
+    { start: 0, end: 0, text: "bad" },
+    { start: "nope", end: 2, text: "bad" },
+    { start: 0, end: 20, text: "A valid story about how something finally worked." },
+  ], { limit: 40 });
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].start, 0);
+});
