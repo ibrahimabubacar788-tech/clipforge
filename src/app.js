@@ -219,7 +219,7 @@ async function uploadSource(file) {
     probe.src = probeUrl;
   });
 
-  if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl);
+  if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
   sourcePreviewUrl = URL.createObjectURL(file);
   previewElement = document.createElement("video");
   previewElement.className = "source-video";
