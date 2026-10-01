@@ -237,4 +237,24 @@ test("projects are isolated by user", async (t) => {
   assert.equal(update.status, 404);
 });
 
+
+
+test("queue recovery requeues interrupted processing jobs and clips", async (t) => {
+  const { server } = await app();
+  t.after(() => server.close());
+  await server.database.transaction((d) => {
+    d.clips.push({ id: "clip-recovery", userId: "user-recovery", status: "processing", start: 0, end: 2, sourceUrl: "/storage/uploads/example.mp4" });
+    d.jobs.push({ id: "job-recovery", clipId: "clip-recovery", status: "processing", progress: 62, startedAt: "2026-10-01T00:00:00.000Z" });
+  });
+  await server.clipQueue.recover();
+  const state = await server.database.read((d) => ({
+    job: d.jobs.find((item) => item.id === "job-recovery"),
+    clip: d.clips.find((item) => item.id === "clip-recovery")
+  }));
+  assert.equal(state.job.status, "queued");
+  assert.equal(state.job.progress, 0);
+  assert.equal(state.job.startedAt, undefined);
+  assert.equal(state.clip.status, "queued");
+  assert.ok(state.clip.updatedAt);
+});
 test("clip validation rejects ranges outside the source duration", async (t) => { const { server, base } = await app(); t.after(() => server.close()); const user = await request(base, "/api/auth/register", "POST", { email: "range@example.com", password: "password-123" }); const project = await request(base, "/api/projects", "POST", { name: "P" }, user.body.token); const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, duration: 10, sourceUrl: "/storage/uploads/example.mp4" }, user.body.token); const bad = await request(base, "/api/clips", "POST", { videoId: video.body.video.id, start: 0, end: 11 }, user.body.token); assert.equal(bad.status, 422); });
