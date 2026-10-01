@@ -370,6 +370,47 @@ document.querySelectorAll(".handle").forEach((handle) => {
 
 document.querySelector("#apply-hook").addEventListener("click", () => { startInput.value = 124; endInput.value = 148; updateRange(); showToast("Smart-cut hook applied."); });
 
+const transcriptDialog = document.querySelector("#transcript-dialog");
+const transcriptInput = document.querySelector("#transcript-input");
+
+function parseTranscript(rawText) {
+  return rawText.split("\n").map((line) => {
+    const parts = line.split("|").map((part) => part.trim());
+    if (parts.length < 4) return null;
+    const start = Number(parts[0]);
+    const end = Number(parts[1]);
+    const speaker = parts[2] || undefined;
+    const text = parts.slice(3).join(" | ").trim();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !text) return null;
+    return { start, end, speaker, text };
+  }).filter(Boolean);
+}
+
+document.querySelector("#generate-ai-clips")?.addEventListener("click", () => {
+  if (!sourceVideo) { showToast("Upload a source video first."); return; }
+  transcriptDialog.showModal();
+});
+
+document.querySelector("#run-ai-generation")?.addEventListener("click", async (event) => {
+  event.preventDefault();
+  try {
+    if (!sourceVideo) throw new Error("Upload a source video first.");
+    const segments = parseTranscript(transcriptInput.value);
+    if (!segments.length) throw new Error("Add at least one valid transcript line.");
+    const format = document.querySelector(".format-option.selected").dataset.format;
+    const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/generate-clips`, {
+      method: "POST",
+      body: JSON.stringify({ segments, limit: 40, format, style: captionStyle })
+    });
+    transcriptDialog.close();
+    clips = [...result.clips.map((item) => item.clip), ...clips];
+    renderClipLibrary();
+    showToast(`AI ranked ${result.generated} clips and queued them for rendering.`);
+  } catch (error) {
+    showToast(error.message);
+  }
+});
+
 function openStyleDialog() { styleDialog.showModal(); }
 document.querySelector("#style-button").addEventListener("click", openStyleDialog);
 document.querySelectorAll("[data-open-style]").forEach((button) => button.addEventListener("click", openStyleDialog));
