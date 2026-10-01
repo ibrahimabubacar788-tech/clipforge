@@ -226,7 +226,11 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     const clipMatch = pathname.match(/^\/api\/clips\/([^/]+)$/); if (clipMatch && req.method === "DELETE") { const clip = await db.transaction((d) => { const item = d.clips.find((c) => c.id === clipMatch[1] && c.userId === user.id); if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 }); d.clips = d.clips.filter((c) => c.id !== item.id); d.jobs = d.jobs.filter((j) => j.clipId !== item.id); return item; }); await queue.removeExport(clip.downloadUrl); res.writeHead(204); res.end(); return; }
     throw Object.assign(new Error("API route not found."), { status: 404 });
   }
-  const server = createServer(async (req, res) => { try { const url = new URL(req.url, "http://localhost"); if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname); const isStorage = url.pathname.startsWith("/storage/"); if (isStorage) return json(res, 404, { error: "Not found" }); const baseDir = root;
+  const server = createServer(async (req, res) => { try {
+      res.setHeader("x-content-type-options", "nosniff");
+      res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
+      res.setHeader("x-frame-options", "SAMEORIGIN");
+      const url = new URL(req.url, "http://localhost"); if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname); const isStorage = url.pathname.startsWith("/storage/"); if (isStorage) return json(res, 404, { error: "Not found" }); const baseDir = root;
       const candidate = normalize(join(baseDir, url.pathname === "/" ? "index.html" : url.pathname));
       const relativeCandidate = requireRelative(baseDir, candidate);
       if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); createReadStream(candidate).pipe(res); } catch { if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } } } catch (error) { json(res, error.status || 500, { error: error.message || "Internal server error" }); } });
