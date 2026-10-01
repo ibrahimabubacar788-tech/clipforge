@@ -700,6 +700,11 @@ async function pollAutoClipStatus(videoId) {
       const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
       clips = [...status.clips, ...clips.filter((clip) => clip.videoId !== videoId && clip.projectId === currentProject?.id)];
       renderClipLibrary();
+      if (status.total === 0) {
+        showToast(status.transcriptReady
+          ? "AI has finished transcription and is selecting the strongest moments…"
+          : "AI is transcribing your video and preparing the best moments…");
+      }
       if (status.total > 0 && status.processing === 0) {
         showToast(status.failed ? `Automatic clipping finished: ${status.ready} clips ready, ${status.failed} failed.` : `Automatic clipping finished: ${status.ready} clips are ready.`);
         return;
