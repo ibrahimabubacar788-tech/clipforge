@@ -18,6 +18,7 @@ const sourceUpload = document.querySelector("#source-upload");
 const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
 const projectSelect = document.querySelector("#project-select");
+const deleteProjectButton = document.querySelector("#delete-project");
 const fullscreenButton = document.querySelector("#fullscreen-button");
 const volumeInput = document.querySelector("#volume-input");
 let libraryQuery = "";
@@ -612,6 +613,33 @@ document.querySelector("#rename-project")?.addEventListener("click", async () =>
     showToast("Project renamed.");
   } catch (error) {
     showToast(`Could not rename project: ${error.message}`);
+  }
+});
+
+deleteProjectButton?.addEventListener("click", async () => {
+  if (!currentProject) return;
+  try {
+    const { projects } = await api("/api/projects");
+    if (projects.length <= 1) {
+      showToast("Keep at least one project in ClipForge.");
+      return;
+    }
+    const projectName = currentProject.name;
+    if (!window.confirm(`Delete "${projectName}"? This removes its videos and clips.`)) return;
+    deleteProjectButton.disabled = true;
+    const deletedId = currentProject.id;
+    await api(`/api/projects/${encodeURIComponent(deletedId)}`, { method: "DELETE" });
+    const remaining = projects.filter((project) => project.id !== deletedId);
+    currentProject = remaining[0];
+    renderProjectSelector(remaining);
+    await loadProject(currentProject.id);
+    showToast("Project deleted.");
+  } catch (error) {
+    showToast(error.status === 409
+      ? "This project still has active processing. Try again when rendering finishes."
+      : `Could not delete project: ${error.message}`);
+  } finally {
+    deleteProjectButton.disabled = false;
   }
 });
 
