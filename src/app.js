@@ -670,8 +670,10 @@ document.querySelector("#delete-source-video")?.addEventListener("click", async 
   const button = document.querySelector("#delete-source-video");
   button.disabled = true;
   try {
-    await api("/api/videos/" + encodeURIComponent(sourceVideo.id), { method: "DELETE" });
-    clips = clips.filter((clip) => clip.videoId !== sourceVideo.id);
+    const deletedVideoId = sourceVideo.id;
+    automaticClipFailures.add(deletedVideoId);
+    await api("/api/videos/" + encodeURIComponent(deletedVideoId), { method: "DELETE" });
+    clips = clips.filter((clip) => clip.videoId !== deletedVideoId);
     saveClips();
     clearSourcePreview();
     button.hidden = true;
@@ -843,10 +845,12 @@ deleteProjectButton?.addEventListener("click", async () => {
     const projectName = currentProject.name;
     if (!window.confirm(`Delete "${projectName}"? This removes its videos and clips.`)) return;
     deleteProjectButton.disabled = true;
+    workspaceLoadVersion += 1;
     const deletedId = currentProject.id;
     await api(`/api/projects/${encodeURIComponent(deletedId)}`, { method: "DELETE" });
     const remaining = projects.filter((project) => project.id !== deletedId);
     currentProject = remaining[0];
+    selectedClipIds.clear();
     renderProjectSelector(remaining);
     await loadProject(currentProject.id);
     showToast("Project deleted.");
