@@ -1275,7 +1275,13 @@ async function deleteSelectedClips() {
       if (result.status === "fulfilled") deletedIds.add(selected[index].id);
       else failed += 1;
     });
-    for (const id of deletedIds) selectedClipIds.delete(id);
+    for (const id of deletedIds) {
+      selectedClipIds.delete(id);
+      favoriteClipIds.delete(id);
+    }
+    if (deletedIds.size) {
+      window.localStorage.setItem(favoriteKey, JSON.stringify([...favoriteClipIds]));
+    }
     clips = clips.filter((clip) => !deletedIds.has(clip.id));
     renderClipLibrary();
     showToast(failed ? `Deleted ${deletedIds.size}; ${failed} could not be deleted.` : `Deleted ${deletedIds.size} selected clip${deletedIds.size === 1 ? "" : "s"}.`);
