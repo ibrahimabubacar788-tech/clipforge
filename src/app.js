@@ -1219,6 +1219,7 @@ clipLibrary.addEventListener("change", (event) => {
   updateBulkClipControls();
 });
 async function batchRenameClips() {
+  const renameProjectId = currentProject?.id;
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && ["ready", "failed"].includes(clip.status));
   if (!selected.length) return;
   const prefix = window.prompt("Enter a title prefix for the selected clips:", "Clip");
@@ -1227,6 +1228,10 @@ async function batchRenameClips() {
   if (!cleanPrefix) { showToast("Enter a title prefix."); return; }
   let renamed = 0;
   for (const [index, clip] of selected.entries()) {
+    if (currentProject?.id !== renameProjectId) {
+      showToast("Workspace changed while batch rename was running. Remaining clips were left unchanged.");
+      return;
+    }
     try {
       const result = await api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "PATCH", body: JSON.stringify({ title: `${cleanPrefix} ${index + 1}` }) });
       const updated = result.clip || result;
@@ -1237,6 +1242,7 @@ async function batchRenameClips() {
       showToast(error.message);
     }
   }
+  if (currentProject?.id !== renameProjectId) return;
   renderClipLibrary();
   showToast(`${renamed} of ${selected.length} clip${selected.length === 1 ? "" : "s"} renamed.`);
 }
