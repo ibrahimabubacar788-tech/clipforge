@@ -15,3 +15,5 @@
 .library-delete-selected{border-color:rgba(255,110,110,.35)}
 
 .library-sort-row{display:flex;align-items:center;gap:8px;margin-top:10px}.library-sort-row .field-label{margin:0}.library-sort-row select{min-width:150px}
+
+.library-summary{margin-top:8px;font-size:12px;opacity:.72}
