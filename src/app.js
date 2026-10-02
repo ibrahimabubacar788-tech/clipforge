@@ -53,6 +53,7 @@ const selectRenderingClipsButton = document.querySelector("#select-rendering-cli
 const selectAllStatusClipsButton = document.querySelector("#select-all-status-clips");
 const invertClipSelectionButton = document.querySelector("#invert-clip-selection");
 const selectVisibleClipsButton = document.querySelector("#select-visible-clips");
+const selectReadyClipsButton = document.querySelector("#select-ready-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -850,7 +851,7 @@ selectRenderingClipsButton?.addEventListener("click", () => { selectedClipIds.cl
 selectAllStatusClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
 invertClipSelectionButton?.addEventListener("click", () => { const next = new Set(clips.map((clip) => clip.id).filter((id) => !selectedClipIds.has(id))); selectedClipIds.clear(); next.forEach((id) => selectedClipIds.add(id)); renderClipLibrary(); });
 selectVisibleClipsButton?.addEventListener("click", () => { const query = libraryQuery.trim().toLowerCase(); const visible = clips.filter((clip) => { const title = String(clip.title || ""); const matchesQuery = !query || title.toLowerCase().includes(query); const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter); return matchesQuery && matchesFilter; }); selectedClipIds.clear(); visible.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });retryFailedClipsButton?.addEventListener("click", async () => {
-  const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
+selectReadyClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => clip.status === "ready").forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });  const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
   if (!failed.length) return;
   retryFailedClipsButton.disabled = true;
   let retried = 0;
