@@ -4,6 +4,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+const { rankHighlights } = await import("../server/highlights.js");
+const { normalizeTranscriptionResponse } = await import("../server/stt.js");
+
 process.env.DATABASE_URL = "";
 process.env.DATABASE_SSL = "false";
 
@@ -108,4 +111,36 @@ test("upload rejects non-video payloads before writing media", async () => {
   } finally {
     await stopTestApp(ctx);
   }
+});
+
+
+test("highlight engine ranks strong moments and caps output at 40", () => {
+  const segments = Array.from({ length: 80 }, (_, index) => ({
+    start: index * 20,
+    end: index * 20 + 20,
+    text: index % 3 === 0
+      ? "Here's the thing: this is the biggest mistake, and the result changes everything!"
+      : "This is a useful discussion about what happened next and why it matters.",
+    speaker: index % 2 ? "A" : "B",
+  }));
+  const clips = rankHighlights(segments, { limit: 40 });
+  assert.equal(clips.length, 40);
+  assert.equal(clips[0].rank, 1);
+  assert.ok(clips.every((clip) => clip.duration >= 15 && clip.duration <= 75));
+  assert.ok(clips.every((clip, index) => clip.rank === index + 1));
+});
+
+test("transcription normalization keeps valid diarized segments and drops invalid ones", () => {
+  const result = normalizeTranscriptionResponse({
+    segments: [
+      { start: 0, end: 4.5, speaker: "A", text: " Hello world " },
+      { start: 5, end: 4, speaker: "B", text: "invalid" },
+      { start: "x", end: 9, text: "invalid" },
+      { start: 10, end: 14, text: " Second segment " },
+    ],
+  });
+  assert.deepEqual(result, [
+    { start: 0, end: 4.5, speaker: "A", text: "Hello world" },
+    { start: 10, end: 14, text: "Second segment" },
+  ]);
 });
