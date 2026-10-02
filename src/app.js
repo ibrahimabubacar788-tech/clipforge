@@ -328,8 +328,10 @@ async function uploadSource(file) {
     if (!apiSession || !currentProject) throw new Error("ClipForge could not connect your workspace. Refresh and try again.");
   }
   const uploadProjectId = currentProject.id;
+  const previousSourceVideo = sourceVideo;
   if (uploadInFlight) throw new Error("Another video upload is already in progress.");
   uploadInFlight = true;
+  let uploadCommitted = false;
   try {
   const probe = document.createElement("video");
   const probeUrl = URL.createObjectURL(file);
@@ -411,6 +413,7 @@ async function uploadSource(file) {
     return;
   }
   sourceVideo = uploadedVideo;
+  uploadCommitted = true;
   const deleteSourceButton = document.querySelector("#delete-source-video");
   if (deleteSourceButton) deleteSourceButton.hidden = false;
   timelineMaximum = Math.max(1, Math.floor(duration));
@@ -476,6 +479,11 @@ async function uploadSource(file) {
     }
   }
   } finally {
+    if (!uploadCommitted) {
+      if (previousSourceVideo?.id) restoreSourcePreview(previousSourceVideo);
+      else clearSourcePreview();
+      uploadProgress?.setAttribute("hidden", "");
+    }
     uploadInFlight = false;
     activeUploadRequest = null;
   }
