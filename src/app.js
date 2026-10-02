@@ -450,9 +450,12 @@ async function uploadSource(file) {
 
 async function refreshClipStatuses({ showReadyToast = false } = {}) {
   if (!apiSession || !clips.length) return;
+  const pollingProjectId = currentProject?.id;
   try {
     const previous = new Map(clips.map((clip) => [clip.id, clip.status]));
-    clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
+    const result = await api("/api/clips");
+    if (currentProject?.id !== pollingProjectId) return;
+    clips = result.clips.filter((clip) => clip.projectId === pollingProjectId);
     renderClipLibrary();
     if (showReadyToast) {
       const becameReady = clips.filter((clip) => previous.get(clip.id) && previous.get(clip.id) !== "ready" && clip.status === "ready");
