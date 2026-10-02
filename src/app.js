@@ -25,7 +25,7 @@ const clipSort = document.querySelector("#clip-sort");
 const librarySummary = document.querySelector("#clip-status-summary" );
 const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
-const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");
+const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");\nconst refreshClipsButton = document.querySelector("#refresh-clips");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
 const fullscreenButton = document.querySelector("#fullscreen-button");
@@ -779,7 +779,7 @@ document.querySelector("#export-button").addEventListener("click", async () => {
 
 clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; renderClipLibrary(); });
 clipFilter?.addEventListener("change", () => { libraryFilter = clipFilter.value; renderClipLibrary(); });
-clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });
+clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });\n\nrefreshClipsButton?.addEventListener("click", async () => {\n  if (!apiSession || !currentProject) return;\n  refreshClipsButton.disabled = true;\n  refreshClipsButton.textContent = "Refreshing…";\n  try {\n    await refreshClipStatuses({ showReadyToast: true });\n    showToast("Clip library refreshed.");\n  } catch (error) {\n    showToast(`Could not refresh clips: ${error.message}`);\n  } finally {\n    refreshClipsButton.disabled = false;\n    refreshClipsButton.textContent = "Refresh";\n  }\n});
 
 document.addEventListener("keydown", (event) => {
   if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
