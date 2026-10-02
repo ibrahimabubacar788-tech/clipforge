@@ -13,6 +13,7 @@
 .clip-select{display:flex;align-items:flex-start;padding-top:3px}.clip-select input{width:16px;height:16px;accent-color:#baa5ff}.library-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.library-tools .primary-button,.library-tools .ghost-button{font-size:12px;padding:8px 12px}.library-download-selected:disabled{opacity:.45;cursor:not-allowed}
 
 .library-delete-selected{border-color:rgba(255,110,110,.35)}
+.library-clear-filters{border-color:rgba(186,165,255,.35)}
 
 .library-sort-row{display:flex;align-items:center;gap:8px;margin-top:10px}.library-sort-row .field-label{margin:0}.library-sort-row select{min-width:150px}
 
