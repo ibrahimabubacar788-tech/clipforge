@@ -419,7 +419,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       res.writeHead(204); res.end(); return;
     }
 
-    if (projectMatch && req.method === "PATCH") { const project = await db.transaction((d) => { const p = d.projects.find((x) => x.id === projectMatch[1] && x.userId === user.id); if (!p) throw Object.assign(new Error("Project not found."), { status: 404 }); p.name = String(payload.name || p.name).trim(); p.updatedAt = now(); return p; }); return json(res, 200, { project }); }
+    if (projectMatch && req.method === "PATCH") { const project = await db.transaction((d) => { const p = d.projects.find((x) => x.id === projectMatch[1] && x.userId === user.id); if (!p) throw Object.assign(new Error("Project not found."), { status: 404 }); const name = String(payload.name ?? "").trim(); if (!name) throw Object.assign(new Error("A project name is required."), { status: 422 }); if (name.length > 120) throw Object.assign(new Error("Project name must be 120 characters or fewer."), { status: 422 }); p.name = name; p.updatedAt = now(); return p; }); return json(res, 200, { project }); }
     const videoDeleteMatch = pathname.match(/^\/api\/videos\/([^/]+)$/);
     if (videoDeleteMatch && req.method === "DELETE") {
       const removed = await db.transaction((d) => {
