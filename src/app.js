@@ -55,6 +55,7 @@ const invertClipSelectionButton = document.querySelector("#invert-clip-selection
 const selectVisibleClipsButton = document.querySelector("#select-visible-clips");
 const selectReadyClipsButton = document.querySelector("#select-ready-clips");
 const selectUntaggedClipsButton = document.querySelector("#select-untagged-clips");
+const selectCaptionedClipsButton = document.querySelector("#select-captioned-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -895,7 +896,12 @@ selectVisibleClipsButton?.addEventListener("click", () => {
 });
 selectReadyClipsButton?.addEventListener("click", () => {
 selectUntaggedClipsButton?.addEventListener("click", () => {
-  const uncaptioned = clips.filter((clip) => !clip.captions);
+selectCaptionedClipsButton?.addEventListener("click", () => {
+  const captioned = clips.filter((clip) => Boolean(clip.captions));
+  const allSelected = captioned.length > 0 && captioned.every((clip) => selectedClipIds.has(clip.id));
+  captioned.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});  const uncaptioned = clips.filter((clip) => !clip.captions);
   const allSelected = uncaptioned.length > 0 && uncaptioned.every((clip) => selectedClipIds.has(clip.id));
   uncaptioned.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
   renderClipLibrary();
