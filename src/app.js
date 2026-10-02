@@ -887,13 +887,17 @@ document.querySelector("#save-style").addEventListener("click", () => {
   showToast("Caption style saved for future exports.");
 });
 
-document.querySelector("#rename-project")?.addEventListener("click", async () => {
-  if (!currentProject) return;
+const renameProjectButton = document.querySelector("#rename-project");
+renameProjectButton?.addEventListener("click", async () => {
+  if (!currentProject || renameProjectButton.disabled) return;
   const nextName = window.prompt("Rename project", currentProject.name);
   if (nextName === null) return;
   const name = nextName.trim();
   if (!name) { showToast("Project name cannot be empty."); return; }
   if (name.length > 120) { showToast("Project name must be 120 characters or fewer."); return; }
+  renameProjectButton.disabled = true;
+  const originalRenameLabel = renameProjectButton.textContent;
+  renameProjectButton.textContent = "Renaming…";
   try {
     const renamedProjectId = currentProject.id;
     const result = await api(`/api/projects/${encodeURIComponent(renamedProjectId)}`, {
@@ -913,6 +917,9 @@ document.querySelector("#rename-project")?.addEventListener("click", async () =>
     showToast("Project renamed.");
   } catch (error) {
     showToast(`Could not rename project: ${error.message}`);
+  } finally {
+    renameProjectButton.disabled = false;
+    renameProjectButton.textContent = originalRenameLabel;
   }
 });
 
