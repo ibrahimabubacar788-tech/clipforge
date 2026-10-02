@@ -549,11 +549,14 @@ function renderClipLibrary() {
 }
 
 async function refreshClipLibraryWhileRendering() {
+  const pollingProjectId = currentProject?.id;
   for (let attempt = 0; attempt < 450; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (currentProject?.id !== pollingProjectId) return;
     try {
       const result = await api("/api/clips");
-      clips = result.clips.filter((clip) => clip.projectId === currentProject?.id);
+      if (currentProject?.id !== pollingProjectId) return;
+      clips = result.clips.filter((clip) => clip.projectId === pollingProjectId);
       renderClipLibrary();
       if (!clips.some((clip) => !["ready", "failed"].includes(clip.status))) break;
     } catch {
