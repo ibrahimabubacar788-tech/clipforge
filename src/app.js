@@ -593,7 +593,7 @@ document.querySelector("#save-style").addEventListener("click", () => {
   showToast("Caption style saved for future exports.");
 });
 
-document.querySelector("#workspace-title")?.addEventListener("click", async () => {
+document.querySelector("#rename-project")?.addEventListener("click", async () => {
   if (!currentProject) return;
   const nextName = window.prompt("Rename project", currentProject.name);
   if (nextName === null) return;
