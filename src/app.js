@@ -12,6 +12,9 @@ const playbackButton = document.querySelector("#play-button");
 const playhead = document.querySelector("#playhead");
 const clipCount = document.querySelector("#clip-count");
 const clipLibrary = document.querySelector("#clip-library");
+const clipPreviewDialog = document.querySelector("#clip-preview-dialog");
+const clipPreviewVideo = document.querySelector("#clip-preview-video");
+const clipPreviewTitle = document.querySelector("#clip-preview-title");
 const clipsEmpty = document.querySelector("#clips-empty");
 const styleDialog = document.querySelector("#style-dialog");
 const sourceUpload = document.querySelector("#source-upload");
@@ -401,7 +404,7 @@ function renderClipLibrary() {
     const clipId = escapeHtml(clip.id);
     const progress = Math.max(0, Math.min(100, Number(clip.renderProgress) || 0));
     const status = clip.status === "ready"
-      ? `<button class="download-clip" type="button" data-download-clip="${clipId}">Download</button>`
+      ? `<div class="clip-status-actions"><button class="preview-clip" type="button" data-preview-clip="${clipId}">Preview</button><button class="download-clip" type="button" data-download-clip="${clipId}">Download</button></div>`
       : clip.status === "failed"
         ? `<div class="clip-status-actions"><small>Render failed</small><button class="retry-clip" type="button" data-retry-clip="${clipId}">Retry</button></div>`
         : clip.renderJobStatus === "queued"
@@ -786,6 +789,27 @@ clipLibrary.addEventListener("click", async (event) => {
     } catch (error) { showToast(`Could not rename clip: ${error.message}`); }
     return;
   }
+  const previewButton = event.target.closest("[data-preview-clip]");
+  if (previewButton) {
+    const clip = clips.find((item) => item.id === previewButton.dataset.previewClip);
+    if (!clip) return;
+    const video = videos.find((item) => item.id === clip.videoId);
+    if (!video) { showToast("Source video is no longer available."); return; }
+    clipPreviewTitle.textContent = clip.title || "Clip preview";
+    clipPreviewVideo.src = `/api/videos/${encodeURIComponent(video.id)}/stream`;
+    clipPreviewVideo.currentTime = Number(clip.start) || 0;
+    clipPreviewVideo.dataset.previewEnd = String(Number(clip.end) || 0);
+    clipPreviewVideo.onloadedmetadata = () => {
+      clipPreviewVideo.currentTime = Number(clip.start) || 0;
+      clipPreviewVideo.play().catch(() => {});
+    };
+    clipPreviewVideo.ontimeupdate = () => {
+      const end = Number(clipPreviewVideo.dataset.previewEnd);
+      if (Number.isFinite(end) && clipPreviewVideo.currentTime >= end) clipPreviewVideo.pause();
+    };
+    clipPreviewDialog.showModal();
+    return;
+  }
   const downloadButton = event.target.closest("[data-download-clip]");
   if (downloadButton) {
     try {
@@ -822,6 +846,8 @@ clipLibrary.addEventListener("click", async (event) => {
 });
 
 renderClipLibrary();
+document.querySelector("#close-clip-preview")?.addEventListener("click", () => { clipPreviewVideo.pause(); clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); clipPreviewDialog.close(); });
+clipPreviewDialog?.addEventListener("close", () => { clipPreviewVideo.pause(); clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); });
 updateRange();
 applyCaptionStyle();
 startClipStatusPolling();
