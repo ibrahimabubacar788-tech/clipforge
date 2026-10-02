@@ -500,7 +500,7 @@ document.querySelectorAll(".handle").forEach((handle) => {
   });
 });
 
-document.querySelector("#apply-hook").addEventListener("click", () => { startInput.value = 124; endInput.value = 148; updateRange(); showToast("Smart-cut hook applied."); });
+document.querySelector("#apply-hook").addEventListener("click", () => {\n  const duration = Math.max(1, timelineMaximum);\n  const preferredStart = Math.min(124, Math.max(0, duration - 24));\n  const preferredEnd = Math.min(duration, preferredStart + Math.min(24, duration));\n  startInput.value = Math.max(0, preferredStart);\n  endInput.value = Math.max(Number(startInput.value) + 1, preferredEnd);\n  if (Number(endInput.value) > duration) endInput.value = duration;\n  updateRange();\n  showToast("Smart-cut hook applied.");\n});
 
 const transcriptDialog = document.querySelector("#transcript-dialog");
 const transcriptInput = document.querySelector("#transcript-input");
