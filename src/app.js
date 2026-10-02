@@ -336,7 +336,15 @@ async function uploadSource(file) {
   const probe = document.createElement("video");
   const probeUrl = URL.createObjectURL(file);
   const duration = await new Promise((resolve, reject) => {
-    probe.onloadedmetadata = () => { URL.revokeObjectURL(probeUrl); resolve(probe.duration); };
+    probe.onloadedmetadata = () => {
+      const detectedDuration = Number(probe.duration);
+      URL.revokeObjectURL(probeUrl);
+      if (!Number.isFinite(detectedDuration) || detectedDuration <= 0) {
+        reject(new Error("Could not determine a valid video duration."));
+        return;
+      }
+      resolve(detectedDuration);
+    };
     probe.onerror = () => { URL.revokeObjectURL(probeUrl); reject(new Error("Could not read video duration.")); };
     probe.src = probeUrl;
   });
