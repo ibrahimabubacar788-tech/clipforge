@@ -4,7 +4,7 @@ services:
     runtime: node
     repo: https://github.com/ibrahimabubacar788-tech/clipforge
     branch: main
-    buildCommand: npm install
+    buildCommand: npm install && npm test
     startCommand: npm start
     healthCheckPath: /api/ready
     autoDeploy: true
