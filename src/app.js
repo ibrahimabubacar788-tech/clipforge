@@ -870,8 +870,15 @@ selectRenderingClipsButton?.addEventListener("click", () => {
   rendering.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
   renderClipLibrary();
 });
-selectAllStatusClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
-invertClipSelectionButton?.addEventListener("click", () => { const next = new Set(clips.map((clip) => clip.id).filter((id) => !selectedClipIds.has(id))); selectedClipIds.clear(); next.forEach((id) => selectedClipIds.add(id)); renderClipLibrary(); });
+selectAllStatusClipsButton?.addEventListener("click", () => {
+  const allSelected = clips.length > 0 && clips.every((clip) => selectedClipIds.has(clip.id));
+  clips.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
+invertClipSelectionButton?.addEventListener("click", () => {
+  clips.forEach((clip) => selectedClipIds.has(clip.id) ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
 selectVisibleClipsButton?.addEventListener("click", () => {
   const query = libraryQuery.trim().toLowerCase();
   const visible = clips.filter((clip) => {
