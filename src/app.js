@@ -54,6 +54,7 @@ const selectAllStatusClipsButton = document.querySelector("#select-all-status-cl
 const invertClipSelectionButton = document.querySelector("#invert-clip-selection");
 const selectVisibleClipsButton = document.querySelector("#select-visible-clips");
 const selectReadyClipsButton = document.querySelector("#select-ready-clips");
+const selectUntaggedClipsButton = document.querySelector("#select-untagged-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -892,7 +893,12 @@ selectVisibleClipsButton?.addEventListener("click", () => {
   renderClipLibrary();
 });
 selectReadyClipsButton?.addEventListener("click", () => {
-  const readyIds = new Set(clips.filter((clip) => clip.status === "ready").map((clip) => clip.id));
+selectUntaggedClipsButton?.addEventListener("click", () => {
+  const uncaptioned = clips.filter((clip) => !clip.captions);
+  const allSelected = uncaptioned.length > 0 && uncaptioned.every((clip) => selectedClipIds.has(clip.id));
+  uncaptioned.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});  const readyIds = new Set(clips.filter((clip) => clip.status === "ready").map((clip) => clip.id));
   const allReadySelected = readyIds.size > 0 && [...readyIds].every((id) => selectedClipIds.has(id));
   readyIds.forEach((id) => allReadySelected ? selectedClipIds.delete(id) : selectedClipIds.add(id));
   renderClipLibrary();
