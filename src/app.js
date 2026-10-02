@@ -244,6 +244,7 @@ async function uploadSource(file) {
   showToast("Uploading video…");
   const upload = await new Promise((resolve, reject) => {
     let attempts = 0;
+    const uploadId = crypto.randomUUID();
     const send = () => {
       attempts += 1;
       const request = new XMLHttpRequest();
@@ -251,6 +252,7 @@ async function uploadSource(file) {
       request.timeout = 15 * 60 * 1000;
       request.setRequestHeader("content-type", contentType);
       request.setRequestHeader("x-filename", file.name);
+      request.setRequestHeader("x-upload-id", uploadId);
       if (apiSession?.token) request.setRequestHeader("authorization", "Bearer " + apiSession.token);
       request.upload.onprogress = (event) => {
         if (event.lengthComputable) showToast("Uploading video… " + Math.round((event.loaded / event.total) * 100) + "%");
