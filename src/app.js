@@ -1472,6 +1472,7 @@ clipLibrary.addEventListener("click", async (event) => {
   }
   const renameButton = event.target.closest("[data-rename-clip]");
   if (renameButton) {
+    const renameProjectId = currentProject?.id;
     const clip = clips.find((item) => item.id === renameButton.dataset.renameClip);
     if (!clip) return;
     const nextTitle = window.prompt("Rename clip", clip.title || "Untitled clip");
@@ -1481,6 +1482,10 @@ clipLibrary.addEventListener("click", async (event) => {
     if (title.length > 160) { showToast("Clip title must be 160 characters or fewer."); return; }
     try {
       const result = await api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "PATCH", body: JSON.stringify({ title }) });
+      if (currentProject?.id !== renameProjectId) {
+        showToast("Clip renamed, but the workspace changed before the update finished.");
+        return;
+      }
       clips = clips.map((item) => item.id === clip.id ? result.clip : item);
       renderClipLibrary();
       showToast("Clip renamed.");
