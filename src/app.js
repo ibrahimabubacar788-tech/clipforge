@@ -22,6 +22,7 @@ const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
 const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
+const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
 const fullscreenButton = document.querySelector("#fullscreen-button");
@@ -767,6 +768,10 @@ function updateBulkClipControls() {
     downloadSelectedClipsButton.disabled = selectedReady === 0;
     downloadSelectedClipsButton.textContent = selectedReady ? `Download selected (${selectedReady})` : "Download selected";
   }
+  if (deleteSelectedClipsButton) {
+    deleteSelectedClipsButton.disabled = selectedReady === 0;
+    deleteSelectedClipsButton.textContent = selectedReady ? `Delete selected (${selectedReady})` : "Delete selected";
+  }
 }
 async function downloadSelectedClips() {
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
@@ -788,6 +793,30 @@ async function downloadSelectedClips() {
   } catch (error) { showToast(error.message); }
   finally { updateBulkClipControls(); }
 }
+async function deleteSelectedClips() {
+  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
+  if (!selected.length) return;
+  if (!window.confirm(`Delete ${selected.length} selected clip${selected.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+  deleteSelectedClipsButton.disabled = true;
+  try {
+    const results = await Promise.allSettled(selected.map((clip) => api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "DELETE" })));
+    const deletedIds = new Set();
+    let failed = 0;
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") deletedIds.add(selected[index].id);
+      else failed += 1;
+    });
+    for (const id of deletedIds) selectedClipIds.delete(id);
+    clips = clips.filter((clip) => !deletedIds.has(clip.id));
+    renderClipLibrary();
+    showToast(failed ? `Deleted ${deletedIds.size}; ${failed} could not be deleted.` : `Deleted ${deletedIds.size} selected clip${deletedIds.size === 1 ? "" : "s"}.`);
+  } catch (error) {
+    showToast(`Could not delete selected clips: ${error.message}`);
+    updateBulkClipControls();
+  }
+}
+deleteSelectedClipsButton?.addEventListener("click", deleteSelectedClips);
+
 selectAllClipsButton?.addEventListener("click", () => {
   const ready = clips.filter((clip) => clip.status === "ready");
   const allSelected = ready.length > 0 && ready.every((clip) => selectedClipIds.has(clip.id));
