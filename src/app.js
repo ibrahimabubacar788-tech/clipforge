@@ -928,8 +928,11 @@ document.querySelector("#new-project").addEventListener("click", async () => {
       const ready = await ensureWorkspace();
       if (!ready) throw new Error("ClipForge could not connect your workspace.");
     }
-    currentProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: `Project ${new Date().toLocaleDateString()}` }) })).project;
+    const createdProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: `Project ${new Date().toLocaleDateString()}` }) })).project;
+    if (!createdProject?.id) throw new Error("Project creation returned an invalid project.");
+    currentProject = createdProject;
     const refreshedProjects = (await api("/api/projects")).projects;
+    if (currentProject?.id !== createdProject.id) return;
     renderProjectSelector(refreshedProjects);
     document.querySelector("#workspace-title").textContent = currentProject.name;
     sourceVideo = undefined;
