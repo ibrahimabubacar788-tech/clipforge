@@ -616,6 +616,7 @@ function stopPlayback() {
 }
 
 function startPlayback() {
+  stopPlayback();
   if (previewElement) {
     previewElement.currentTime = Number(startInput.value);
     void previewElement.play().catch(() => {});
