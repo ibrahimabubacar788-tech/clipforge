@@ -1345,11 +1345,15 @@ function updateBulkClipControls() {
   }
 }
 async function downloadSelectedClips() {
+  const selectedProjectId = currentProject?.id;
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
   if (!selected.length) return;
   downloadSelectedClipsButton.disabled = true;
   try {
     for (const clip of selected) {
+      if (currentProject?.id !== selectedProjectId) {
+        throw new Error("Workspace changed while downloading selected clips.");
+      }
       const response = await fetch(`/api/clips/${encodeURIComponent(clip.id)}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
       if (!response.ok) throw new Error(`Could not download ${clip.title || "clip"}.`);
       const blobUrl = URL.createObjectURL(await response.blob());
