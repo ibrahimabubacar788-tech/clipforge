@@ -1524,8 +1524,13 @@ clipLibrary.addEventListener("click", async (event) => {
   const sourceButton = event.target.closest("[data-open-source]");
   if (sourceButton) {
     const videoId = sourceButton.dataset.openSource;
-    if (videoId && currentProject) {
-      const videos = (await api("/api/videos?projectId=" + encodeURIComponent(currentProject.id))).videos;
+    const sourceProjectId = currentProject?.id;
+    if (videoId && sourceProjectId) {
+      const videos = (await api("/api/videos?projectId=" + encodeURIComponent(sourceProjectId))).videos;
+      if (currentProject?.id !== sourceProjectId) {
+        showToast("Workspace changed while opening the source video.");
+        return;
+      }
       const video = videos.find((item) => item.id === videoId);
       if (video) {
         sourceVideo = video;
