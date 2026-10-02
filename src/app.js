@@ -593,6 +593,28 @@ document.querySelector("#save-style").addEventListener("click", () => {
   showToast("Caption style saved for future exports.");
 });
 
+document.querySelector("#workspace-title")?.addEventListener("click", async () => {
+  if (!currentProject) return;
+  const nextName = window.prompt("Rename project", currentProject.name);
+  if (nextName === null) return;
+  const name = nextName.trim();
+  if (!name) { showToast("Project name cannot be empty."); return; }
+  if (name.length > 120) { showToast("Project name must be 120 characters or fewer."); return; }
+  try {
+    const result = await api(`/api/projects/${encodeURIComponent(currentProject.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name })
+    });
+    currentProject = result.project;
+    document.querySelector("#workspace-title").textContent = currentProject.name;
+    const projects = (await api("/api/projects")).projects;
+    renderProjectSelector(projects);
+    showToast("Project renamed.");
+  } catch (error) {
+    showToast(`Could not rename project: ${error.message}`);
+  }
+});
+
 projectSelect?.addEventListener("change", async () => {
   try { await loadProject(projectSelect.value); showToast("Project switched."); }
   catch (error) { showToast(error.message); }
