@@ -171,6 +171,71 @@ test("upload retry IDs reuse an already completed upload", async () => {
   }
 });
 
+
+
+test("video streaming supports byte ranges and rejects invalid ranges", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "stream@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const upload = await fetch(`${ctx.base}/api/uploads`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "video/mp4",
+        "content-length": "11",
+        "x-filename": "stream.mp4",
+      },
+      body: Buffer.from("test-video!"),
+    });
+    assert.equal(upload.status, 201);
+    const sourceUrl = (await upload.json()).url;
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "Stream Test" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ projectId: project.id, name: "Stream fixture", duration: 20, sourceUrl }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const ranged = await fetch(`${ctx.base}/api/videos/${video.id}/stream`, {
+      headers: { authorization: `Bearer ${auth.token}`, range: "bytes=0-4" },
+    });
+    assert.equal(ranged.status, 206);
+    assert.equal(ranged.headers.get("content-range"), "bytes 0-4/11");
+    assert.equal(ranged.headers.get("content-length"), "5");
+    assert.equal(Buffer.from(await ranged.arrayBuffer()).toString(), "test-");
+
+    const invalid = await fetch(`${ctx.base}/api/videos/${video.id}/stream`, {
+      headers: { authorization: `Bearer ${auth.token}`, range: "bytes=50-60" },
+    });
+    assert.equal(invalid.status, 416);
+    assert.equal(invalid.headers.get("content-range"), "bytes */11");
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
 test("highlight engine ranks strong moments and caps output at 40", () => {
   const segments = Array.from({ length: 80 }, (_, index) => ({
     start: index * 20,
