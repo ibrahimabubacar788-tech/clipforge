@@ -366,6 +366,27 @@ test("failed clip retry rejects an active queued render job", async () => {
     assert.equal(state.clip.status, "failed");
     assert.equal(state.clip.error, "Previous render failed.");
     assert.equal(state.job.status, "queued");
+    await ctx.app.database.transaction((d) => {
+      const item = d.clips.find((entry) => entry.id === clip.id);
+      const job = d.jobs.find((entry) => entry.id === "job_clip_delete_active_guard");
+      item.status = "processing";
+      job.status = "processing";
+      job.progress = 35;
+    });
+
+    const processingResponse = await fetch(`${ctx.base}/api/clips/${clip.id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(processingResponse.status, 409);
+
+    const processingState = await ctx.app.database.read((d) => ({
+      clip: d.clips.find((item) => item.id === clip.id),
+      job: d.jobs.find((item) => item.id === "job_clip_delete_active_guard"),
+    }));
+    assert.equal(processingState.clip.status, "processing");
+    assert.equal(processingState.job.status, "processing");
+
   } finally {
     await stopTestApp(ctx);
   }
