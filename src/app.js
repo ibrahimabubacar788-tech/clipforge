@@ -6,6 +6,7 @@ const durationLabel = document.querySelector("#duration-label");
 const toast = document.querySelector("#toast");
 const range = document.querySelector("#range");
 const captionToggle = document.querySelector("#caption-toggle");
+const captionOverlay = document.querySelector("#caption-overlay");
 const videoStage = document.querySelector(".video-stage");
 const timelineTrack = document.querySelector(".timeline-track");
 const playbackButton = document.querySelector("#play-button");
@@ -181,6 +182,14 @@ function readSavedClips() {
 
 function saveClips() { window.localStorage.setItem(storageKey, JSON.stringify(clips)); }
 
+function updateCaptionOverlay() {
+  if (!captionOverlay) return;
+  captionOverlay.hidden = !captionToggle?.checked;
+  captionOverlay.setAttribute("aria-hidden", String(!captionToggle?.checked));
+  captionOverlay.dataset.color = captionStyle.color;
+  captionOverlay.dataset.weight = captionStyle.weight;
+}
+
 function applyCaptionStyle(style = captionStyle) {
   captionStyle = { color: style.color || "lime", weight: style.weight || "bold" };
   document.documentElement.dataset.captionColor = captionStyle.color;
@@ -191,6 +200,7 @@ function applyCaptionStyle(style = captionStyle) {
   if (weightField) weightField.value = captionStyle.weight;
   document.querySelector("#brand-style-description").textContent = `${captionStyle.weight === "bold" ? "Bold" : "Soft"} ${captionStyle.color} highlight`;
   window.localStorage.setItem(styleKey, JSON.stringify(captionStyle));
+  updateCaptionOverlay();
 }
 
 function showToast(message) {
@@ -603,6 +613,7 @@ document.querySelector("#delete-source-video")?.addEventListener("click", async 
 });
 captionToggle.addEventListener("change", () => {
   videoStage.classList.toggle("captions-off", !captionToggle.checked);
+  updateCaptionOverlay();
   showToast(captionToggle.checked ? "Auto captions enabled." : "Auto captions disabled.");
 });
 timelineTrack.addEventListener("click", (event) => {
