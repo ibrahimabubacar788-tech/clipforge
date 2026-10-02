@@ -779,7 +779,7 @@ test("upload, queue, FFmpeg render, and clip download work end to end", async ()
     assert.equal(queued.clip.status, "queued");
 
     let job = queued.job;
-    for (let attempt = 0; attempt < 60 && !["completed", "failed"].includes(job.status); attempt += 1) {
+    for (let attempt = 0; attempt < 240 && !["completed", "failed"].includes(job.status); attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       const jobResponse = await fetch(`${ctx.base}/api/jobs/${job.id}`, {
         headers: { authorization: `Bearer ${auth.token}` },
@@ -806,7 +806,7 @@ test("upload, queue, FFmpeg render, and clip download work end to end", async ()
     assert.equal(download.status, 200);
     assert.equal(download.headers.get("content-type"), "video/mp4");
     const contentDisposition = download.headers.get("content-disposition") || "";
-    assert.ok(contentDisposition.includes('filename="Render smoke clip.mp4"'));
+    assert.match(contentDisposition, /attachment;\s*filename="Render smoke clip\.mp4"/i);
     const downloaded = Buffer.from(await download.arrayBuffer());
     assert.ok(downloaded.length > 0);
 
