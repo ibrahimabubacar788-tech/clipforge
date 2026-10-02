@@ -91,6 +91,7 @@ const selectedClipIds = new Set();
 const savedFavoriteClipIds = safeStorageParse(favoriteKey, []);
 const favoriteClipIds = new Set(Array.isArray(savedFavoriteClipIds) ? savedFavoriteClipIds : []);
 const automaticClipFailures = new Set();
+const automaticClipPolls = new Set();
 let apiSession = safeStorageParse(sessionKey, null);
 let sourceVideo;
 let sourcePreviewUrl;
@@ -1509,6 +1510,8 @@ window.addEventListener("keydown", (event) => {
 });
 
 async function pollAutoClipStatus(videoId) {
+  if (automaticClipPolls.has(videoId)) return;
+  automaticClipPolls.add(videoId);
   const pollingProjectId = currentProject?.id;
   for (let attempt = 0; attempt < 450; attempt += 1) {
     if (automaticClipFailures.has(videoId) || currentProject?.id !== pollingProjectId) return;
@@ -1531,5 +1534,8 @@ async function pollAutoClipStatus(videoId) {
       }
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  } finally {
+    automaticClipPolls.delete(videoId);
   }
 }
