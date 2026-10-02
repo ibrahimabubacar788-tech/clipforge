@@ -18,6 +18,7 @@ const clipPreviewTitle = document.querySelector("#clip-preview-title");
 const clipsEmpty = document.querySelector("#clips-empty");
 const styleDialog = document.querySelector("#style-dialog");
 const sourceUpload = document.querySelector("#source-upload");
+const videoDropzone = document.querySelector("#video-dropzone");
 const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
 const clipSort = document.querySelector("#clip-sort");
@@ -503,7 +504,30 @@ document.querySelectorAll(".format-option").forEach((button) => {
 
 volumeInput?.addEventListener("input", () => { if (previewElement) previewElement.volume = Number(volumeInput.value); });
 playbackButton.addEventListener("click", () => (playbackTimer ? stopPlayback() : startPlayback()));
-sourceUpload.addEventListener("change", async () => { try { await uploadSource(sourceUpload.files[0]); } catch (error) { showToast(error.message); } });
+sourceUpload.addEventListener("change", async () => { try { await uploadSource(sourceUpload.files[0]); } catch (error) { showToast(error.message); } finally { sourceUpload.value = ""; } });
+videoDropzone?.addEventListener("dragover", (event) => {
+  if (![...event.dataTransfer.items].some((item) => item.kind === "file")) return;
+  event.preventDefault();
+  videoDropzone.classList.add("is-dragging");
+  event.dataTransfer.dropEffect = "copy";
+});
+videoDropzone?.addEventListener("dragleave", (event) => {
+  if (!videoDropzone.contains(event.relatedTarget)) videoDropzone.classList.remove("is-dragging");
+});
+videoDropzone?.addEventListener("drop", async (event) => {
+  event.preventDefault();
+  videoDropzone.classList.remove("is-dragging");
+  const file = [...event.dataTransfer.files].find((item) => item.type.startsWith("video/") || /\.(mp4|mov|webm|m4v)$/i.test(item.name));
+  if (!file) { showToast("Drop a video file (MP4, MOV, WebM, or M4V)."); return; }
+  try { await uploadSource(file); } catch (error) { showToast(error.message); }
+});
+videoDropzone?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    sourceUpload?.click();
+  }
+});
+
 document.querySelector("#delete-source-video")?.addEventListener("click", async () => {
   if (!sourceVideo) return;
   if (!window.confirm("Delete this video? This removes its clips too.")) return;
