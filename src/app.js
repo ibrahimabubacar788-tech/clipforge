@@ -687,7 +687,7 @@ const transcriptFile = document.querySelector("#transcript-file");
 const autoTranscribeButton = document.querySelector("#auto-transcribe");
 
 function parseTranscript(rawText) {
-  return rawText.split("\\n").map((line) => {
+  return rawText.split("\n").map((line) => {
     const parts = line.split("|").map((part) => part.trim());
     if (parts.length < 4) return null;
     const start = Number(parts[0]);
@@ -730,6 +730,11 @@ document.querySelector("#generate-ai-clips")?.addEventListener("click", () => {
 
 document.querySelector("#run-ai-generation")?.addEventListener("click", async (event) => {
   event.preventDefault();
+  const runButton = event.currentTarget;
+  if (runButton.disabled) return;
+  runButton.disabled = true;
+  const originalLabel = runButton.textContent;
+  runButton.textContent = "Generating…";
   try {
     if (!sourceVideo) throw new Error("Upload a source video first.");
     const rawTranscript = transcriptInput.value.trim();
@@ -750,6 +755,9 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
     void refreshClipLibraryWhileRendering();
   } catch (error) {
     showToast(error.message);
+  } finally {
+    runButton.disabled = false;
+    runButton.textContent = originalLabel;
   }
 });
 
