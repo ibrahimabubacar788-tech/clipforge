@@ -1348,7 +1348,7 @@ clipLibrary.addEventListener("click", async (event) => {
     clipPreviewVideo.removeAttribute("src");
     clipPreviewVideo.load();
     try {
-      const response = await fetch(`/api/clips/${encodeURIComponent(clip.id)}/download`);
+      const response = await fetch(`/api/clips/${encodeURIComponent(clip.id)}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
       if (!response.ok) throw new Error("The rendered clip is no longer available.");
       const blobUrl = URL.createObjectURL(await response.blob());
       clipPreviewVideo.dataset.previewBlobUrl = blobUrl;
