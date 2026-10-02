@@ -467,8 +467,15 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       let bytes = 0;
       const limited = async function* () { for await (const chunk of req) { bytes += chunk.length; if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 }); yield chunk; } if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 }); };
       try {
-        await pipeline(limited(), createWriteStream(target));
+        await pipeline(limited(), createWriteStream(target, { flags: "wx" }));
       } catch (error) {
+        if (error?.code === "EEXIST") {
+          const concurrent = await stat(target).catch(() => null);
+          if (concurrent?.isFile() && contentLength !== null && concurrent.size === contentLength) {
+            return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
+          }
+          throw Object.assign(new Error("An upload with this retry ID is already in progress or conflicts with different content."), { status: 409 });
+        }
         await unlink(target).catch(() => {});
         throw error;
       }
