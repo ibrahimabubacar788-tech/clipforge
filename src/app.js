@@ -733,7 +733,7 @@ autoTranscribeButton?.addEventListener("click", async () => {
     autoTranscribeButton.textContent = "Transcribing…";
     showToast("Transcribing your video…");
     const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcribe`, { method: "POST", body: JSON.stringify({ language: "en" }) });
-    transcriptInput.value = result.transcript.map((segment) => `${segment.start} | ${segment.end} | ${segment.speaker || ""} | ${segment.text}`).join("\\n");
+    transcriptInput.value = result.transcript.map((segment) => `${segment.start} | ${segment.end} | ${segment.speaker || ""} | ${segment.text}`).join("\n");
     showToast(`Transcript ready: ${result.count} timed segments.`);
   } catch (error) {
     showToast(error.status === 503 ? "Automatic transcription needs the server transcription key configured." : error.message);
