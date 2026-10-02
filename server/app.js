@@ -510,6 +510,8 @@ if (req.method === "POST" && pathname === "/api/uploads") {
         const item = d.clips.find((x) => x.id === retryMatch[1] && x.userId === user.id);
         if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 });
         if (item.status !== "failed") throw Object.assign(new Error("Only failed clips can be retried."), { status: 409 });
+        const activeJob = d.jobs.find((job) => job.clipId === item.id && ["queued", "processing"].includes(job.status));
+        if (activeJob) throw Object.assign(new Error("This clip is already being rendered."), { status: 409 });
         d.jobs = d.jobs.filter((job) => job.clipId !== item.id);
         const previousDownloadUrl = item.downloadUrl;
         item.status = "queued"; item.updatedAt = now(); delete item.downloadUrl; delete item.error;
