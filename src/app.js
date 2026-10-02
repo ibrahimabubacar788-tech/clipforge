@@ -15,6 +15,10 @@ const clipLibrary = document.querySelector("#clip-library");
 const clipPreviewDialog = document.querySelector("#clip-preview-dialog");
 const clipPreviewVideo = document.querySelector("#clip-preview-video");
 const clipPreviewTitle = document.querySelector("#clip-preview-title");
+const clipDetailsDialog = document.querySelector("#clip-details-dialog");
+const clipDetailsTitle = document.querySelector("#clip-details-title");
+const clipDetailsList = document.querySelector("#clip-details-list");
+const detailsDownloadClipButton = document.querySelector("#details-download-clip");
 const clipsEmpty = document.querySelector("#clips-empty");
 const styleDialog = document.querySelector("#style-dialog");
 const sourceUpload = document.querySelector("#source-upload");
@@ -435,7 +439,7 @@ function renderClipLibrary() {
         : clip.renderJobStatus === "queued"
           ? `<small class="rendering-status">Queued for rendering…</small>`
           : `<small class="rendering-status">Rendering… ${progress}%</small>`;
-    return `<article class="clip-card"><label class="clip-select"><input type="checkbox" data-select-clip="${clipId}" ${selectedClipIds.has(clip.id) ? "checked" : ""} ${clip.status !== "ready" ? "disabled" : ""} aria-label="Select ${title}" /></label><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
+    return `<article class="clip-card"><label class="clip-select"><input type="checkbox" data-select-clip="${clipId}" ${selectedClipIds.has(clip.id) ? "checked" : ""} ${clip.status !== "ready" ? "disabled" : ""} aria-label="Select ${title}" /></label><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><button class="text-button details-clip" type="button" data-details-clip="${clipId}">Details</button><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
   }).join("");
   updateBulkClipControls();
 }
@@ -920,6 +924,27 @@ selectAllClipsButton?.addEventListener("click", () => {
 downloadSelectedClipsButton?.addEventListener("click", downloadSelectedClips);
 
 clipLibrary.addEventListener("click", async (event) => {
+  const detailsButton = event.target.closest("[data-details-clip]");
+  if (detailsButton) {
+    const clip = clips.find((item) => item.id === detailsButton.dataset.detailsClip);
+    if (!clip || !clipDetailsDialog || !clipDetailsList) return;
+    const duration = clipDuration(clip.start, clip.end);
+    const status = clip.status === "ready" ? "Ready" : clip.status === "failed" ? "Failed" : "Rendering";
+    clipDetailsTitle.textContent = clip.title || "Clip details";
+    clipDetailsList.innerHTML = [
+      ["Status", status],
+      ["Format", clip.format || "9:16"],
+      ["Duration", formatTimestamp(duration)],
+      ["Start", formatTimestamp(clip.start)],
+      ["End", formatTimestamp(clip.end)],
+      ["Captions", clip.captions ? "On" : "Off"],
+      ["Created", new Date(clip.createdAt).toLocaleString()]
+    ].map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+    detailsDownloadClipButton.disabled = clip.status !== "ready";
+    detailsDownloadClipButton.dataset.downloadClip = clip.id;
+    clipDetailsDialog.showModal();
+    return;
+  }
   const retryButton = event.target.closest("[data-retry-clip]");
   if (retryButton) {
     if (retryButton.disabled) return;
@@ -1020,6 +1045,13 @@ clipLibrary.addEventListener("click", async (event) => {
 });
 
 renderClipLibrary();
+document.querySelector("#close-clip-details")?.addEventListener("click", () => clipDetailsDialog?.close());
+detailsDownloadClipButton?.addEventListener("click", () => {
+  const clipId = detailsDownloadClipButton.dataset.downloadClip;
+  if (!clipId || detailsDownloadClipButton.disabled) return;
+  clipLibrary?.querySelector(`[data-download-clip="${CSS.escape(clipId)}"]`)?.click();
+  clipDetailsDialog?.close();
+});
 document.querySelector("#close-clip-preview")?.addEventListener("click", () => { clipPreviewVideo.pause(); const blobUrl = clipPreviewVideo.dataset.previewBlobUrl; if (blobUrl) URL.revokeObjectURL(blobUrl); delete clipPreviewVideo.dataset.previewBlobUrl; clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); clipPreviewDialog.close(); });
 clipPreviewDialog?.addEventListener("close", () => { clipPreviewVideo.pause(); const blobUrl = clipPreviewVideo.dataset.previewBlobUrl; if (blobUrl) URL.revokeObjectURL(blobUrl); delete clipPreviewVideo.dataset.previewBlobUrl; clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); });
 updateRange();
