@@ -52,6 +52,7 @@ const retryFailedClipsButton = document.querySelector("#retry-failed-clips");
 const selectRenderingClipsButton = document.querySelector("#select-rendering-clips");
 const selectAllStatusClipsButton = document.querySelector("#select-all-status-clips");
 const invertClipSelectionButton = document.querySelector("#invert-clip-selection");
+const selectVisibleClipsButton = document.querySelector("#select-visible-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -952,7 +953,7 @@ async function copySelectedClipSummary() {
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
   if (!selected.length) return;
   const total = selected.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
-  const summary = selected.map((clip, index) => `${index + 1}. ${clip.title || "Untitled clip"} — ${clip.format || "9:16"} — ${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} — ${formatTimestamp(clipDuration(clip.start, clip.end))}`).join("\n");
+  const summary = selected.map((clip, index) => `${index + 1}. ${clip.title || "Untitled clip"} — ${clip.format || "9:16"} — ${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} — ${formatTimestamp(clipDuration(clip.start, clip.end))}`).join("\selectVisibleClipsButton?.addEventListener("click", () => { const query = libraryQuery.trim().toLowerCase(); const visible = clips.filter((clip) => { const title = String(clip.title || ""); const matchesQuery = !query || title.toLowerCase().includes(query); const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter); return matchesQuery && matchesFilter; }); selectedClipIds = new Set(visible.map((clip) => clip.id)); renderClipLibrary(); });n");
   const text = `ClipForge selected clips (${selected.length})\nTotal duration: ${formatTimestamp(total)}\n\n${summary}`;
   try {
     await navigator.clipboard.writeText(text);
