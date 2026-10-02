@@ -403,7 +403,7 @@ function renderClipLibrary() {
         : clip.renderJobStatus === "queued"
           ? `<small class="rendering-status">Queued for rendering…</small>`
           : `<small class="rendering-status">Rendering… ${progress}%</small>`;
-    return `<article class="clip-card"><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
+    return `<article class="clip-card"><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
   }).join("");
 }
 
@@ -719,6 +719,23 @@ clipLibrary.addEventListener("click", async (event) => {
       else if (finished?.status === "failed") showToast(`Retry failed: ${finished.error || "FFmpeg could not render this clip."}`);
       else showToast("Retry is still rendering. Check My clips for its current status.");
     } catch (error) { showToast(error.message); renderClipLibrary(); }
+    return;
+  }
+  const renameButton = event.target.closest("[data-rename-clip]");
+  if (renameButton) {
+    const clip = clips.find((item) => item.id === renameButton.dataset.renameClip);
+    if (!clip) return;
+    const nextTitle = window.prompt("Rename clip", clip.title || "Untitled clip");
+    if (nextTitle === null) return;
+    const title = nextTitle.trim();
+    if (!title) { showToast("Clip title cannot be empty."); return; }
+    if (title.length > 160) { showToast("Clip title must be 160 characters or fewer."); return; }
+    try {
+      const result = await api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "PATCH", body: JSON.stringify({ title }) });
+      clips = clips.map((item) => item.id === clip.id ? result.clip : item);
+      renderClipLibrary();
+      showToast("Clip renamed.");
+    } catch (error) { showToast(`Could not rename clip: ${error.message}`); }
     return;
   }
   const downloadButton = event.target.closest("[data-download-clip]");
