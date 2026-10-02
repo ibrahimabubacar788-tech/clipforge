@@ -481,7 +481,8 @@ function renderClipLibrary() {
     const projectName = currentProject?.name || "Current project";
     const sourceCount = sourceVideo ? 1 : 0;
     const readyDuration = clips.filter((clip) => clip.status === "ready").reduce((sum, clip) => sum + Math.max(0, Number(clip.end) - Number(clip.start)), 0);
-    libraryProjectOverview.innerHTML = "<strong>" + projectName.replace(/[&<>]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[char])) + "</strong><span>" + sourceCount + " source video" + (sourceCount === 1 ? "" : "s") + "</span><span>" + clips.length + " clips</span><span>" + readyCount + " ready</span><span>" + formatTimestamp(readyDuration) + " rendered</span>";
+    const sourceDuration = sourceVideo?.duration ? Number(sourceVideo.duration) : 0;
+    libraryProjectOverview.innerHTML = "<strong>" + projectName.replace(/[&<>]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[char])) + "</strong><span>" + sourceCount + " source video" + (sourceCount === 1 ? "" : "s") + "</span><span>" + (sourceDuration ? formatTimestamp(sourceDuration) + " source length" : "Source not loaded") + "</span><span>" + clips.length + " clips</span><span>" + readyCount + " ready</span><span>" + favoriteCount + " favorite" + (favoriteCount === 1 ? "" : "s") + "</span><span>" + formatTimestamp(readyDuration) + " rendered</span>";
   }
   const totalDuration = clips.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
   if (librarySummary) librarySummary.textContent = `${clips.length} total · ${readyCount} ready · ${renderingCount} rendering · ${failedCount} failed · ${favoriteCount} favorite${favoriteCount === 1 ? "" : "s"} · ${formatTimestamp(totalDuration)} of content`;
