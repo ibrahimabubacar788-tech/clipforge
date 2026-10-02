@@ -805,6 +805,7 @@ test("upload, queue, FFmpeg render, and clip download work end to end", async ()
     });
     assert.equal(download.status, 200);
     assert.equal(download.headers.get("content-type"), "video/mp4");
+    assert.match(download.headers.get("content-disposition") || "", /attachment; filename="Render smoke clip\\.mp4"/);
     const downloaded = Buffer.from(await download.arrayBuffer());
     assert.ok(downloaded.length > 0);
 
