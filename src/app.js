@@ -67,6 +67,7 @@ const selectShortClipsButton = document.querySelector("#select-short-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
+const newProjectButton = document.querySelector("#new-project");
 const fullscreenButton = document.querySelector("#fullscreen-button");
 const volumeInput = document.querySelector("#volume-input");
 let libraryQuery = "";
@@ -399,6 +400,7 @@ async function uploadSource(file) {
     };
     send();
   });
+  activeUploadRequest = null;
   const uploadedVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: uploadProjectId, name: file.name, duration, sourceUrl: upload.url }) })).video;
   if (currentProject?.id !== uploadProjectId) {
     showToast("Video uploaded to the original project. The current project was changed during upload.");
@@ -922,7 +924,11 @@ projectSelect?.addEventListener("change", async () => {
   catch (error) { showToast(error.message); }
 });
 
-document.querySelector("#new-project").addEventListener("click", async () => {
+newProjectButton?.addEventListener("click", async () => {
+  if (newProjectButton.disabled) return;
+  newProjectButton.disabled = true;
+  const originalLabel = newProjectButton.textContent;
+  newProjectButton.textContent = "Creating…";
   stopPlayback();
   try {
     if (!apiSession || !currentProject) {
@@ -960,6 +966,9 @@ document.querySelector("#new-project").addEventListener("click", async () => {
     showToast("New project created.");
   } catch (error) {
     showToast(`Could not create project: ${error.message}`);
+  } finally {
+    newProjectButton.disabled = false;
+    newProjectButton.textContent = originalLabel;
   }
 });
 
