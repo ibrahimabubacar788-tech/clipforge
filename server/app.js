@@ -496,7 +496,8 @@ if (req.method === "POST" && pathname === "/api/uploads") {
         const resolvedExportDir = await realpath(exportDir);
         const relativeResolved = requireRelative(resolvedExportDir, resolvedCandidate);
         if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid export path."), { status: 403 });
-        res.writeHead(200, { "content-type": "video/mp4", "content-disposition": `attachment; filename="${clip.id}.mp4"` });
+        const downloadName = String(clip.title || "ClipForge clip").replace(/[<>:"/\\|?*\\x00-\\x1F]/g, "_").replace(/\\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 100) || "ClipForge clip";
+        res.writeHead(200, { "content-type": "video/mp4", "content-disposition": `attachment; filename="${downloadName}.mp4"` });
         return createReadStream(candidate).pipe(res);
       } catch (error) {
         if (error?.status === 403) throw error;
