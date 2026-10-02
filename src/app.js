@@ -775,7 +775,14 @@ clipLibrary.addEventListener("click", async (event) => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `clipforge-${downloadButton.dataset.downloadClip}.mp4`;
+      const clip = clips.find((item) => item.id === downloadButton.dataset.downloadClip);
+      const safeTitle = String(clip?.title || "ClipForge clip")
+        .replace(/[<>:"/\\|?*\\x00-\\x1F]/g, "_")
+        .replace(/\\s+/g, " ")
+        .trim()
+        .replace(/[. ]+$/, "")
+        .slice(0, 100) || "ClipForge clip";
+      link.download = `${safeTitle}.mp4`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) { showToast(error.message); }
