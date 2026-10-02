@@ -105,6 +105,22 @@ test("authentication and project isolation work end to end", async () => {
     assert.equal(project.name, "Smoke Test Project");
     assert.equal(project.userId, auth.user.id);
 
+    const tooLong = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "x".repeat(121) }),
+    });
+    assert.equal(tooLong.status, 422);
+
+    const blockedDelete = await fetch(`${ctx.base}/api/projects/${project.id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(blockedDelete.status, 409);
+
     const unauthorized = await fetch(`${ctx.base}/api/projects`);
     assert.equal(unauthorized.status, 401);
   } finally {
