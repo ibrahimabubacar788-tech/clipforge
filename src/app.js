@@ -500,10 +500,6 @@ async function refreshClipStatuses({ showReadyToast = false } = {}) {
 }
 
 let statusPollTimer;
-  } finally {
-    uploadInFlight = false;
-    activeUploadRequest = null;
-  }
 
 function startClipStatusPolling() {
   window.clearInterval(statusPollTimer);
