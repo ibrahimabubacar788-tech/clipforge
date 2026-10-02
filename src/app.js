@@ -44,6 +44,7 @@ const exportClipListButton = document.querySelector("#export-clip-list");
 const copyClipTitlesButton = document.querySelector("#copy-clip-titles");
 const copyClipDurationButton = document.querySelector("#copy-clip-duration");
 const copyClipJsonButton = document.querySelector("#copy-clip-json");
+const copyClipSummaryButton = document.querySelector("#copy-clip-summary");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -833,6 +834,7 @@ exportClipListButton?.addEventListener("click", exportSelectedClipList);
 copyClipTitlesButton?.addEventListener("click", () => { void copySelectedClipTitles(); });
 copyClipDurationButton?.addEventListener("click", () => { void copySelectedClipDuration(); });
 copyClipJsonButton?.addEventListener("click", () => { void copySelectedClipJson(); });
+copyClipSummaryButton?.addEventListener("click", () => { void copySelectedClipSummary(); });
 refreshClipsButton?.addEventListener("click", async () => {
   if (!apiSession || !currentProject) return;
   refreshClipsButton.disabled = true;
@@ -893,6 +895,20 @@ clipLibrary.addEventListener("change", (event) => {
   else selectedClipIds.delete(checkbox.dataset.selectClip);
   updateBulkClipControls();
 });
+async function copySelectedClipSummary() {
+  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
+  if (!selected.length) return;
+  const total = selected.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
+  const summary = selected.map((clip, index) => `${index + 1}. ${clip.title || "Untitled clip"} — ${clip.format || "9:16"} — ${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} — ${formatTimestamp(clipDuration(clip.start, clip.end))}`).join("\n");
+  const text = `ClipForge selected clips (${selected.length})\nTotal duration: ${formatTimestamp(total)}\n\n${summary}`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Clip summary copied.");
+  } catch {
+    showToast("Could not copy clip summary. Your browser may block clipboard access.");
+  }
+}
+
 async function copySelectedClipJson() {
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
   if (!selected.length) return;
