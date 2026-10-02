@@ -925,6 +925,10 @@ renameProjectButton?.addEventListener("click", async () => {
 
 deleteProjectButton?.addEventListener("click", async () => {
   if (!currentProject) return;
+  if (uploadInFlight) {
+    showToast("Finish or cancel the active video upload before deleting this project.");
+    return;
+  }
   try {
     const { projects } = await api("/api/projects");
     if (projects.length <= 1) {
