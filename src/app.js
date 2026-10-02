@@ -674,7 +674,9 @@ document.querySelector("#delete-source-video")?.addEventListener("click", async 
     automaticClipFailures.add(deletedVideoId);
     await api("/api/videos/" + encodeURIComponent(deletedVideoId), { method: "DELETE" });
     clips = clips.filter((clip) => clip.videoId !== deletedVideoId);
-    saveClips();
+    for (const clipId of [...favoriteClipIds]) if (!clips.some((clip) => clip.id === clipId)) favoriteClipIds.delete(clipId);
+    window.localStorage.setItem(favoriteKey, JSON.stringify([...favoriteClipIds]));
+    selectedClipIds.clear();
     clearSourcePreview();
     button.hidden = true;
     renderClipLibrary();
@@ -1434,7 +1436,11 @@ clipLibrary.addEventListener("click", async (event) => {
   if (!button) return;
   try {
     await api(`/api/clips/${button.dataset.deleteClip}`, { method: "DELETE" });
-    clips = clips.filter((clip) => clip.id !== button.dataset.deleteClip);
+    const deletedClipId = button.dataset.deleteClip;
+    clips = clips.filter((clip) => clip.id !== deletedClipId);
+    selectedClipIds.delete(deletedClipId);
+    favoriteClipIds.delete(deletedClipId);
+    window.localStorage.setItem(favoriteKey, JSON.stringify([...favoriteClipIds]));
     saveClips();
     renderClipLibrary();
     showToast("Clip removed from your library.");
