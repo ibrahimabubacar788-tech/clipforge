@@ -38,6 +38,7 @@ const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
 const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");
 const refreshClipsButton = document.querySelector("#refresh-clips");
+const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
 const fullscreenButton = document.querySelector("#fullscreen-button");
@@ -780,11 +781,16 @@ document.querySelector("#new-project").addEventListener("click", async () => {
 
 document.querySelector("#export-button").addEventListener("click", async () => {
   const selected = document.querySelector(".format-option.selected").dataset.format;
+  const exportButton = document.querySelector("#export-button");
+  if (exportButton.disabled) return;
+  exportButton.disabled = true;
+  if (exportStatus) { exportStatus.hidden = false; exportStatus.textContent = "Preparing export…"; }
   try {
     if (!sourceVideo) throw new Error("Upload a source video before exporting.");
     const result = await api("/api/clips", { method: "POST", body: JSON.stringify({ videoId: sourceVideo.id, title: `Midnight Session · Clip ${clips.length + 1}`, start: Number(startInput.value), end: Number(endInput.value), format: selected, captions: captionToggle.checked, style: { color: document.querySelector("#highlight-color").value, weight: document.querySelector("#caption-weight").value } }) });
     clips.unshift(result.clip);
     renderClipLibrary();
+    if (exportStatus) exportStatus.textContent = "Rendering clip…";
     showToast("Export queued. Your rendered clip will be ready shortly.");
     for (let attempt = 0; attempt < 450; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -794,10 +800,11 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
     renderClipLibrary();
     const finished = clips.find((clip) => clip.id === result.clip.id);
-    if (finished?.status === "ready") showToast("Your clip is ready to download.");
-    else if (finished?.status === "failed") showToast("Clip render failed: " + (finished.error || "FFmpeg could not render this clip."));
-    else showToast("Clip is still rendering. Check My clips for its current status.");
-  } catch (error) { showToast(error.message); }
+    if (finished?.status === "ready") { if (exportStatus) exportStatus.textContent = "Export ready"; showToast("Your clip is ready to download."); }
+    else if (finished?.status === "failed") { if (exportStatus) exportStatus.textContent = "Export failed"; showToast("Clip render failed: " + (finished.error || "FFmpeg could not render this clip.")); }
+    else { if (exportStatus) exportStatus.textContent = "Still rendering"; showToast("Clip is still rendering. Check My clips for its current status."); }
+  } catch (error) { if (exportStatus) exportStatus.textContent = "Export failed"; showToast(error.message); }
+  finally { exportButton.disabled = false; }
 });
 
 clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; renderClipLibrary(); });
