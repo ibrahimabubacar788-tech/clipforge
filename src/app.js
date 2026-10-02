@@ -332,7 +332,8 @@ async function uploadSource(file) {
       showToast("Automatic clipping is already running for this video. We are using the existing job.");
       if (sourceVideo.id) void pollAutoClipStatus(sourceVideo.id);
     } else if (error.status === 503) {
-      showToast("AI transcription is not configured on the server yet.");
+      showToast("Automatic transcription needs a server key. You can import a transcript and use ClipForge's built-in highlight engine.");
+      document.querySelector("#transcript-dialog")?.showModal();
     } else {
       showToast(`Video uploaded, but AI clipping failed: ${error.message}`);
     }
