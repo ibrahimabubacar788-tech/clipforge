@@ -948,33 +948,37 @@ selectVisibleClipsButton?.addEventListener("click", () => {
   renderClipLibrary();
 });
 selectReadyClipsButton?.addEventListener("click", () => {
+  const ready = clips.filter((clip) => clip.status === "ready");
+  const allSelected = ready.length > 0 && ready.every((clip) => selectedClipIds.has(clip.id));
+  ready.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
 selectUntaggedClipsButton?.addEventListener("click", () => {
+  const uncaptioned = clips.filter((clip) => !clip.captions);
+  const allSelected = uncaptioned.length > 0 && uncaptioned.every((clip) => selectedClipIds.has(clip.id));
+  uncaptioned.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
 selectCaptionedClipsButton?.addEventListener("click", () => {
+  const captioned = clips.filter((clip) => Boolean(clip.captions));
+  const allSelected = captioned.length > 0 && captioned.every((clip) => selectedClipIds.has(clip.id));
+  captioned.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
 selectLongClipsButton?.addEventListener("click", () => {
+  const longClips = clips.filter((clip) => clipDuration(clip.start, clip.end) >= 60);
+  const allSelected = longClips.length > 0 && longClips.every((clip) => selectedClipIds.has(clip.id));
+  longClips.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
 selectShortClipsButton?.addEventListener("click", () => {
   const shortClips = clips.filter((clip) => clipDuration(clip.start, clip.end) < 60);
   const allSelected = shortClips.length > 0 && shortClips.every((clip) => selectedClipIds.has(clip.id));
   shortClips.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
   renderClipLibrary();
-});  const longClips = clips.filter((clip) => clipDuration(clip.start, clip.end) >= 60);
-  const allSelected = longClips.length > 0 && longClips.every((clip) => selectedClipIds.has(clip.id));
-  longClips.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});  const captioned = clips.filter((clip) => Boolean(clip.captions));
-  const allSelected = captioned.length > 0 && captioned.every((clip) => selectedClipIds.has(clip.id));
-  captioned.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});  const uncaptioned = clips.filter((clip) => !clip.captions);
-  const allSelected = uncaptioned.length > 0 && uncaptioned.every((clip) => selectedClipIds.has(clip.id));
-  uncaptioned.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});  const readyIds = new Set(clips.filter((clip) => clip.status === "ready").map((clip) => clip.id));
-  const allReadySelected = readyIds.size > 0 && [...readyIds].every((id) => selectedClipIds.has(id));
-  readyIds.forEach((id) => allReadySelected ? selectedClipIds.delete(id) : selectedClipIds.add(id));
-  renderClipLibrary();
 });
 retryFailedClipsButton?.addEventListener("click", async () => {
-selectReadyClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => clip.status === "ready").forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });  const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
+  const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
   if (!failed.length) return;
   retryFailedClipsButton.disabled = true;
   let retried = 0;
