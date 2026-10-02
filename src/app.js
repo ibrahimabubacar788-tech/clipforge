@@ -633,6 +633,7 @@ function startPlayback() {
 
 function updateFromPointer(event) {
   const bounds = timelineTrack.getBoundingClientRect();
+  if (!bounds.width || !Number.isFinite(timelineMaximum) || timelineMaximum <= 0) return;
   const second = Math.round(Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width)) * timelineMaximum);
   const current = getRange();
   if (draggedHandle === "start") startInput.value = Math.min(second, current.end - 1);
@@ -720,6 +721,7 @@ captionToggle.addEventListener("change", () => {
 timelineTrack.addEventListener("click", (event) => {
   if (event.target.closest(".range")) return;
   const bounds = timelineTrack.getBoundingClientRect();
+  if (!bounds.width || !Number.isFinite(timelineMaximum) || timelineMaximum <= 0) return;
   const selectedSecond = Math.round(((event.clientX - bounds.left) / bounds.width) * timelineMaximum);
   const duration = clipDuration(startInput.value, endInput.value);
   const clipRange = normalizeClipRange(selectedSecond, selectedSecond + duration, timelineMaximum);
