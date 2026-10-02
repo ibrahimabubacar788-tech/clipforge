@@ -143,6 +143,7 @@ async function loadProject(projectId) {
 }
 
 async function ensureWorkspace() {
+  const loadVersion = ++workspaceLoadVersion;
   try {
     if (!apiSession) {
       const email = `creator-${crypto.randomUUID().slice(0, 8)}@clipforge.local`;
@@ -150,6 +151,7 @@ async function ensureWorkspace() {
       window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
     }
     const { projects } = await api("/api/projects");
+    if (loadVersion !== workspaceLoadVersion) return false;
     if (projects.length) currentProject = projects[0];
     else {
       currentProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
@@ -158,6 +160,7 @@ async function ensureWorkspace() {
     document.querySelector("#workspace-title").textContent = currentProject.name;
     renderProjectSelector(projects);
     const videos = (await api(`/api/videos?projectId=${encodeURIComponent(currentProject.id)}`)).videos;
+    if (loadVersion !== workspaceLoadVersion) return false;
     sourceVideo = videos[0];
     const deleteSourceButton = document.querySelector("#delete-source-video");
     if (sourceVideo) {
@@ -167,7 +170,9 @@ async function ensureWorkspace() {
       clearSourcePreview();
       if (deleteSourceButton) deleteSourceButton.hidden = true;
     }
-    clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
+    const clipResult = await api("/api/clips");
+    if (loadVersion !== workspaceLoadVersion) return false;
+    clips = clipResult.clips.filter((clip) => clip.projectId === currentProject?.id);
     renderClipLibrary();
     return true;
   } catch (error) {
@@ -179,6 +184,7 @@ async function ensureWorkspace() {
         apiSession = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password: crypto.randomUUID() }) });
         window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
         const { projects } = await api("/api/projects");
+        if (loadVersion !== workspaceLoadVersion) return false;
         if (projects.length) currentProject = projects[0];
         else {
           currentProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
@@ -187,6 +193,7 @@ async function ensureWorkspace() {
         document.querySelector("#workspace-title").textContent = currentProject.name;
         renderProjectSelector(projects);
         const videos = (await api(`/api/videos?projectId=${encodeURIComponent(currentProject.id)}`)).videos;
+        if (loadVersion !== workspaceLoadVersion) return false;
         sourceVideo = videos[0];
         const deleteSourceButton = document.querySelector("#delete-source-video");
         if (sourceVideo) {
@@ -196,7 +203,9 @@ async function ensureWorkspace() {
           clearSourcePreview();
           if (deleteSourceButton) deleteSourceButton.hidden = true;
         }
-        clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
+        const clipResult = await api("/api/clips");
+        if (loadVersion !== workspaceLoadVersion) return false;
+        clips = clipResult.clips.filter((clip) => clip.projectId === currentProject?.id);
         renderClipLibrary();
         return true;
       } catch (retryError) {
