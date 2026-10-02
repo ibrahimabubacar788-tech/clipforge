@@ -48,6 +48,7 @@ const copyClipSummaryButton = document.querySelector("#copy-clip-summary");
 const batchRenameClipsButton = document.querySelector("#batch-rename-clips");
 const deselectAllClipsButton = document.querySelector("#deselect-all-clips");
 const selectFailedClipsButton = document.querySelector("#select-failed-clips");
+const retryFailedClipsButton = document.querySelector("#retry-failed-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -841,6 +842,23 @@ copyClipSummaryButton?.addEventListener("click", () => { void copySelectedClipSu
 batchRenameClipsButton?.addEventListener("click", () => { void batchRenameClips(); });
 deselectAllClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); renderClipLibrary(); });
 selectFailedClipsButton?.addEventListener("click", () => { selectedClipIds = new Set(clips.filter((clip) => clip.status === "failed").map((clip) => clip.id)); renderClipLibrary(); });
+retryFailedClipsButton?.addEventListener("click", async () => {
+  const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
+  if (!failed.length) return;
+  retryFailedClipsButton.disabled = true;
+  let retried = 0;
+  for (const clip of failed) {
+    try {
+      const result = await api(`/api/clips/${encodeURIComponent(clip.id)}/retry`, { method: "POST" });
+      const updated = result.clip || result;
+      const target = clips.find((item) => item.id === clip.id);
+      if (target) Object.assign(target, updated, { status: updated.status || "queued" });
+      retried += 1;
+    } catch (error) { showToast(error.message); }
+  }
+  renderClipLibrary();
+  showToast(`${retried} of ${failed.length} failed clip${failed.length === 1 ? "" : "s"} retried.`);
+});
 refreshClipsButton?.addEventListener("click", async () => {
   if (!apiSession || !currentProject) return;
   refreshClipsButton.disabled = true;
