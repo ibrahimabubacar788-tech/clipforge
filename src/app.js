@@ -786,10 +786,15 @@ transcriptFile?.addEventListener("change", async () => {
 autoTranscribeButton?.addEventListener("click", async () => {
   try {
     if (!sourceVideo) throw new Error("Upload a source video first.");
+    const transcriptionVideoId = sourceVideo.id;
     autoTranscribeButton.disabled = true;
     autoTranscribeButton.textContent = "Transcribing…";
     showToast("Transcribing your video…");
-    const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcribe`, { method: "POST", body: JSON.stringify({ language: "en" }) });
+    const result = await api(`/api/videos/${encodeURIComponent(transcriptionVideoId)}/transcribe`, { method: "POST", body: JSON.stringify({ language: "en" }) });
+    if (sourceVideo?.id !== transcriptionVideoId) {
+      showToast("Transcript finished for the original source video, but the workspace changed during transcription.");
+      return;
+    }
     transcriptInput.value = result.transcript.map((segment) => `${segment.start} | ${segment.end} | ${segment.speaker || ""} | ${segment.text}`).join("\n");
     showToast(`Transcript ready: ${result.count} timed segments.`);
   } catch (error) {
