@@ -858,8 +858,18 @@ deselectAllClipsButton?.addEventListener("click", () => {
   readyIds.forEach((id) => allReadySelected ? selectedClipIds.delete(id) : selectedClipIds.add(id));
   renderClipLibrary();
 });
-selectFailedClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => clip.status === "failed").forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
-selectRenderingClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => !["ready", "failed"].includes(clip.status)).forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
+selectFailedClipsButton?.addEventListener("click", () => {
+  const failed = clips.filter((clip) => clip.status === "failed");
+  const allSelected = failed.length > 0 && failed.every((clip) => selectedClipIds.has(clip.id));
+  failed.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
+selectRenderingClipsButton?.addEventListener("click", () => {
+  const rendering = clips.filter((clip) => !["ready", "failed"].includes(clip.status));
+  const allSelected = rendering.length > 0 && rendering.every((clip) => selectedClipIds.has(clip.id));
+  rendering.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
 selectAllStatusClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
 invertClipSelectionButton?.addEventListener("click", () => { const next = new Set(clips.map((clip) => clip.id).filter((id) => !selectedClipIds.has(id))); selectedClipIds.clear(); next.forEach((id) => selectedClipIds.add(id)); renderClipLibrary(); });
 selectVisibleClipsButton?.addEventListener("click", () => {
