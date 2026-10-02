@@ -17,3 +17,8 @@
 .library-sort-row{display:flex;align-items:center;gap:8px;margin-top:10px}.library-sort-row .field-label{margin:0}.library-sort-row select{min-width:150px}
 
 .library-summary{margin-top:8px;font-size:12px;opacity:.72}
+
+.upload-dropzone{outline:none;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+.upload-dropzone:focus-visible{box-shadow:0 0 0 2px var(--violet)}
+.upload-dropzone.is-dragging{border:2px dashed var(--violet);box-shadow:0 0 34px #a68cff2b;transform:scale(.995)}
+.upload-dropzone.is-dragging:after{content:"Drop video to upload";position:absolute;inset:12px;display:grid;place-items:center;border-radius:7px;background:#090c17b8;color:#fff;font-weight:800;letter-spacing:.2px;backdrop-filter:blur(3px);z-index:4}
