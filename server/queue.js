@@ -120,6 +120,7 @@ export class ClipQueue {
           job.status = "queued";
           job.progress = 0;
           delete job.startedAt;
+          delete job.error;
           const clip = d.clips.find((item) => item.id === job.clipId);
           if (clip && clip.status === "processing") {
             clip.status = "queued";
