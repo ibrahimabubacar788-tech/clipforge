@@ -241,6 +241,11 @@ test("video streaming supports byte ranges and rejects invalid ranges", async ()
     assert.equal(clamped.headers.get("content-range"), "bytes 6-10/11");
     assert.equal(Buffer.from(await clamped.arrayBuffer()).toString(), "ideo!");
 
+    const multiRange = await fetch(`${ctx.base}/api/videos/${video.id}/stream`, {
+      headers: { authorization: `Bearer ${auth.token}`, range: "bytes=0-2,6-8" },
+    });
+    assert.equal(multiRange.status, 416);
+
     const invalid = await fetch(`${ctx.base}/api/videos/${video.id}/stream`, {
       headers: { authorization: `Bearer ${auth.token}`, range: "bytes=50-60" },
     });
