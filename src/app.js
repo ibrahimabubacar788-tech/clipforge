@@ -862,7 +862,18 @@ selectFailedClipsButton?.addEventListener("click", () => { selectedClipIds.clear
 selectRenderingClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => !["ready", "failed"].includes(clip.status)).forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
 selectAllStatusClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
 invertClipSelectionButton?.addEventListener("click", () => { const next = new Set(clips.map((clip) => clip.id).filter((id) => !selectedClipIds.has(id))); selectedClipIds.clear(); next.forEach((id) => selectedClipIds.add(id)); renderClipLibrary(); });
-selectVisibleClipsButton?.addEventListener("click", () => { const query = libraryQuery.trim().toLowerCase(); const visible = clips.filter((clip) => { const title = String(clip.title || ""); const matchesQuery = !query || title.toLowerCase().includes(query); const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter); return matchesQuery && matchesFilter; }); selectedClipIds.clear(); visible.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
+selectVisibleClipsButton?.addEventListener("click", () => {
+  const query = libraryQuery.trim().toLowerCase();
+  const visible = clips.filter((clip) => {
+    const title = String(clip.title || "");
+    const matchesQuery = !query || title.toLowerCase().includes(query);
+    const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter);
+    return matchesQuery && matchesFilter;
+  });
+  const allVisibleSelected = visible.length > 0 && visible.every((clip) => selectedClipIds.has(clip.id));
+  visible.forEach((clip) => allVisibleSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
 selectReadyClipsButton?.addEventListener("click", () => {
   const readyIds = new Set(clips.filter((clip) => clip.status === "ready").map((clip) => clip.id));
   const allReadySelected = readyIds.size > 0 && [...readyIds].every((id) => selectedClipIds.has(id));
