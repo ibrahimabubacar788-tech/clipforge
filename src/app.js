@@ -475,6 +475,10 @@ async function uploadSource(file) {
       showToast(`Video uploaded, but AI clipping failed: ${error.message}`);
     }
   }
+  } finally {
+    uploadInFlight = false;
+    activeUploadRequest = null;
+  }
 }
 
 async function refreshClipStatuses({ showReadyToast = false } = {}) {
