@@ -304,15 +304,17 @@ function restoreSourcePreview(video) {
 }
 
 function updateRange() {
-  const clipRange = getRange();
+  const maximum = Number.isFinite(timelineMaximum) && timelineMaximum > 0 ? timelineMaximum : 1;
+  if (timelineMaximum !== maximum) timelineMaximum = maximum;
+  const clipRange = normalizeClipRange(startInput.value, endInput.value, maximum);
   startInput.value = clipRange.start;
   endInput.value = clipRange.end;
   const duration = clipDuration(clipRange.start, clipRange.end);
   durationLabel.textContent = `${formatTimestamp(duration)} clip`;
-  range.style.left = `${(clipRange.start / timelineMaximum) * 100}%`;
-  range.style.width = `${(duration / timelineMaximum) * 100}%`;
-  playhead.style.left = `${(clipRange.start / timelineMaximum) * 100}%`;
-  if (previewElement) previewElement.currentTime = Math.min(clipRange.start, Math.max(0, (previewElement.duration || timelineMaximum) - 0.05));
+  range.style.left = `${(clipRange.start / maximum) * 100}%`;
+  range.style.width = `${(duration / maximum) * 100}%`;
+  playhead.style.left = `${(clipRange.start / maximum) * 100}%`;
+  if (previewElement) previewElement.currentTime = Math.min(clipRange.start, Math.max(0, (previewElement.duration || maximum) - 0.05));
 }
 
 async function uploadSource(file) {
