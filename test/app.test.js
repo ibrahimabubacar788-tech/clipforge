@@ -286,6 +286,92 @@ test("transcription normalization keeps valid diarized segments and drops invali
   ]);
 });
 
+
+test("project and video deletion reject queued render jobs", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "delete-guard@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "Delete Guard Project" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ projectId: project.id, name: "Delete Guard Video", duration: 20 }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const clip = {
+      id: "clip_delete_guard",
+      userId: auth.user.id,
+      videoId: video.id,
+      projectId: project.id,
+      sourceUrl: null,
+      title: "Queued guard clip",
+      start: 0,
+      end: 20,
+      format: "9:16",
+      captions: false,
+      captionSegments: [],
+      style: { color: "lime", weight: "bold" },
+      status: "queued",
+      createdAt: new Date().toISOString(),
+    };
+    await ctx.app.database.transaction((d) => {
+      d.clips.push(clip);
+      d.jobs.push({
+        id: "job_delete_guard",
+        clipId: clip.id,
+        status: "queued",
+        progress: 0,
+        createdAt: new Date().toISOString(),
+      });
+    });
+
+    const deleteVideo = await fetch(`${ctx.base}/api/videos/${video.id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(deleteVideo.status, 409);
+
+    const deleteProject = await fetch(`${ctx.base}/api/projects/${project.id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(deleteProject.status, 409);
+
+    const remaining = await ctx.app.database.read((d) => ({
+      project: d.projects.some((item) => item.id === project.id),
+      video: d.videos.some((item) => item.id === video.id),
+      clip: d.clips.some((item) => item.id === clip.id),
+      job: d.jobs.some((item) => item.id === "job_delete_guard"),
+    }));
+    assert.deepEqual(remaining, { project: true, video: true, clip: true, job: true });
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
+
 test("upload, queue, FFmpeg render, and clip download work end to end", async () => {
   const ctx = await startTestApp();
   const fixtureDir = await mkdtemp(join(tmpdir(), "clipforge-fixture-"));
