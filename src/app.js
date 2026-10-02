@@ -143,6 +143,16 @@ async function ensureWorkspace() {
     }
     document.querySelector("#workspace-title").textContent = currentProject.name;
     renderProjectSelector(projects);
+    const videos = (await api(`/api/videos?projectId=${encodeURIComponent(currentProject.id)}`)).videos;
+    sourceVideo = videos[0];
+    const deleteSourceButton = document.querySelector("#delete-source-video");
+    if (sourceVideo) {
+      restoreSourcePreview(sourceVideo);
+      if (deleteSourceButton) deleteSourceButton.hidden = false;
+    } else {
+      clearSourcePreview();
+      if (deleteSourceButton) deleteSourceButton.hidden = true;
+    }
     clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
     renderClipLibrary();
     return true;
@@ -162,6 +172,16 @@ async function ensureWorkspace() {
         }
         document.querySelector("#workspace-title").textContent = currentProject.name;
         renderProjectSelector(projects);
+        const videos = (await api(`/api/videos?projectId=${encodeURIComponent(currentProject.id)}`)).videos;
+        sourceVideo = videos[0];
+        const deleteSourceButton = document.querySelector("#delete-source-video");
+        if (sourceVideo) {
+          restoreSourcePreview(sourceVideo);
+          if (deleteSourceButton) deleteSourceButton.hidden = false;
+        } else {
+          clearSourcePreview();
+          if (deleteSourceButton) deleteSourceButton.hidden = true;
+        }
         clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
         renderClipLibrary();
         return true;
