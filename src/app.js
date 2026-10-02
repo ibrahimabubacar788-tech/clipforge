@@ -31,6 +31,7 @@ const uploadProgressBar = document.querySelector("#upload-progress-bar");
 const cancelUploadButton = document.querySelector("#cancel-upload");
 let activeUploadRequest = null;
 const clipSearch = document.querySelector("#clip-search");
+const clearClipSearchButton = document.querySelector("#clear-clip-search");
 const clipFilter = document.querySelector("#clip-filter");
 const clipSort = document.querySelector("#clip-sort");
 const clearClipFiltersButton = document.querySelector("#clear-clip-filters");
@@ -878,6 +879,13 @@ document.querySelector("#export-button").addEventListener("click", async () => {
 });
 
 clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; renderClipLibrary(); });
+clearClipSearchButton?.addEventListener("click", () => {
+  if (!clipSearch?.value) return;
+  clipSearch.value = "";
+  libraryQuery = "";
+  renderClipLibrary();
+  clipSearch.focus();
+});
 clipFilter?.addEventListener("change", () => { libraryFilter = clipFilter.value; renderClipLibrary(); });
 clearClipFiltersButton?.addEventListener("click", () => {
   libraryQuery = "";
