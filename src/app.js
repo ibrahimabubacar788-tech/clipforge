@@ -25,7 +25,8 @@ const clipSort = document.querySelector("#clip-sort");
 const librarySummary = document.querySelector("#clip-status-summary" );
 const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
-const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");\nconst refreshClipsButton = document.querySelector("#refresh-clips");
+const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");
+const refreshClipsButton = document.querySelector("#refresh-clips");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
 const fullscreenButton = document.querySelector("#fullscreen-button");
@@ -590,7 +591,8 @@ const transcriptFile = document.querySelector("#transcript-file");
 const autoTranscribeButton = document.querySelector("#auto-transcribe");
 
 function parseTranscript(rawText) {
-  return rawText.split("\n").map((line) => {
+  return rawText.split("
+").map((line) => {
     const parts = line.split("|").map((part) => part.trim());
     if (parts.length < 4) return null;
     const start = Number(parts[0]);
@@ -616,7 +618,8 @@ autoTranscribeButton?.addEventListener("click", async () => {
     autoTranscribeButton.textContent = "Transcribing…";
     showToast("Transcribing your video…");
     const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcribe`, { method: "POST", body: JSON.stringify({ language: "en" }) });
-    transcriptInput.value = result.transcript.map((segment) => `${segment.start} | ${segment.end} | ${segment.speaker || ""} | ${segment.text}`).join("\n");
+    transcriptInput.value = result.transcript.map((segment) => `${segment.start} | ${segment.end} | ${segment.speaker || ""} | ${segment.text}`).join("
+");
     showToast(`Transcript ready: ${result.count} timed segments.`);
   } catch (error) {
     showToast(error.status === 503 ? "Automatic transcription needs the server transcription key configured." : error.message);
@@ -779,7 +782,22 @@ document.querySelector("#export-button").addEventListener("click", async () => {
 
 clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; renderClipLibrary(); });
 clipFilter?.addEventListener("change", () => { libraryFilter = clipFilter.value; renderClipLibrary(); });
-clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });\n\nrefreshClipsButton?.addEventListener("click", async () => {\n  if (!apiSession || !currentProject) return;\n  refreshClipsButton.disabled = true;\n  refreshClipsButton.textContent = "Refreshing…";\n  try {\n    await refreshClipStatuses({ showReadyToast: true });\n    showToast("Clip library refreshed.");\n  } catch (error) {\n    showToast(`Could not refresh clips: ${error.message}`);\n  } finally {\n    refreshClipsButton.disabled = false;\n    refreshClipsButton.textContent = "Refresh";\n  }\n});
+clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });
+
+refreshClipsButton?.addEventListener("click", async () => {
+  if (!apiSession || !currentProject) return;
+  refreshClipsButton.disabled = true;
+  refreshClipsButton.textContent = "Refreshing…";
+  try {
+    await refreshClipStatuses({ showReadyToast: true });
+    showToast("Clip library refreshed.");
+  } catch (error) {
+    showToast(`Could not refresh clips: ${error.message}`);
+  } finally {
+    refreshClipsButton.disabled = false;
+    refreshClipsButton.textContent = "Refresh";
+  }
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
