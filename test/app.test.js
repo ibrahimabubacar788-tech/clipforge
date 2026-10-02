@@ -287,6 +287,91 @@ test("transcription normalization keeps valid diarized segments and drops invali
 });
 
 
+
+test("failed clip retry rejects an active queued render job", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "retry-guard@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "Retry Guard Project" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ projectId: project.id, name: "Retry Guard Video", duration: 20 }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const clip = {
+      id: "clip_retry_guard",
+      userId: auth.user.id,
+      videoId: video.id,
+      projectId: project.id,
+      sourceUrl: null,
+      title: "Retry guard clip",
+      start: 0,
+      end: 20,
+      format: "9:16",
+      captions: false,
+      captionSegments: [],
+      style: { color: "lime", weight: "bold" },
+      status: "failed",
+      error: "Previous render failed.",
+      createdAt: new Date().toISOString(),
+    };
+    const job = {
+      id: "job_retry_guard",
+      clipId: clip.id,
+      status: "queued",
+      progress: 0,
+      createdAt: new Date().toISOString(),
+    };
+    await ctx.app.database.transaction((d) => {
+      d.clips.push(clip);
+      d.jobs.push(job);
+    });
+
+    const retry = await fetch(`${ctx.base}/api/clips/${clip.id}/retry`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+    });
+    assert.equal(retry.status, 409);
+
+    const state = await ctx.app.database.read((d) => ({
+      clip: d.clips.find((item) => item.id === clip.id),
+      job: d.jobs.find((item) => item.id === job.id),
+    }));
+    assert.equal(state.clip.status, "failed");
+    assert.equal(state.clip.error, "Previous render failed.");
+    assert.equal(state.job.status, "queued");
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
+
 test("project and video deletion reject queued render jobs", async () => {
   const ctx = await startTestApp();
   try {
