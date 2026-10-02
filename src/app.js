@@ -325,6 +325,7 @@ async function uploadSource(file) {
     await ensureWorkspace();
     if (!apiSession || !currentProject) throw new Error("ClipForge could not connect your workspace. Refresh and try again.");
   }
+  const uploadProjectId = currentProject.id;
   const probe = document.createElement("video");
   const probeUrl = URL.createObjectURL(file);
   const duration = await new Promise((resolve, reject) => {
@@ -398,11 +399,12 @@ async function uploadSource(file) {
     };
     send();
   });
-  if (!currentProject) {
-    const { projects } = await api("/api/projects");
-    currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+  const uploadedVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: uploadProjectId, name: file.name, duration, sourceUrl: upload.url }) })).video;
+  if (currentProject?.id !== uploadProjectId) {
+    showToast("Video uploaded to the original project. The current project was changed during upload.");
+    return;
   }
-  sourceVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: currentProject.id, name: file.name, duration, sourceUrl: upload.url }) })).video;
+  sourceVideo = uploadedVideo;
   const deleteSourceButton = document.querySelector("#delete-source-video");
   if (deleteSourceButton) deleteSourceButton.hidden = false;
   timelineMaximum = Math.max(1, Math.floor(duration));
