@@ -819,14 +819,21 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
   runButton.textContent = "Generating…";
   try {
     if (!sourceVideo) throw new Error("Upload a source video first.");
+    const generationVideoId = sourceVideo.id;
     const rawTranscript = transcriptInput.value.trim();
     if (!rawTranscript) throw new Error("Add or import a transcript before generating clips.");
-    await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
+    await api(`/api/videos/${encodeURIComponent(generationVideoId)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
+    if (sourceVideo?.id !== generationVideoId) {
+      throw new Error("The source video changed while generation was running. Please reopen the original project before generating clips.");
+    }
     const format = document.querySelector(".format-option.selected").dataset.format;
-    const result = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/generate-clips`, {
+    const result = await api(`/api/videos/${encodeURIComponent(generationVideoId)}/generate-clips`, {
       method: "POST",
       body: JSON.stringify({ limit: 40, format, style: captionStyle })
     });
+    if (sourceVideo?.id !== generationVideoId) {
+      throw new Error("The source video changed while generation was running. The generated clips were kept on the original source.");
+    }
     transcriptDialog.close();
     clips = [...result.clips.map((item) => item.clip), ...clips];
     renderClipLibrary();
