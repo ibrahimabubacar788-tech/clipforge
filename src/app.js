@@ -47,6 +47,7 @@ const copyClipJsonButton = document.querySelector("#copy-clip-json");
 const copyClipSummaryButton = document.querySelector("#copy-clip-summary");
 const batchRenameClipsButton = document.querySelector("#batch-rename-clips");
 const deselectAllClipsButton = document.querySelector("#deselect-all-clips");
+const selectFailedClipsButton = document.querySelector("#select-failed-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -839,6 +840,7 @@ copyClipJsonButton?.addEventListener("click", () => { void copySelectedClipJson(
 copyClipSummaryButton?.addEventListener("click", () => { void copySelectedClipSummary(); });
 batchRenameClipsButton?.addEventListener("click", () => { void batchRenameClips(); });
 deselectAllClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); renderClipLibrary(); });
+selectFailedClipsButton?.addEventListener("click", () => { selectedClipIds = new Set(clips.filter((clip) => clip.status === "failed").map((clip) => clip.id)); renderClipLibrary(); });
 refreshClipsButton?.addEventListener("click", async () => {
   if (!apiSession || !currentProject) return;
   refreshClipsButton.disabled = true;
