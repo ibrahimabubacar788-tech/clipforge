@@ -401,7 +401,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         const videoIds = new Set(videos.map((item) => item.id));
         if (videos.some((item) => autoClipInFlight.has(item.id))) throw Object.assign(new Error("A video in this project is still being processed."), { status: 409 });
         const clips = d.clips.filter((item) => videoIds.has(item.videoId) && item.userId === user.id);
-        if (clips.some((clip) => d.jobs.some((job) => job.clipId === clip.id && job.status === "processing"))) throw Object.assign(new Error("A clip in this project is currently rendering."), { status: 409 });
+        if (clips.some((clip) => d.jobs.some((job) => job.clipId === clip.id && ["queued", "processing"].includes(job.status)))) throw Object.assign(new Error("A clip in this project is currently rendering."), { status: 409 });
         d.projects = d.projects.filter((item) => item.id !== project.id);
         d.videos = d.videos.filter((item) => !videoIds.has(item.id));
         d.clips = d.clips.filter((item) => !clips.some((clip) => clip.id === item.id));
@@ -427,7 +427,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
         if (autoClipInFlight.has(video.id)) throw Object.assign(new Error("Automatic clipping is still running for this video."), { status: 409 });
         const clips = d.clips.filter((item) => item.videoId === video.id && item.userId === user.id);
-        if (clips.some((clip) => d.jobs.some((job) => job.clipId === clip.id && job.status === "processing"))) throw Object.assign(new Error("A clip in this video is currently rendering."), { status: 409 });
+        if (clips.some((clip) => d.jobs.some((job) => job.clipId === clip.id && ["queued", "processing"].includes(job.status)))) throw Object.assign(new Error("A clip in this video is currently rendering."), { status: 409 });
         d.videos = d.videos.filter((item) => item.id !== video.id);
         d.clips = d.clips.filter((item) => item.videoId !== video.id || item.userId !== user.id);
         d.jobs = d.jobs.filter((job) => !clips.some((clip) => clip.id === job.clipId));
