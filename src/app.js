@@ -21,6 +21,7 @@ const sourceUpload = document.querySelector("#source-upload");
 const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
 const clipSort = document.querySelector("#clip-sort");
+const librarySummary = document.querySelector("#library-summary");
 const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
 const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");
@@ -413,6 +414,11 @@ function renderClipLibrary() {
     return new Date(b.createdAt) - new Date(a.createdAt);
   });
   clipsEmpty.hidden = clips.length > 0;
+  const readyCount = clips.filter((clip) => clip.status === "ready").length;
+  const renderingCount = clips.filter((clip) => !["ready", "failed"].includes(clip.status)).length;
+  const failedCount = clips.filter((clip) => clip.status === "failed").length;
+  const totalDuration = clips.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
+  if (librarySummary) librarySummary.textContent = `${clips.length} total · ${readyCount} ready · ${renderingCount} rendering · ${failedCount} failed · ${formatTimestamp(totalDuration)} of content`;
   clipLibrary.innerHTML = filtered.map((clip) => {
     const title = escapeHtml(clip.title || "Untitled clip");
     const format = escapeHtml(clip.format || "9:16");
