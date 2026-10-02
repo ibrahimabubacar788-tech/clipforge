@@ -916,9 +916,8 @@ copyClipJsonButton?.addEventListener("click", () => { void copySelectedClipJson(
 copyClipSummaryButton?.addEventListener("click", () => { void copySelectedClipSummary(); });
 batchRenameClipsButton?.addEventListener("click", () => { void batchRenameClips(); });
 deselectAllClipsButton?.addEventListener("click", () => {
-  const readyIds = new Set(clips.filter((clip) => clip.status === "ready").map((clip) => clip.id));
-  const allReadySelected = readyIds.size > 0 && [...readyIds].every((id) => selectedClipIds.has(id));
-  readyIds.forEach((id) => allReadySelected ? selectedClipIds.delete(id) : selectedClipIds.add(id));
+  if (!selectedClipIds.size) return;
+  selectedClipIds.clear();
   renderClipLibrary();
 });
 selectFailedClipsButton?.addEventListener("click", () => {
