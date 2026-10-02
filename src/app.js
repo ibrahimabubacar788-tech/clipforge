@@ -42,6 +42,7 @@ const refreshClipsButton = document.querySelector("#refresh-clips");
 const copyClipLinksButton = document.querySelector("#copy-clip-links");
 const exportClipListButton = document.querySelector("#export-clip-list");
 const copyClipTitlesButton = document.querySelector("#copy-clip-titles");
+const copyClipDurationButton = document.querySelector("#copy-clip-duration");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -829,6 +830,7 @@ clipSort?.addEventListener("change", () => { librarySort = clipSort.value; rende
 copyClipLinksButton?.addEventListener("click", () => { void copySelectedClipLinks(); });
 exportClipListButton?.addEventListener("click", exportSelectedClipList);
 copyClipTitlesButton?.addEventListener("click", () => { void copySelectedClipTitles(); });
+copyClipDurationButton?.addEventListener("click", () => { void copySelectedClipDuration(); });
 refreshClipsButton?.addEventListener("click", async () => {
   if (!apiSession || !currentProject) return;
   refreshClipsButton.disabled = true;
@@ -889,6 +891,18 @@ clipLibrary.addEventListener("change", (event) => {
   else selectedClipIds.delete(checkbox.dataset.selectClip);
   updateBulkClipControls();
 });
+async function copySelectedClipDuration() {
+  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
+  if (!selected.length) return;
+  const total = selected.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
+  try {
+    await navigator.clipboard.writeText(formatTimestamp(total));
+    showToast(`Total duration ${formatTimestamp(total)} copied.`);
+  } catch {
+    showToast("Could not copy duration. Your browser may block clipboard access.");
+  }
+}
+
 async function copySelectedClipTitles() {
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
   if (!selected.length) return;
