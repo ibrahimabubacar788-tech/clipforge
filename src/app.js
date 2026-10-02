@@ -1513,28 +1513,29 @@ async function pollAutoClipStatus(videoId) {
   if (automaticClipPolls.has(videoId)) return;
   automaticClipPolls.add(videoId);
   const pollingProjectId = currentProject?.id;
-  for (let attempt = 0; attempt < 450; attempt += 1) {
-    if (automaticClipFailures.has(videoId) || currentProject?.id !== pollingProjectId) return;
-    try {
-      const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
-      if (currentProject?.id !== pollingProjectId) return;
-      const scopedAutomaticClips = status.clips.filter((clip) => clip.projectId === pollingProjectId);
-      clips = [...scopedAutomaticClips, ...clips.filter((clip) => clip.projectId === currentProject?.id && (clip.videoId !== videoId || clip.generation !== "auto-ai"))];
-      renderClipLibrary();
-      if (status.total === 0) {
-        showToast(status.analysisInProgress
-          ? (status.transcriptReady
-            ? "Transcript ready. ClipForge is selecting the strongest moments…"
-            : "ClipForge is preparing the transcript and strongest moments…")
-          : "Waiting for automatic AI analysis to begin…");
-      }
-      if (status.total > 0 && status.processing === 0) {
-        showToast(status.failed ? `Automatic clipping finished: ${status.ready} clips ready, ${status.failed} failed.` : `Automatic clipping finished: ${status.ready} clips are ready.`);
-        return;
-      }
-    } catch {}
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
+  try {
+    for (let attempt = 0; attempt < 450; attempt += 1) {
+      if (automaticClipFailures.has(videoId) || currentProject?.id !== pollingProjectId) return;
+      try {
+        const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
+        if (currentProject?.id !== pollingProjectId) return;
+        const scopedAutomaticClips = status.clips.filter((clip) => clip.projectId === pollingProjectId);
+        clips = [...scopedAutomaticClips, ...clips.filter((clip) => clip.projectId === currentProject?.id && (clip.videoId !== videoId || clip.generation !== "auto-ai"))];
+        renderClipLibrary();
+        if (status.total === 0) {
+          showToast(status.analysisInProgress
+            ? (status.transcriptReady
+              ? "Transcript ready. ClipForge is selecting the strongest moments…"
+              : "ClipForge is preparing the transcript and strongest moments…")
+            : "Waiting for automatic AI analysis to begin…");
+        }
+        if (status.total > 0 && status.processing === 0) {
+          showToast(status.failed ? `Automatic clipping finished: ${status.ready} clips ready, ${status.failed} failed.` : `Automatic clipping finished: ${status.ready} clips are ready.`);
+          return;
+        }
+      } catch {}
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
   } finally {
     automaticClipPolls.delete(videoId);
   }
