@@ -23,6 +23,12 @@ const clipsEmpty = document.querySelector("#clips-empty");
 const styleDialog = document.querySelector("#style-dialog");
 const sourceUpload = document.querySelector("#source-upload");
 const videoDropzone = document.querySelector("#video-dropzone");
+const uploadProgress = document.querySelector("#upload-progress");
+const uploadProgressLabel = document.querySelector("#upload-progress-label");
+const uploadProgressPercent = document.querySelector("#upload-progress-percent");
+const uploadProgressBar = document.querySelector("#upload-progress-bar");
+const cancelUploadButton = document.querySelector("#cancel-upload");
+let activeUploadRequest = null;
 const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
 const clipSort = document.querySelector("#clip-sort");
@@ -261,12 +267,16 @@ async function uploadSource(file) {
     throw new Error("Please choose a video file (MP4, MOV, WebM, or M4V).");
   }
   showToast("Uploading video…");
+  uploadProgress?.removeAttribute("hidden");
+  if (uploadProgressBar) uploadProgressBar.value = 0;
+  if (uploadProgressPercent) uploadProgressPercent.textContent = "0%";
   const upload = await new Promise((resolve, reject) => {
     let attempts = 0;
     const uploadId = crypto.randomUUID();
     const send = () => {
       attempts += 1;
       const request = new XMLHttpRequest();
+      activeUploadRequest = request;
       request.open("POST", "/api/uploads");
       request.timeout = 15 * 60 * 1000;
       request.setRequestHeader("content-type", contentType);
@@ -510,6 +520,13 @@ document.querySelectorAll(".format-option").forEach((button) => {
 
 volumeInput?.addEventListener("input", () => { if (previewElement) previewElement.volume = Number(volumeInput.value); });
 playbackButton.addEventListener("click", () => (playbackTimer ? stopPlayback() : startPlayback()));
+cancelUploadButton?.addEventListener("click", () => {
+  if (!activeUploadRequest) return;
+  activeUploadRequest.abort();
+  activeUploadRequest = null;
+  uploadProgress?.setAttribute("hidden", "");
+  showToast("Upload cancelled.");
+});
 sourceUpload.addEventListener("change", async () => { try { await uploadSource(sourceUpload.files[0]); } catch (error) { showToast(error.message); } finally { sourceUpload.value = ""; } });
 videoDropzone?.addEventListener("dragover", (event) => {
   if (![...event.dataTransfer.items].some((item) => item.kind === "file")) return;
