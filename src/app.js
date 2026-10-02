@@ -793,21 +793,23 @@ clipLibrary.addEventListener("click", async (event) => {
   if (previewButton) {
     const clip = clips.find((item) => item.id === previewButton.dataset.previewClip);
     if (!clip) return;
-    const video = videos.find((item) => item.id === clip.videoId);
-    if (!video) { showToast("Source video is no longer available."); return; }
+    if (clip.status !== "ready" || !clip.downloadUrl) { showToast("This clip is not ready for preview yet."); return; }
     clipPreviewTitle.textContent = clip.title || "Clip preview";
-    clipPreviewVideo.src = `/api/videos/${encodeURIComponent(video.id)}/stream`;
-    clipPreviewVideo.currentTime = Number(clip.start) || 0;
-    clipPreviewVideo.dataset.previewEnd = String(Number(clip.end) || 0);
-    clipPreviewVideo.onloadedmetadata = () => {
-      clipPreviewVideo.currentTime = Number(clip.start) || 0;
-      clipPreviewVideo.play().catch(() => {});
-    };
-    clipPreviewVideo.ontimeupdate = () => {
-      const end = Number(clipPreviewVideo.dataset.previewEnd);
-      if (Number.isFinite(end) && clipPreviewVideo.currentTime >= end) clipPreviewVideo.pause();
-    };
-    clipPreviewDialog.showModal();
+    clipPreviewVideo.pause();
+    clipPreviewVideo.removeAttribute("src");
+    clipPreviewVideo.load();
+    try {
+      const response = await fetch(`/api/clips/${encodeURIComponent(clip.id)}/download`);
+      if (!response.ok) throw new Error("The rendered clip is no longer available.");
+      const blobUrl = URL.createObjectURL(await response.blob());
+      clipPreviewVideo.dataset.previewBlobUrl = blobUrl;
+      clipPreviewVideo.src = blobUrl;
+      clipPreviewVideo.onloadedmetadata = () => clipPreviewVideo.play().catch(() => {});
+      clipPreviewVideo.ontimeupdate = null;
+      clipPreviewDialog.showModal();
+    } catch (error) {
+      showToast(`Could not load clip preview: ${error.message}`);
+    }
     return;
   }
   const downloadButton = event.target.closest("[data-download-clip]");
@@ -846,8 +848,8 @@ clipLibrary.addEventListener("click", async (event) => {
 });
 
 renderClipLibrary();
-document.querySelector("#close-clip-preview")?.addEventListener("click", () => { clipPreviewVideo.pause(); clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); clipPreviewDialog.close(); });
-clipPreviewDialog?.addEventListener("close", () => { clipPreviewVideo.pause(); clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); });
+document.querySelector("#close-clip-preview")?.addEventListener("click", () => { clipPreviewVideo.pause(); const blobUrl = clipPreviewVideo.dataset.previewBlobUrl; if (blobUrl) URL.revokeObjectURL(blobUrl); delete clipPreviewVideo.dataset.previewBlobUrl; clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); clipPreviewDialog.close(); });
+clipPreviewDialog?.addEventListener("close", () => { clipPreviewVideo.pause(); const blobUrl = clipPreviewVideo.dataset.previewBlobUrl; if (blobUrl) URL.revokeObjectURL(blobUrl); delete clipPreviewVideo.dataset.previewBlobUrl; clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); });
 updateRange();
 applyCaptionStyle();
 startClipStatusPolling();
