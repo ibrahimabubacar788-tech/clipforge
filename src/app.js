@@ -1365,12 +1365,17 @@ async function downloadSelectedClips() {
   finally { updateBulkClipControls(); }
 }
 async function deleteSelectedClips() {
+  const selectedProjectId = currentProject?.id;
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
   if (!selected.length) return;
   if (!window.confirm(`Delete ${selected.length} selected clip${selected.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
   deleteSelectedClipsButton.disabled = true;
   try {
     const results = await Promise.allSettled(selected.map((clip) => api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "DELETE" })));
+    if (currentProject?.id !== selectedProjectId) {
+      showToast("Clips were deleted from the original project, but the workspace changed before the update finished.");
+      return;
+    }
     const deletedIds = new Set();
     let failed = 0;
     results.forEach((result, index) => {
