@@ -507,7 +507,7 @@ function renderClipLibrary() {
         : clip.renderJobStatus === "queued"
           ? `<div class="clip-rendering"><small class="rendering-status">Queued for rendering…</small><progress class="clip-render-progress" max="100" value="0" aria-label="Render progress"></progress></div>`
           : `<div class="clip-rendering"><small class="rendering-status">Rendering… ${progress}%</small><progress class="clip-render-progress" max="100" value="${progress}" aria-label="Render progress"></progress></div>`;
-    return `<article class="clip-card${favoriteClipIds.has(clip.id) ? " is-favorite" : ""}"><label class="clip-select"><input type="checkbox" data-select-clip="${clipId}" ${selectedClipIds.has(clip.id) ? "checked" : ""} aria-label="Select ${title}" /></label><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><button class="text-button favorite-clip" type="button" data-favorite-clip="${clipId}" aria-pressed="${favoriteClipIds.has(clip.id)}">${favoriteClipIds.has(clip.id) ? "★ Favorited" : "☆ Favorite"}</button><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><button class="text-button details-clip" type="button" data-details-clip="${clipId}">Details</button><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small class="clip-source-name">Source: ${escapeHtml(sourceVideo?.id === clip.videoId ? sourceVideo.name : "Source video")}</small><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
+    return `<article class="clip-card${favoriteClipIds.has(clip.id) ? " is-favorite" : ""}"><label class="clip-select"><input type="checkbox" data-select-clip="${clipId}" ${selectedClipIds.has(clip.id) ? "checked" : ""} aria-label="Select ${title}" /></label><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><button class="text-button favorite-clip" type="button" data-favorite-clip="${clipId}" aria-pressed="${favoriteClipIds.has(clip.id)}">${favoriteClipIds.has(clip.id) ? "★ Favorited" : "☆ Favorite"}</button><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><button class="text-button details-clip" type="button" data-details-clip="${clipId}">Details</button><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><button class="text-button clip-source-link" type="button" data-open-source="${clip.videoId}">Source: ${escapeHtml(sourceVideo?.id === clip.videoId ? sourceVideo.name : "Source video")}</button><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
   }).join("");
   updateBulkClipControls();
   if (librarySelectionSummary) librarySelectionSummary.textContent = `${selectedClipIds.size} selected`;
@@ -1320,6 +1320,23 @@ clipLibrary.addEventListener("click", async (event) => {
       clipPreviewDialog.showModal();
     } catch (error) {
       showToast(`Could not load clip preview: ${error.message}`);
+    }
+    return;
+  }
+  const sourceButton = event.target.closest("[data-open-source]");
+  if (sourceButton) {
+    const videoId = sourceButton.dataset.openSource;
+    if (videoId && currentProject) {
+      const videos = (await api("/api/videos?projectId=" + encodeURIComponent(currentProject.id))).videos;
+      const video = videos.find((item) => item.id === videoId);
+      if (video) {
+        sourceVideo = video;
+        restoreSourcePreview(video);
+        document.querySelector('[data-view="editor"]')?.click();
+        showToast("Source video opened in the editor.");
+      } else {
+        showToast("That source video is no longer available.");
+      }
     }
     return;
   }
