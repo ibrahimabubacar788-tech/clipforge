@@ -285,7 +285,7 @@ async function uploadSource(file) {
   startInput.value = 0;
   endInput.value = Math.min(24, timelineMaximum);
   updateRange();
-  showToast("Video uploaded. Automatic analysis is finding the best moments…");
+  showToast("Video uploaded. ClipForge is preparing the strongest moments…");
   try {
     const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
     const autoClipPayload = JSON.stringify({ limit: 12, format, style: captionStyle, language: "en" });
@@ -293,7 +293,7 @@ async function uploadSource(file) {
       method: "POST",
       body: autoClipPayload
     });
-    showToast("AI is analyzing your video and finding the strongest moments…");
+    showToast("ClipForge is analyzing your video and finding the strongest moments…");
     void pollAutoClipStatus(sourceVideo.id);
     let result;
     try {
@@ -310,8 +310,8 @@ async function uploadSource(file) {
     renderClipLibrary();
     startClipStatusPolling();
     showToast(result.aiFallback
-      ? `Automatic analysis found ${result.generated} clips and started rendering them.`
-      : `AI found ${result.generated} clips and started rendering them.`);
+      ? `Built-in highlight analysis found ${result.generated} clips and started rendering them.`
+      : `AI highlight analysis found ${result.generated} clips and started rendering them.`);
     void refreshClipLibraryWhileRendering();
   } catch (error) {
     if (sourceVideo?.id && error.status !== 409) {
@@ -565,7 +565,9 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
     clips = [...result.clips.map((item) => item.clip), ...clips];
     renderClipLibrary();
     startClipStatusPolling();
-    showToast(`AI ranked ${result.generated} clips and queued them for rendering.`);
+    showToast(result.aiFallback
+      ? `Built-in highlight analysis ranked ${result.generated} clips and queued them for rendering.`
+      : `AI highlight analysis ranked ${result.generated} clips and queued them for rendering.`);
     void refreshClipLibraryWhileRendering();
   } catch (error) {
     showToast(error.message);
@@ -736,8 +738,8 @@ async function pollAutoClipStatus(videoId) {
       if (status.total === 0) {
         showToast(status.analysisInProgress
           ? (status.transcriptReady
-            ? "AI has finished transcription and is selecting the strongest moments…"
-            : "AI is transcribing your video and preparing the best moments…")
+            ? "Transcript ready. ClipForge is selecting the strongest moments…"
+            : "ClipForge is preparing the transcript and strongest moments…")
           : "Waiting for automatic AI analysis to begin…");
       }
       if (status.total > 0 && status.processing === 0) {
