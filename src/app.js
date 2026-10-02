@@ -781,6 +781,30 @@ clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; r
 clipFilter?.addEventListener("change", () => { libraryFilter = clipFilter.value; renderClipLibrary(); });
 clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });
 
+document.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+  const target = event.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable) return;
+  if (event.code === "Space") {
+    event.preventDefault();
+    playbackButton?.click();
+  } else if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    startInput.value = Math.max(0, Number(startInput.value) - 1);
+    endInput.value = Math.max(Number(startInput.value) + 1, Number(endInput.value));
+    updateRange();
+  } else if (event.key === "ArrowRight") {
+    event.preventDefault();
+    endInput.value = Math.min(timelineMaximum, Number(endInput.value) + 1);
+    startInput.value = Math.min(Number(startInput.value), Number(endInput.value) - 1);
+    updateRange();
+  } else if (event.key.toLowerCase() === "f") {
+    fullscreenButton?.click();
+  } else if (event.key === "escape" && document.fullscreenElement) {
+    void document.exitFullscreen();
+  }
+});
+
 fullscreenButton?.addEventListener("click", async () => {
   try {
     if (!document.fullscreenElement) await videoStage.requestFullscreen();
