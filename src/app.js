@@ -851,7 +851,12 @@ selectRenderingClipsButton?.addEventListener("click", () => { selectedClipIds.cl
 selectAllStatusClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
 invertClipSelectionButton?.addEventListener("click", () => { const next = new Set(clips.map((clip) => clip.id).filter((id) => !selectedClipIds.has(id))); selectedClipIds.clear(); next.forEach((id) => selectedClipIds.add(id)); renderClipLibrary(); });
 selectVisibleClipsButton?.addEventListener("click", () => { const query = libraryQuery.trim().toLowerCase(); const visible = clips.filter((clip) => { const title = String(clip.title || ""); const matchesQuery = !query || title.toLowerCase().includes(query); const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter); return matchesQuery && matchesFilter; }); selectedClipIds.clear(); visible.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
-selectReadyClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => clip.status === "ready").forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
+selectReadyClipsButton?.addEventListener("click", () => {
+  const readyIds = new Set(clips.filter((clip) => clip.status === "ready").map((clip) => clip.id));
+  const allReadySelected = readyIds.size > 0 && [...readyIds].every((id) => selectedClipIds.has(id));
+  readyIds.forEach((id) => allReadySelected ? selectedClipIds.delete(id) : selectedClipIds.add(id));
+  renderClipLibrary();
+});
 retryFailedClipsButton?.addEventListener("click", async () => {
 selectReadyClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => clip.status === "ready").forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });  const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
   if (!failed.length) return;
