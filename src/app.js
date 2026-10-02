@@ -765,6 +765,7 @@ document.querySelector("#rename-project")?.addEventListener("click", async () =>
     document.querySelector("#workspace-title").textContent = currentProject.name;
     const projects = (await api("/api/projects")).projects;
     renderProjectSelector(projects);
+    renderClipLibrary();
     showToast("Project renamed.");
   } catch (error) {
     showToast(`Could not rename project: ${error.message}`);
