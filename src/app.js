@@ -1365,7 +1365,19 @@ applyCaptionStyle();
 startClipStatusPolling();
 ensureWorkspace();
 
-window.addEventListener("keydown", (event) => {\n  if (event.key === "/" && !event.target.matches("input, select, textarea") && !event.metaKey && !event.ctrlKey && !event.altKey) {\n    event.preventDefault();\n    clipSearch?.focus();\n    clipSearch?.select();\n    return;\n  }\n  if (event.key === "Escape" && document.activeElement === clipSearch && clipSearch?.value) {\n    clipSearch.value = "";\n    libraryQuery = "";\n    renderClipLibrary();\n    return;\n  }
+window.addEventListener("keydown", (event) => {
+  if (event.key === "/" && !event.target.matches("input, select, textarea") && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    event.preventDefault();
+    clipSearch?.focus();
+    clipSearch?.select();
+    return;
+  }
+  if (event.key === "Escape" && document.activeElement === clipSearch && clipSearch?.value) {
+    clipSearch.value = "";
+    libraryQuery = "";
+    renderClipLibrary();
+    return;
+  }
   if (event.target.matches("input, select, textarea")) return;
   if (event.key === " ") { event.preventDefault(); playbackButton.click(); }
   if (event.key.toLowerCase() === "e") document.querySelector("#export-button").click();
