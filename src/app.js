@@ -714,8 +714,10 @@ document.querySelector("#delete-source-video")?.addEventListener("click", async 
   button.disabled = true;
   try {
     const deletedVideoId = sourceVideo.id;
+    const deletedVideoProjectId = currentProject?.id;
     automaticClipFailures.add(deletedVideoId);
     await api("/api/videos/" + encodeURIComponent(deletedVideoId), { method: "DELETE" });
+    if (currentProject?.id !== deletedVideoProjectId || sourceVideo?.id !== deletedVideoId) return;
     clips = clips.filter((clip) => clip.videoId !== deletedVideoId);
     for (const clipId of [...favoriteClipIds]) if (!clips.some((clip) => clip.id === clipId)) favoriteClipIds.delete(clipId);
     window.localStorage.setItem(favoriteKey, JSON.stringify([...favoriteClipIds]));
