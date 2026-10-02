@@ -845,7 +845,12 @@ copyClipDurationButton?.addEventListener("click", () => { void copySelectedClipD
 copyClipJsonButton?.addEventListener("click", () => { void copySelectedClipJson(); });
 copyClipSummaryButton?.addEventListener("click", () => { void copySelectedClipSummary(); });
 batchRenameClipsButton?.addEventListener("click", () => { void batchRenameClips(); });
-deselectAllClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); renderClipLibrary(); });
+deselectAllClipsButton?.addEventListener("click", () => {
+  const readyIds = new Set(clips.filter((clip) => clip.status === "ready").map((clip) => clip.id));
+  const allReadySelected = readyIds.size > 0 && [...readyIds].every((id) => selectedClipIds.has(id));
+  readyIds.forEach((id) => allReadySelected ? selectedClipIds.delete(id) : selectedClipIds.add(id));
+  renderClipLibrary();
+});
 selectFailedClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => clip.status === "failed").forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
 selectRenderingClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => !["ready", "failed"].includes(clip.status)).forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
 selectAllStatusClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
