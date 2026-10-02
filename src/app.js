@@ -124,6 +124,7 @@ async function loadProject(projectId) {
   const deleteSourceButton = document.querySelector("#delete-source-video");
   if (sourceVideo) { restoreSourcePreview(sourceVideo); if (deleteSourceButton) deleteSourceButton.hidden = false; } else { clearSourcePreview(); if (deleteSourceButton) deleteSourceButton.hidden = true; }
   clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject.id);
+  selectedClipIds.clear();
   renderClipLibrary();
 }
 
@@ -826,6 +827,7 @@ document.querySelector("#new-project").addEventListener("click", async () => {
     document.querySelector("#workspace-title").textContent = currentProject.name;
     sourceVideo = undefined;
     clips = [];
+    selectedClipIds.clear();
     renderClipLibrary();
     if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
     sourcePreviewUrl = undefined;
