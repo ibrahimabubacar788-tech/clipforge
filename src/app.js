@@ -643,8 +643,8 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     clips.unshift(result.clip);
     renderClipLibrary();
     showToast("Export queued. Your rendered clip will be ready shortly.");
-    for (let attempt = 0; attempt < 900; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+    for (let attempt = 0; attempt < 450; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       const jobResult = await api(`/api/jobs/${result.job.id}`);
       if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
     }
