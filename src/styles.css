@@ -6,3 +6,5 @@
 .project-select{width:100%;margin:8px 0 10px;padding:9px 10px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.05);color:inherit;font:inherit}.project-select:focus{outline:2px solid rgba(255,255,255,.22);outline-offset:2px}.project-select option{background:#111827;color:#fff}
 .clip-status-summary{margin:14px 0 0;color:var(--muted);font:10px "DM Mono";letter-spacing:.1px}.clip-status-summary[data-state="active"]{color:#cfc4ff}.clip-status-summary[data-state="complete"]{color:#b9d8c2}
 .clip-status-actions{display:flex;align-items:center;gap:8px;margin-top:8px}.retry-clip{border:1px solid #4a4664;border-radius:7px;background:transparent;color:#dfe1ed;padding:6px 10px;font:700 12px Manrope;cursor:pointer}.retry-clip:hover{background:#1a1d2b}.retry-clip:focus-visible{outline:2px solid var(--violet);outline-offset:2px}
+
+.workspace-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}.project-actions{display:flex;align-items:center;gap:10px}.danger-button{color:#ff9fbc}.danger-button:hover{color:#ffc0d2}.danger-button:disabled{opacity:.5;cursor:not-allowed}
