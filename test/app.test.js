@@ -232,7 +232,7 @@ test("video streaming supports byte ranges and rejects invalid ranges", async ()
     });
     assert.equal(openEnded.status, 206);
     assert.equal(openEnded.headers.get("content-range"), "bytes 6-10/11");
-    assert.equal(Buffer.from(await openEnded.arrayBuffer()).toString(), "video!");
+    assert.equal(Buffer.from(await openEnded.arrayBuffer()).toString(), "ideo!");
 
     const invalid = await fetch(`${ctx.base}/api/videos/${video.id}/stream`, {
       headers: { authorization: `Bearer ${auth.token}`, range: "bytes=50-60" },
