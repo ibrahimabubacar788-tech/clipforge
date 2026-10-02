@@ -1536,7 +1536,6 @@ async function pollAutoClipStatus(videoId) {
       } catch {}
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
-  }
   } finally {
     automaticClipPolls.delete(videoId);
   }
