@@ -20,6 +20,8 @@ const styleDialog = document.querySelector("#style-dialog");
 const sourceUpload = document.querySelector("#source-upload");
 const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
+const selectAllClipsButton = document.querySelector("#select-all-clips");
+const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
 const fullscreenButton = document.querySelector("#fullscreen-button");
@@ -31,6 +33,7 @@ const storageKey = "clipforge-exports";
 const sessionKey = "clipforge-session";
 const styleKey = "clipforge-caption-style";
 let clips = [];
+const selectedClipIds = new Set();
 const automaticClipFailures = new Set();
 let apiSession = JSON.parse(window.localStorage.getItem(sessionKey) || "null");
 let sourceVideo;
@@ -388,6 +391,7 @@ function escapeHtml(value) {
 }
 
 function renderClipLibrary() {
+  for (const id of [...selectedClipIds]) if (!clips.some((clip) => clip.id === id && clip.status === "ready")) selectedClipIds.delete(id);
   clipCount.textContent = clips.length;
   const query = libraryQuery.trim().toLowerCase();
   const filtered = clips.filter((clip) => {
@@ -410,8 +414,9 @@ function renderClipLibrary() {
         : clip.renderJobStatus === "queued"
           ? `<small class="rendering-status">Queued for rendering…</small>`
           : `<small class="rendering-status">Rendering… ${progress}%</small>`;
-    return `<article class="clip-card"><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
+    return `<article class="clip-card"><label class="clip-select"><input type="checkbox" data-select-clip="${clipId}" ${selectedClipIds.has(clip.id) ? "checked" : ""} ${clip.status !== "ready" ? "disabled" : ""} aria-label="Select ${title}" /></label><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
   }).join("");
+  updateBulkClipControls();
 }
 
 async function refreshClipLibraryWhileRendering() {
@@ -746,6 +751,51 @@ document.addEventListener("fullscreenchange", () => {
 
 document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("click", (event) => { event.preventDefault(); switchView(link.dataset.view); }));
 document.querySelectorAll("[data-go-editor]").forEach((button) => button.addEventListener("click", () => switchView("editor")));
+
+clipLibrary.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-select-clip]");
+  if (!checkbox) return;
+  if (checkbox.checked) selectedClipIds.add(checkbox.dataset.selectClip);
+  else selectedClipIds.delete(checkbox.dataset.selectClip);
+  updateBulkClipControls();
+});
+function updateBulkClipControls() {
+  const ready = clips.filter((clip) => clip.status === "ready");
+  const selectedReady = ready.filter((clip) => selectedClipIds.has(clip.id)).length;
+  if (selectAllClipsButton) selectAllClipsButton.textContent = ready.length && selectedReady === ready.length ? "Clear selection" : "Select ready";
+  if (downloadSelectedClipsButton) {
+    downloadSelectedClipsButton.disabled = selectedReady === 0;
+    downloadSelectedClipsButton.textContent = selectedReady ? `Download selected (${selectedReady})` : "Download selected";
+  }
+}
+async function downloadSelectedClips() {
+  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
+  if (!selected.length) return;
+  downloadSelectedClipsButton.disabled = true;
+  try {
+    for (const clip of selected) {
+      const response = await fetch(`/api/clips/${encodeURIComponent(clip.id)}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
+      if (!response.ok) throw new Error(`Could not download ${clip.title || "clip"}.`);
+      const blobUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `${clip.title || "ClipForge clip"}.mp4`;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    showToast(`Downloaded ${selected.length} selected clip${selected.length === 1 ? "" : "s"}.`);
+  } catch (error) { showToast(error.message); }
+  finally { updateBulkClipControls(); }
+}
+selectAllClipsButton?.addEventListener("click", () => {
+  const ready = clips.filter((clip) => clip.status === "ready");
+  const allSelected = ready.length > 0 && ready.every((clip) => selectedClipIds.has(clip.id));
+  if (allSelected) ready.forEach((clip) => selectedClipIds.delete(clip.id));
+  else ready.forEach((clip) => selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});
+downloadSelectedClipsButton?.addEventListener("click", downloadSelectedClips);
 
 clipLibrary.addEventListener("click", async (event) => {
   const retryButton = event.target.closest("[data-retry-clip]");
