@@ -96,6 +96,7 @@ let sourceVideo;
 let sourcePreviewUrl;
 let previewElement;
 let currentProject;
+let workspaceLoadVersion = 0;
 let captionStyle = safeStorageParse(styleKey, { color: "lime", weight: "bold" });
 if (!captionStyle || typeof captionStyle !== "object" || Array.isArray(captionStyle)) captionStyle = { color: "lime", weight: "bold" };
 
@@ -121,17 +122,22 @@ function renderProjectSelector(projects = []) {
 }
 
 async function loadProject(projectId) {
+  const loadVersion = ++workspaceLoadVersion;
   const { projects } = await api("/api/projects");
+  if (loadVersion !== workspaceLoadVersion) return;
   const project = projects.find((item) => item.id === projectId);
   if (!project) throw new Error("Project not found.");
   currentProject = project;
   document.querySelector("#workspace-title").textContent = currentProject.name;
   if (projectSelect) projectSelect.value = project.id;
   const videos = (await api(`/api/videos?projectId=${encodeURIComponent(project.id)}`)).videos;
+  if (loadVersion !== workspaceLoadVersion) return;
   sourceVideo = videos[0];
   const deleteSourceButton = document.querySelector("#delete-source-video");
   if (sourceVideo) { restoreSourcePreview(sourceVideo); if (deleteSourceButton) deleteSourceButton.hidden = false; } else { clearSourcePreview(); if (deleteSourceButton) deleteSourceButton.hidden = true; }
-  clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject.id);
+  const result = await api("/api/clips");
+  if (loadVersion !== workspaceLoadVersion) return;
+  clips = result.clips.filter((clip) => clip.projectId === project.id);
   selectedClipIds.clear();
   renderClipLibrary();
 }
