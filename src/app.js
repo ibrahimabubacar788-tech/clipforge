@@ -36,6 +36,9 @@ const clipSort = document.querySelector("#clip-sort");
 const clearClipFiltersButton = document.querySelector("#clear-clip-filters");
 const librarySummary = document.querySelector("#clip-status-summary" );
 const libraryProjectOverview = document.querySelector("#library-project-overview");
+const libraryProjectProgress = document.querySelector("#library-project-progress");
+const libraryProjectProgressBar = document.querySelector("#library-project-progress-bar");
+const libraryProjectProgressLabel = document.querySelector("#library-project-progress-label");
 const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
 const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");
@@ -482,6 +485,10 @@ function renderClipLibrary() {
     const sourceCount = sourceVideo ? 1 : 0;
     const readyDuration = clips.filter((clip) => clip.status === "ready").reduce((sum, clip) => sum + Math.max(0, Number(clip.end) - Number(clip.start)), 0);
     const sourceDuration = sourceVideo?.duration ? Number(sourceVideo.duration) : 0;
+    const progressPercent = clips.length ? Math.round((readyCount / clips.length) * 100) : 0;
+    if (libraryProjectProgressBar) libraryProjectProgressBar.value = progressPercent;
+    if (libraryProjectProgressLabel) libraryProjectProgressLabel.textContent = `${progressPercent}%`;
+    if (libraryProjectProgress) libraryProjectProgress.hidden = clips.length === 0;
     libraryProjectOverview.innerHTML = "<strong>" + projectName.replace(/[&<>]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[char])) + "</strong><span>" + sourceCount + " source video" + (sourceCount === 1 ? "" : "s") + "</span><span>" + (sourceDuration ? formatTimestamp(sourceDuration) + " source length" : "Source not loaded") + "</span><span>" + clips.length + " clips</span><span>" + readyCount + " ready</span><span>" + favoriteCount + " favorite" + (favoriteCount === 1 ? "" : "s") + "</span><span>" + formatTimestamp(readyDuration) + " rendered</span>";
   }
   const totalDuration = clips.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
