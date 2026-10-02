@@ -391,12 +391,13 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       return json(res, 200, { videoId: video.id, engine: "clipforge-highlight-v1", candidates, count: candidates.length });
     }
 
-    if (req.method === "POST" && pathname === "/api/projects") { if (!String(payload.name || "").trim()) throw Object.assign(new Error("A project name is required."), { status: 422 }); const project = { id: id("prj"), userId: user.id, name: payload.name.trim(), createdAt: now(), updatedAt: now() }; await db.transaction((d) => d.projects.push(project)); return json(res, 201, { project }); }
+    if (req.method === "POST" && pathname === "/api/projects") { const name = String(payload.name || "").trim(); if (!name) throw Object.assign(new Error("A project name is required."), { status: 422 }); if (name.length > 120) throw Object.assign(new Error("Project name must be 120 characters or fewer."), { status: 422 }); const project = { id: id("prj"), userId: user.id, name, createdAt: now(), updatedAt: now() }; await db.transaction((d) => d.projects.push(project)); return json(res, 201, { project }); }
     const projectMatch = pathname.match(/^\/api\/projects\/([^/]+)$/);
     if (projectMatch && req.method === "DELETE") {
       const removed = await db.transaction((d) => {
         const project = d.projects.find((item) => item.id === projectMatch[1] && item.userId === user.id);
         if (!project) throw Object.assign(new Error("Project not found."), { status: 404 });
+        if (d.projects.filter((item) => item.userId === user.id).length <= 1) throw Object.assign(new Error("At least one project must remain."), { status: 409 });
         const videos = d.videos.filter((item) => item.projectId === project.id && item.userId === user.id);
         const videoIds = new Set(videos.map((item) => item.id));
         if (videos.some((item) => autoClipInFlight.has(item.id))) throw Object.assign(new Error("A video in this project is still being processed."), { status: 409 });
