@@ -22,6 +22,7 @@ const videoDropzone = document.querySelector("#video-dropzone");
 const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
 const clipSort = document.querySelector("#clip-sort");
+const clearClipFiltersButton = document.querySelector("#clear-clip-filters");
 const librarySummary = document.querySelector("#clip-status-summary" );
 const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
@@ -780,6 +781,16 @@ document.querySelector("#export-button").addEventListener("click", async () => {
 
 clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; renderClipLibrary(); });
 clipFilter?.addEventListener("change", () => { libraryFilter = clipFilter.value; renderClipLibrary(); });
+clearClipFiltersButton?.addEventListener("click", () => {
+  libraryQuery = "";
+  libraryFilter = "all";
+  librarySort = "newest";
+  if (clipSearch) clipSearch.value = "";
+  if (clipFilter) clipFilter.value = "all";
+  if (clipSort) clipSort.value = "newest";
+  renderClipLibrary();
+  clipSearch?.focus();
+});
 clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });
 
 refreshClipsButton?.addEventListener("click", async () => {
