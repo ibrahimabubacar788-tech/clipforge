@@ -51,6 +51,7 @@ const selectFailedClipsButton = document.querySelector("#select-failed-clips");
 const retryFailedClipsButton = document.querySelector("#retry-failed-clips");
 const selectRenderingClipsButton = document.querySelector("#select-rendering-clips");
 const selectAllStatusClipsButton = document.querySelector("#select-all-status-clips");
+const invertClipSelectionButton = document.querySelector("#invert-clip-selection");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -846,6 +847,7 @@ deselectAllClipsButton?.addEventListener("click", () => { selectedClipIds.clear(
 selectFailedClipsButton?.addEventListener("click", () => { selectedClipIds = new Set(clips.filter((clip) => clip.status === "failed").map((clip) => clip.id)); renderClipLibrary(); });
 selectRenderingClipsButton?.addEventListener("click", () => { selectedClipIds = new Set(clips.filter((clip) => !["ready", "failed"].includes(clip.status)).map((clip) => clip.id)); renderClipLibrary(); });
 selectAllStatusClipsButton?.addEventListener("click", () => { selectedClipIds = new Set(clips.map((clip) => clip.id)); renderClipLibrary(); });
+invertClipSelectionButton?.addEventListener("click", () => { const next = new Set(clips.map((clip) => clip.id).filter((id) => !selectedClipIds.has(id))); selectedClipIds = next; renderClipLibrary(); });
 retryFailedClipsButton?.addEventListener("click", async () => {
   const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
   if (!failed.length) return;
