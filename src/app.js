@@ -57,6 +57,7 @@ const selectReadyClipsButton = document.querySelector("#select-ready-clips");
 const selectUntaggedClipsButton = document.querySelector("#select-untagged-clips");
 const selectCaptionedClipsButton = document.querySelector("#select-captioned-clips");
 const selectLongClipsButton = document.querySelector("#select-long-clips");
+const selectShortClipsButton = document.querySelector("#select-short-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -901,7 +902,12 @@ selectReadyClipsButton?.addEventListener("click", () => {
 selectUntaggedClipsButton?.addEventListener("click", () => {
 selectCaptionedClipsButton?.addEventListener("click", () => {
 selectLongClipsButton?.addEventListener("click", () => {
-  const longClips = clips.filter((clip) => clipDuration(clip.start, clip.end) >= 60);
+selectShortClipsButton?.addEventListener("click", () => {
+  const shortClips = clips.filter((clip) => clipDuration(clip.start, clip.end) < 60);
+  const allSelected = shortClips.length > 0 && shortClips.every((clip) => selectedClipIds.has(clip.id));
+  shortClips.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
+  renderClipLibrary();
+});  const longClips = clips.filter((clip) => clipDuration(clip.start, clip.end) >= 60);
   const allSelected = longClips.length > 0 && longClips.every((clip) => selectedClipIds.has(clip.id));
   longClips.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
   renderClipLibrary();
