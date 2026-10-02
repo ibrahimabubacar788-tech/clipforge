@@ -901,6 +901,7 @@ deleteProjectButton?.addEventListener("click", async () => {
     workspaceLoadVersion += 1;
     const deletedId = currentProject.id;
     await api(`/api/projects/${encodeURIComponent(deletedId)}`, { method: "DELETE" });
+    if (currentProject?.id !== deletedId) return;
     const remaining = projects.filter((project) => project.id !== deletedId);
     currentProject = remaining[0];
     selectedClipIds.clear();
