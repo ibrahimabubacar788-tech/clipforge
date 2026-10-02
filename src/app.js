@@ -45,6 +45,7 @@ const copyClipTitlesButton = document.querySelector("#copy-clip-titles");
 const copyClipDurationButton = document.querySelector("#copy-clip-duration");
 const copyClipJsonButton = document.querySelector("#copy-clip-json");
 const copyClipSummaryButton = document.querySelector("#copy-clip-summary");
+const batchRenameClipsButton = document.querySelector("#batch-rename-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -835,6 +836,7 @@ copyClipTitlesButton?.addEventListener("click", () => { void copySelectedClipTit
 copyClipDurationButton?.addEventListener("click", () => { void copySelectedClipDuration(); });
 copyClipJsonButton?.addEventListener("click", () => { void copySelectedClipJson(); });
 copyClipSummaryButton?.addEventListener("click", () => { void copySelectedClipSummary(); });
+batchRenameClipsButton?.addEventListener("click", () => { void batchRenameClips(); });
 refreshClipsButton?.addEventListener("click", async () => {
   if (!apiSession || !currentProject) return;
   refreshClipsButton.disabled = true;
@@ -895,6 +897,29 @@ clipLibrary.addEventListener("change", (event) => {
   else selectedClipIds.delete(checkbox.dataset.selectClip);
   updateBulkClipControls();
 });
+async function batchRenameClips() {
+  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && ["ready", "failed"].includes(clip.status));
+  if (!selected.length) return;
+  const prefix = window.prompt("Enter a title prefix for the selected clips:", "Clip");
+  if (prefix === null) return;
+  const cleanPrefix = prefix.trim();
+  if (!cleanPrefix) { showToast("Enter a title prefix."); return; }
+  let renamed = 0;
+  for (const [index, clip] of selected.entries()) {
+    try {
+      const result = await api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "PATCH", body: JSON.stringify({ title: `${cleanPrefix} ${index + 1}` }) });
+      const updated = result.clip || result;
+      const target = clips.find((item) => item.id === clip.id);
+      if (target) target.title = updated.title || `${cleanPrefix} ${index + 1}`;
+      renamed += 1;
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+  renderClipLibrary();
+  showToast(`${renamed} of ${selected.length} clip${selected.length === 1 ? "" : "s"} renamed.`);
+}
+
 async function copySelectedClipSummary() {
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
   if (!selected.length) return;
