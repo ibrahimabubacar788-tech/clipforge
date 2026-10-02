@@ -456,8 +456,14 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       if (contentLength === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
       if (contentLength !== null && contentLength > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
       await mkdir(join(storageDir, "uploads"), { recursive: true });
-      const safe = `${user.id}-${id("upload")}-${filename}`
+      const uploadId = String(req.headers["x-upload-id"] || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 100);
+      if (!uploadId) throw Object.assign(new Error("Upload ID is required. Please retry the upload."), { status: 400 });
+      const safe = `${user.id}-${uploadId}-${filename}`;
       const target = join(storageDir, "uploads", safe);
+      const existing = await stat(target).catch(() => null);
+      if (existing?.isFile() && contentLength !== null && existing.size === contentLength) {
+        return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
+      }
       let bytes = 0;
       const limited = async function* () { for await (const chunk of req) { bytes += chunk.length; if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 }); yield chunk; } if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 }); };
       try {
