@@ -317,7 +317,12 @@ async function uploadSource(file) {
       request.setRequestHeader("x-upload-id", uploadId);
       if (apiSession?.token) request.setRequestHeader("authorization", "Bearer " + apiSession.token);
       request.upload.onprogress = (event) => {
-        if (event.lengthComputable) showToast("Uploading video… " + Math.round((event.loaded / event.total) * 100) + "%");
+        if (!event.lengthComputable) return;
+        const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+        if (uploadProgressBar) uploadProgressBar.value = percent;
+        if (uploadProgressPercent) uploadProgressPercent.textContent = percent + "%";
+        if (uploadProgressLabel) uploadProgressLabel.textContent = "Uploading video…";
+        showToast("Uploading video… " + percent + "%");
       };
       request.onload = () => {
         let result = {};
@@ -351,6 +356,9 @@ async function uploadSource(file) {
   startInput.value = 0;
   endInput.value = Math.min(24, timelineMaximum);
   updateRange();
+  if (uploadProgressBar) uploadProgressBar.value = 100;
+  if (uploadProgressPercent) uploadProgressPercent.textContent = "100%";
+  if (uploadProgressLabel) uploadProgressLabel.textContent = "Upload complete";
   showToast("Video uploaded. ClipForge is preparing the strongest moments…");
   try {
     const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
