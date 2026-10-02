@@ -470,6 +470,8 @@ function renderClipLibrary() {
   }).join("");
   updateBulkClipControls();
   if (librarySelectionSummary) librarySelectionSummary.textContent = `${selectedClipIds.size} selected`;
+  if (selectAllClipsButton) { const readyTotal = clips.filter((clip) => clip.status === "ready").length; const readySelected = clips.filter((clip) => clip.status === "ready" && selectedClipIds.has(clip.id)).length; selectAllClipsButton.textContent = readyTotal > 0 && readySelected === readyTotal ? "Clear ready" : "Select ready"; }
+  if (selectReadyClipsButton) { const readyTotal = clips.filter((clip) => clip.status === "ready").length; const readySelected = clips.filter((clip) => clip.status === "ready" && selectedClipIds.has(clip.id)).length; selectReadyClipsButton.textContent = readyTotal > 0 && readySelected === readyTotal ? "Clear ready" : "Select ready"; }
 }
 
 async function refreshClipLibraryWhileRendering() {
