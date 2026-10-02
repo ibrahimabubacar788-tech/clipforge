@@ -264,6 +264,7 @@ function showToast(message) {
 function getRange() { return normalizeClipRange(startInput.value, endInput.value, timelineMaximum); }
 
 function clearSourcePreview() {
+  stopPlayback();
   sourceVideo = null;
   if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
   sourcePreviewUrl = null;
@@ -280,6 +281,7 @@ function clearSourcePreview() {
 
 function restoreSourcePreview(video) {
   if (!video?.id) return;
+  stopPlayback();
   if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
   sourcePreviewUrl = `/api/videos/${encodeURIComponent(video.id)}/stream`;
   previewElement?.remove();
