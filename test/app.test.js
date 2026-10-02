@@ -372,6 +372,85 @@ test("failed clip retry rejects an active queued render job", async () => {
 });
 
 
+test("projects and clips can be renamed with validation", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "rename-feature@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Original Project" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const renameProject = await fetch(`${ctx.base}/api/projects/${project.id}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Renamed Project" }),
+    });
+    assert.equal(renameProject.status, 200);
+    assert.equal((await renameProject.json()).project.name, "Renamed Project");
+
+    const emptyProject = await fetch(`${ctx.base}/api/projects/${project.id}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ name: "   " }),
+    });
+    assert.equal(emptyProject.status, 422);
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ projectId: project.id, name: "Rename Feature Video", duration: 20 }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const clip = {
+      id: "clip_rename_feature",
+      userId: auth.user.id,
+      videoId: video.id,
+      projectId: project.id,
+      sourceUrl: null,
+      title: "Original Clip",
+      start: 0,
+      end: 10,
+      format: "9:16",
+      captions: false,
+      captionSegments: [],
+      style: { color: "lime", weight: "bold" },
+      status: "ready",
+      createdAt: new Date().toISOString(),
+    };
+    await ctx.app.database.transaction((d) => d.clips.push(clip));
+
+    const renameClip = await fetch(`${ctx.base}/api/clips/${clip.id}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ title: "Renamed Clip" }),
+    });
+    assert.equal(renameClip.status, 200);
+    assert.equal((await renameClip.json()).clip.title, "Renamed Clip");
+
+    const emptyClip = await fetch(`${ctx.base}/api/clips/${clip.id}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ title: "" }),
+    });
+    assert.equal(emptyClip.status, 422);
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
 test("project and video deletion reject queued render jobs", async () => {
   const ctx = await startTestApp();
   try {
