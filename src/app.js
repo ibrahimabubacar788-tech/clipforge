@@ -1028,6 +1028,9 @@ async function copySelectedClipLinks() {
 function updateBulkClipControls() {
   const ready = clips.filter((clip) => clip.status === "ready");
   const selectedReady = ready.filter((clip) => selectedClipIds.has(clip.id)).length;
+  const selectedFailed = clips.filter((clip) => clip.status === "failed" && selectedClipIds.has(clip.id)).length;
+  const selectedRenameable = clips.filter((clip) => ["ready", "failed"].includes(clip.status) && selectedClipIds.has(clip.id)).length;
+  const selectedTotal = selectedClipIds.size;
   if (selectAllClipsButton) selectAllClipsButton.textContent = ready.length && selectedReady === ready.length ? "Clear selection" : "Select ready";
   if (downloadSelectedClipsButton) {
     downloadSelectedClipsButton.disabled = selectedReady === 0;
@@ -1036,6 +1039,18 @@ function updateBulkClipControls() {
   if (deleteSelectedClipsButton) {
     deleteSelectedClipsButton.disabled = selectedReady === 0;
     deleteSelectedClipsButton.textContent = selectedReady ? `Delete selected (${selectedReady})` : "Delete selected";
+  }
+  if (retryFailedClipsButton) {
+    retryFailedClipsButton.disabled = selectedFailed === 0;
+    retryFailedClipsButton.textContent = selectedFailed ? `Retry failed (${selectedFailed})` : "Retry failed";
+  }
+  if (batchRenameClipsButton) {
+    batchRenameClipsButton.disabled = selectedRenameable === 0;
+    batchRenameClipsButton.textContent = selectedRenameable ? `Batch rename (${selectedRenameable})` : "Batch rename";
+  }
+  if (deselectAllClipsButton) {
+    deselectAllClipsButton.disabled = selectedTotal === 0;
+    deselectAllClipsButton.textContent = selectedTotal ? `Deselect all (${selectedTotal})` : "Deselect all";
   }
 }
 async function downloadSelectedClips() {
