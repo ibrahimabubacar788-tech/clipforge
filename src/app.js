@@ -484,10 +484,17 @@ async function refreshClipStatuses({ showReadyToast = false } = {}) {
 let statusPollTimer;
 function startClipStatusPolling() {
   window.clearInterval(statusPollTimer);
+  statusPollTimer = undefined;
   if (!clips.some((clip) => !["ready", "failed"].includes(clip.status))) return;
+  const pollingProjectId = currentProject?.id;
   statusPollTimer = window.setInterval(async () => {
+    if (currentProject?.id !== pollingProjectId) {
+      window.clearInterval(statusPollTimer);
+      statusPollTimer = undefined;
+      return;
+    }
     await refreshClipStatuses({ showReadyToast: true });
-    if (!clips.some((clip) => !["ready", "failed"].includes(clip.status))) {
+    if (currentProject?.id !== pollingProjectId || !clips.some((clip) => !["ready", "failed"].includes(clip.status))) {
       window.clearInterval(statusPollTimer);
       statusPollTimer = undefined;
     }
