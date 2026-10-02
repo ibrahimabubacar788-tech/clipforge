@@ -137,6 +137,40 @@ test("upload rejects non-video payloads before writing media", async () => {
   }
 });
 
+test("upload retry IDs reuse an already completed upload", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "retry@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+    const headers = {
+      authorization: `Bearer ${auth.token}`,
+      "content-type": "video/mp4",
+      "content-length": "11",
+      "x-filename": "retry.mp4",
+      "x-upload-id": "retry-check-123",
+    };
+    const first = await fetch(`${ctx.base}/api/uploads`, {
+      method: "POST", headers, body: Buffer.from("test-video!"),
+    });
+    assert.equal(first.status, 201);
+    const firstBody = await first.json();
+    const second = await fetch(`${ctx.base}/api/uploads`, {
+      method: "POST", headers, body: Buffer.from("test-video!"),
+    });
+    assert.equal(second.status, 200);
+    const secondBody = await second.json();
+    assert.equal(secondBody.reused, true);
+    assert.equal(secondBody.url, firstBody.url);
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
 test("highlight engine ranks strong moments and caps output at 40", () => {
   const segments = Array.from({ length: 80 }, (_, index) => ({
     start: index * 20,
