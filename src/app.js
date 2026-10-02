@@ -69,7 +69,8 @@ async function loadProject(projectId) {
   if (projectSelect) projectSelect.value = project.id;
   const videos = (await api(`/api/videos?projectId=${encodeURIComponent(project.id)}`)).videos;
   sourceVideo = videos[0];
-  if (sourceVideo) restoreSourcePreview(sourceVideo); else clearSourcePreview();
+  const deleteSourceButton = document.querySelector("#delete-source-video");
+  if (sourceVideo) { restoreSourcePreview(sourceVideo); if (deleteSourceButton) deleteSourceButton.hidden = false; } else { clearSourcePreview(); if (deleteSourceButton) deleteSourceButton.hidden = true; }
   clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject.id);
   renderClipLibrary();
 }
@@ -282,6 +283,8 @@ async function uploadSource(file) {
     currentProject = projects[0] || (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
   }
   sourceVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: currentProject.id, name: file.name, duration, sourceUrl: upload.url }) })).video;
+  const deleteSourceButton = document.querySelector("#delete-source-video");
+  if (deleteSourceButton) deleteSourceButton.hidden = false;
   timelineMaximum = Math.max(1, Math.floor(duration));
   startInput.max = timelineMaximum;
   endInput.max = timelineMaximum;
@@ -475,6 +478,23 @@ document.querySelectorAll(".format-option").forEach((button) => {
 volumeInput?.addEventListener("input", () => { if (previewElement) previewElement.volume = Number(volumeInput.value); });
 playbackButton.addEventListener("click", () => (playbackTimer ? stopPlayback() : startPlayback()));
 sourceUpload.addEventListener("change", async () => { try { await uploadSource(sourceUpload.files[0]); } catch (error) { showToast(error.message); } });
+document.querySelector("#delete-source-video")?.addEventListener("click", async () => {
+  if (!sourceVideo) return;
+  if (!window.confirm("Delete this video? This removes its clips too.")) return;
+  const button = document.querySelector("#delete-source-video");
+  button.disabled = true;
+  try {
+    await api("/api/videos/" + encodeURIComponent(sourceVideo.id), { method: "DELETE" });
+    clips = clips.filter((clip) => clip.videoId !== sourceVideo.id);
+    saveClips();
+    clearSourcePreview();
+    button.hidden = true;
+    renderClipLibrary();
+    showToast("Source video deleted.");
+  } catch (error) {
+    showToast(error.status === 409 ? "This video is still processing. Try again when rendering finishes." : "Could not delete video: " + error.message);
+  } finally { button.disabled = false; }
+});
 captionToggle.addEventListener("change", () => {
   videoStage.classList.toggle("captions-off", !captionToggle.checked);
   showToast(captionToggle.checked ? "Auto captions enabled." : "Auto captions disabled.");
