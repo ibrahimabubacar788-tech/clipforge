@@ -37,6 +37,7 @@ const librarySummary = document.querySelector("#clip-status-summary" );
 const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
 const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");
+const librarySelectionSummary = document.querySelector("#library-selection-summary");
 const refreshClipsButton = document.querySelector("#refresh-clips");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
@@ -453,6 +454,7 @@ function renderClipLibrary() {
     return `<article class="clip-card"><label class="clip-select"><input type="checkbox" data-select-clip="${clipId}" ${selectedClipIds.has(clip.id) ? "checked" : ""} ${clip.status !== "ready" ? "disabled" : ""} aria-label="Select ${title}" /></label><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><button class="text-button details-clip" type="button" data-details-clip="${clipId}">Details</button><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
   }).join("");
   updateBulkClipControls();
+  if (librarySelectionSummary) librarySelectionSummary.textContent = `${selectedClipIds.size} selected`;
 }
 
 async function refreshClipLibraryWhileRendering() {
