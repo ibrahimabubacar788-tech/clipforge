@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawn } from "node:child_process";
+import ffmpegPath from "ffmpeg-static";
 
 const { rankHighlights } = await import("../server/highlights.js");
 const { normalizeTranscriptionResponse } = await import("../server/stt.js");
@@ -32,6 +34,28 @@ async function stopTestApp(ctx) {
   await ctx.app.database.close();
   await rm(ctx.root, { recursive: true, force: true });
   await rm(ctx.storageDir, { recursive: true, force: true });
+}
+
+async function createTestVideo(file) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(ffmpegPath, [
+      "-y",
+      "-f", "lavfi",
+      "-i", "color=c=black:s=320x240:r=25",
+      "-f", "lavfi",
+      "-i", "sine=frequency=880:sample_rate=44100",
+      "-t", "20",
+      "-c:v", "libx264",
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-shortest",
+      file,
+    ]);
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`FFmpeg test fixture failed (${code}): ${stderr.slice(-2000)}`)));
+  });
 }
 
 test("ready endpoint reports a healthy ClipForge service", async () => {
@@ -113,7 +137,6 @@ test("upload rejects non-video payloads before writing media", async () => {
   }
 });
 
-
 test("highlight engine ranks strong moments and caps output at 40", () => {
   const segments = Array.from({ length: 80 }, (_, index) => ({
     start: index * 20,
@@ -143,4 +166,118 @@ test("transcription normalization keeps valid diarized segments and drops invali
     { start: 0, end: 4.5, speaker: "A", text: "Hello world" },
     { start: 10, end: 14, text: "Second segment" },
   ]);
+});
+
+test("upload, queue, FFmpeg render, and clip download work end to end", async () => {
+  const ctx = await startTestApp();
+  const fixtureDir = await mkdtemp(join(tmpdir(), "clipforge-fixture-"));
+  const fixture = join(fixtureDir, "source.mp4");
+  try {
+    await createTestVideo(fixture);
+    const sourceBuffer = await import("node:fs/promises").then(({ readFile }) => readFile(fixture));
+
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "render@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const upload = await fetch(`${ctx.base}/api/uploads`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "video/mp4",
+        "content-length": String(sourceBuffer.length),
+        "x-filename": "source.mp4",
+      },
+      body: sourceBuffer,
+    });
+    assert.equal(upload.status, 201);
+    const sourceUrl = (await upload.json()).url;
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "Render Test" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        projectId: project.id,
+        name: "Render fixture",
+        duration: 20,
+        sourceUrl,
+      }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const clipResponse = await fetch(`${ctx.base}/api/clips`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        videoId: video.id,
+        title: "Render smoke clip",
+        start: 0,
+        end: 20,
+        format: "9:16",
+        captions: false,
+      }),
+    });
+    assert.equal(clipResponse.status, 202);
+    const queued = await clipResponse.json();
+    assert.equal(queued.clip.status, "queued");
+
+    let job = queued.job;
+    for (let attempt = 0; attempt < 60 && !["completed", "failed"].includes(job.status); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const jobResponse = await fetch(`${ctx.base}/api/jobs/${job.id}`, {
+        headers: { authorization: `Bearer ${auth.token}` },
+      });
+      assert.equal(jobResponse.status, 200);
+      job = (await jobResponse.json()).job;
+    }
+
+    assert.equal(job.status, "completed", job.error || "Render job did not complete.");
+    assert.ok(job.progress >= 100);
+
+    const clipsResponse = await fetch(`${ctx.base}/api/clips`, {
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(clipsResponse.status, 200);
+    const clips = (await clipsResponse.json()).clips;
+    const rendered = clips.find((clip) => clip.id === queued.clip.id);
+    assert.equal(rendered.status, "ready");
+    assert.ok(rendered.downloadUrl);
+
+    const download = await fetch(`${ctx.base}/api/clips/${rendered.id}/download`, {
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(download.status, 200);
+    assert.equal(download.headers.get("content-type"), "video/mp4");
+    assert.ok(Number(download.headers.get("content-length")) > 0);
+
+    const exportPath = join(ctx.storageDir, rendered.downloadUrl.slice("/storage/".length));
+    const exportInfo = await stat(exportPath);
+    assert.ok(exportInfo.isFile());
+    assert.ok(exportInfo.size > 0);
+  } finally {
+    await stopTestApp(ctx);
+    await rm(fixtureDir, { recursive: true, force: true });
+  }
 });
