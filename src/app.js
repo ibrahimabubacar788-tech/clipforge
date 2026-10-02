@@ -490,7 +490,8 @@ function renderClipLibrary() {
   if (selectCaptionedClipsButton) { const captioned = clips.filter((clip) => Boolean(clip.captions)); const selected = captioned.filter((clip) => selectedClipIds.has(clip.id)); selectCaptionedClipsButton.textContent = captioned.length > 0 && selected.length === captioned.length ? "Clear captions" : "Select captions"; }    await new Promise((resolve) => setTimeout(resolve, 2000));
 
   if (selectLongClipsButton) { const longClips = clips.filter((clip) => clipDuration(clip.start, clip.end) >= 60); const selected = longClips.filter((clip) => selectedClipIds.has(clip.id)); selectLongClipsButton.textContent = longClips.length > 0 && selected.length === longClips.length ? "Clear long clips" : "Select long clips"; }    try {
-      const result = await api("/api/clips");
+
+  if (selectShortClipsButton) { const shortClips = clips.filter((clip) => clipDuration(clip.start, clip.end) < 60); const selected = shortClips.filter((clip) => selectedClipIds.has(clip.id)); selectShortClipsButton.textContent = shortClips.length > 0 && selected.length === shortClips.length ? "Clear short clips" : "Select short clips"; }      const result = await api("/api/clips");
       clips = result.clips.filter((clip) => clip.projectId === currentProject?.id);
       renderClipLibrary();
       if (!clips.some((clip) => !["ready", "failed"].includes(clip.status))) break;
