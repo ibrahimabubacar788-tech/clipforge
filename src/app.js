@@ -30,6 +30,7 @@ const uploadProgressPercent = document.querySelector("#upload-progress-percent")
 const uploadProgressBar = document.querySelector("#upload-progress-bar");
 const cancelUploadButton = document.querySelector("#cancel-upload");
 let activeUploadRequest = null;
+let uploadInFlight = false;
 const clipSearch = document.querySelector("#clip-search");
 const clearClipSearchButton = document.querySelector("#clear-clip-search");
 const clipFilter = document.querySelector("#clip-filter");
@@ -327,6 +328,9 @@ async function uploadSource(file) {
     if (!apiSession || !currentProject) throw new Error("ClipForge could not connect your workspace. Refresh and try again.");
   }
   const uploadProjectId = currentProject.id;
+  if (uploadInFlight) throw new Error("Another video upload is already in progress.");
+  uploadInFlight = true;
+  try {
   const probe = document.createElement("video");
   const probeUrl = URL.createObjectURL(file);
   const duration = await new Promise((resolve, reject) => {
@@ -492,6 +496,11 @@ async function refreshClipStatuses({ showReadyToast = false } = {}) {
 }
 
 let statusPollTimer;
+  } finally {
+    uploadInFlight = false;
+    activeUploadRequest = null;
+  }
+
 function startClipStatusPolling() {
   window.clearInterval(statusPollTimer);
   statusPollTimer = undefined;
