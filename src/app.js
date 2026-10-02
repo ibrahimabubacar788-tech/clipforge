@@ -98,6 +98,7 @@ let sourcePreviewUrl;
 let previewElement;
 let currentProject;
 let workspaceLoadVersion = 0;
+let statusPollInFlight = false;
 let captionStyle = safeStorageParse(styleKey, { color: "lime", weight: "bold" });
 if (!captionStyle || typeof captionStyle !== "object" || Array.isArray(captionStyle)) captionStyle = { color: "lime", weight: "bold" };
 
@@ -496,7 +497,13 @@ function startClipStatusPolling() {
       statusPollTimer = undefined;
       return;
     }
-    await refreshClipStatuses({ showReadyToast: true });
+    if (statusPollInFlight) return;
+    statusPollInFlight = true;
+    try {
+      await refreshClipStatuses({ showReadyToast: true });
+    } finally {
+      statusPollInFlight = false;
+    }
     if (currentProject?.id !== pollingProjectId || !clips.some((clip) => !["ready", "failed"].includes(clip.status))) {
       window.clearInterval(statusPollTimer);
       statusPollTimer = undefined;
