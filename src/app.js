@@ -1556,9 +1556,14 @@ clipLibrary.addEventListener("click", async (event) => {
   }
   const button = event.target.closest("[data-delete-clip]");
   if (!button) return;
+  const deleteProjectId = currentProject?.id;
+  const deletedClipId = button.dataset.deleteClip;
   try {
-    await api(`/api/clips/${button.dataset.deleteClip}`, { method: "DELETE" });
-    const deletedClipId = button.dataset.deleteClip;
+    await api(`/api/clips/${deletedClipId}`, { method: "DELETE" });
+    if (currentProject?.id !== deleteProjectId) {
+      showToast("Clip was deleted from the original project, but the workspace changed before the update finished.");
+      return;
+    }
     clips = clips.filter((clip) => clip.id !== deletedClipId);
     selectedClipIds.delete(deletedClipId);
     favoriteClipIds.delete(deletedClipId);
