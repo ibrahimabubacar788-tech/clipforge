@@ -77,19 +77,27 @@ const storageKey = "clipforge-exports";
 const sessionKey = "clipforge-session";
 const styleKey = "clipforge-caption-style";
 const favoriteKey = "clipforge-favorite-clips";
+const safeStorageParse = (key, fallback) => {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw === null ? fallback : JSON.parse(raw);
+  } catch {
+    window.localStorage.removeItem(key);
+    return fallback;
+  }
+};
 let clips = [];
 const selectedClipIds = new Set();
-const favoriteClipIds = new Set(JSON.parse(window.localStorage.getItem(favoriteKey) || "[]"));
+const savedFavoriteClipIds = safeStorageParse(favoriteKey, []);
+const favoriteClipIds = new Set(Array.isArray(savedFavoriteClipIds) ? savedFavoriteClipIds : []);
 const automaticClipFailures = new Set();
-let apiSession = JSON.parse(window.localStorage.getItem(sessionKey) || "null");
+let apiSession = safeStorageParse(sessionKey, null);
 let sourceVideo;
 let sourcePreviewUrl;
 let previewElement;
 let currentProject;
-let captionStyle = (() => {
-  try { return JSON.parse(window.localStorage.getItem(styleKey) || "{\"color\":\"lime\",\"weight\":\"bold\"}"); }
-  catch { return { color: "lime", weight: "bold" }; }
-})();
+let captionStyle = safeStorageParse(styleKey, { color: "lime", weight: "bold" });
+if (!captionStyle || typeof captionStyle !== "object" || Array.isArray(captionStyle)) captionStyle = { color: "lime", weight: "bold" };
 
 const api = async (path, options = {}) => {
   const response = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {}), ...options.headers } });
