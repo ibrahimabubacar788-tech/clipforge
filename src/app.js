@@ -724,8 +724,9 @@ window.addEventListener("keydown", (event) => {
 });
 
 async function pollAutoClipStatus(videoId) {
+  const pollingProjectId = currentProject?.id;
   for (let attempt = 0; attempt < 450; attempt += 1) {
-    if (automaticClipFailures.has(videoId)) return;
+    if (automaticClipFailures.has(videoId) || currentProject?.id !== pollingProjectId) return;
     try {
       const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
       const scopedAutomaticClips = status.clips.filter((clip) => clip.projectId === currentProject?.id);
