@@ -40,6 +40,7 @@ const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips
 const librarySelectionSummary = document.querySelector("#library-selection-summary");
 const refreshClipsButton = document.querySelector("#refresh-clips");
 const copyClipLinksButton = document.querySelector("#copy-clip-links");
+const exportClipListButton = document.querySelector("#export-clip-list");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -825,6 +826,7 @@ clearClipFiltersButton?.addEventListener("click", () => {
 clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });
 
 copyClipLinksButton?.addEventListener("click", () => { void copySelectedClipLinks(); });
+exportClipListButton?.addEventListener("click", exportSelectedClipList);
 refreshClipsButton?.addEventListener("click", async () => {
   if (!apiSession || !currentProject) return;
   refreshClipsButton.disabled = true;
@@ -885,6 +887,21 @@ clipLibrary.addEventListener("change", (event) => {
   else selectedClipIds.delete(checkbox.dataset.selectClip);
   updateBulkClipControls();
 });
+function exportSelectedClipList() {
+  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
+  if (!selected.length) return;
+  const rows = [["Title", "Format", "Start", "End", "Duration", "Captions", "Download URL"], ...selected.map((clip) => [clip.title || "Untitled clip", clip.format || "9:16", clip.start, clip.end, clipDuration(clip.start, clip.end), clip.captions ? "Yes" : "No", new URL(`/api/clips/${encodeURIComponent(clip.id)}/download`, window.location.origin).href])];
+  const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, `""`)}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "clipforge-clips.csv";
+  anchor.click();
+  URL.revokeObjectURL(url);
+  showToast(`${selected.length} clip${selected.length === 1 ? "" : "s"} exported.`);
+}
+
 async function copySelectedClipLinks() {
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
   if (!selected.length) return;
