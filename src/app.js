@@ -845,11 +845,11 @@ copyClipJsonButton?.addEventListener("click", () => { void copySelectedClipJson(
 copyClipSummaryButton?.addEventListener("click", () => { void copySelectedClipSummary(); });
 batchRenameClipsButton?.addEventListener("click", () => { void batchRenameClips(); });
 deselectAllClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); renderClipLibrary(); });
-selectFailedClipsButton?.addEventListener("click", () => { selectedClipIds = new Set(clips.filter((clip) => clip.status === "failed").map((clip) => clip.id)); renderClipLibrary(); });
-selectRenderingClipsButton?.addEventListener("click", () => { selectedClipIds = new Set(clips.filter((clip) => !["ready", "failed"].includes(clip.status)).map((clip) => clip.id)); renderClipLibrary(); });
-selectAllStatusClipsButton?.addEventListener("click", () => { selectedClipIds = new Set(clips.map((clip) => clip.id)); renderClipLibrary(); });
-invertClipSelectionButton?.addEventListener("click", () => { const next = new Set(clips.map((clip) => clip.id).filter((id) => !selectedClipIds.has(id))); selectedClipIds = next; renderClipLibrary(); });
-retryFailedClipsButton?.addEventListener("click", async () => {
+selectFailedClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => clip.status === "failed").forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
+selectRenderingClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.filter((clip) => !["ready", "failed"].includes(clip.status)).forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
+selectAllStatusClipsButton?.addEventListener("click", () => { selectedClipIds.clear(); clips.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });
+invertClipSelectionButton?.addEventListener("click", () => { const next = new Set(clips.map((clip) => clip.id).filter((id) => !selectedClipIds.has(id))); selectedClipIds.clear(); next.forEach((id) => selectedClipIds.add(id)); renderClipLibrary(); });
+selectVisibleClipsButton?.addEventListener("click", () => { const query = libraryQuery.trim().toLowerCase(); const visible = clips.filter((clip) => { const title = String(clip.title || ""); const matchesQuery = !query || title.toLowerCase().includes(query); const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter); return matchesQuery && matchesFilter; }); selectedClipIds.clear(); visible.forEach((clip) => selectedClipIds.add(clip.id)); renderClipLibrary(); });retryFailedClipsButton?.addEventListener("click", async () => {
   const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
   if (!failed.length) return;
   retryFailedClipsButton.disabled = true;
@@ -953,7 +953,7 @@ async function copySelectedClipSummary() {
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
   if (!selected.length) return;
   const total = selected.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
-  const summary = selected.map((clip, index) => `${index + 1}. ${clip.title || "Untitled clip"} — ${clip.format || "9:16"} — ${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} — ${formatTimestamp(clipDuration(clip.start, clip.end))}`).join("\selectVisibleClipsButton?.addEventListener("click", () => { const query = libraryQuery.trim().toLowerCase(); const visible = clips.filter((clip) => { const title = String(clip.title || ""); const matchesQuery = !query || title.toLowerCase().includes(query); const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter); return matchesQuery && matchesFilter; }); selectedClipIds = new Set(visible.map((clip) => clip.id)); renderClipLibrary(); });n");
+  const summary = selected.map((clip, index) => `${index + 1}. ${clip.title || "Untitled clip"} — ${clip.format || "9:16"} — ${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} — ${formatTimestamp(clipDuration(clip.start, clip.end))}`).join("\n");
   const text = `ClipForge selected clips (${selected.length})\nTotal duration: ${formatTimestamp(total)}\n\n${summary}`;
   try {
     await navigator.clipboard.writeText(text);
