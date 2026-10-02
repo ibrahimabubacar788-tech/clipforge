@@ -20,6 +20,7 @@ const styleDialog = document.querySelector("#style-dialog");
 const sourceUpload = document.querySelector("#source-upload");
 const clipSearch = document.querySelector("#clip-search");
 const clipFilter = document.querySelector("#clip-filter");
+const clipSort = document.querySelector("#clip-sort");
 const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
 const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");
@@ -29,6 +30,7 @@ const fullscreenButton = document.querySelector("#fullscreen-button");
 const volumeInput = document.querySelector("#volume-input");
 let libraryQuery = "";
 let libraryFilter = "all";
+let librarySort = "newest";
 let timelineMaximum = Number(endInput.max);
 const storageKey = "clipforge-exports";
 const sessionKey = "clipforge-session";
@@ -401,6 +403,15 @@ function renderClipLibrary() {
     const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter);
     return matchesQuery && matchesFilter;
   });
+  filtered.sort((a, b) => {
+    if (librarySort === "oldest") return new Date(a.createdAt) - new Date(b.createdAt);
+    if (librarySort === "longest") return clipDuration(b.start, b.end) - clipDuration(a.start, a.end);
+    if (librarySort === "shortest") return clipDuration(a.start, a.end) - clipDuration(b.start, b.end);
+    const titleA = String(a.title || "").toLowerCase(), titleB = String(b.title || "").toLowerCase();
+    if (librarySort === "az") return titleA.localeCompare(titleB);
+    if (librarySort === "za") return titleB.localeCompare(titleA);
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
   clipsEmpty.hidden = clips.length > 0;
   clipLibrary.innerHTML = filtered.map((clip) => {
     const title = escapeHtml(clip.title || "Untitled clip");
@@ -738,6 +749,7 @@ document.querySelector("#export-button").addEventListener("click", async () => {
 
 clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; renderClipLibrary(); });
 clipFilter?.addEventListener("change", () => { libraryFilter = clipFilter.value; renderClipLibrary(); });
+clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });
 
 fullscreenButton?.addEventListener("click", async () => {
   try {
