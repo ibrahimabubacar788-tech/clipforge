@@ -910,17 +910,24 @@ document.querySelector("#export-button").addEventListener("click", async () => {
   if (exportStatus) { exportStatus.hidden = false; exportStatus.textContent = "Preparing export…"; }
   try {
     if (!sourceVideo) throw new Error("Upload a source video before exporting.");
+    const exportProjectId = currentProject?.id;
     const result = await api("/api/clips", { method: "POST", body: JSON.stringify({ videoId: sourceVideo.id, title: `Midnight Session · Clip ${clips.length + 1}`, start: Number(startInput.value), end: Number(endInput.value), format: selected, captions: captionToggle.checked, style: { color: document.querySelector("#highlight-color").value, weight: document.querySelector("#caption-weight").value } }) });
+    if (currentProject?.id !== exportProjectId) return;
     clips.unshift(result.clip);
     renderClipLibrary();
     if (exportStatus) exportStatus.textContent = "Rendering clip…";
     showToast("Export queued. Your rendered clip will be ready shortly.");
     for (let attempt = 0; attempt < 450; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (currentProject?.id !== exportProjectId) return;
       const jobResult = await api(`/api/jobs/${result.job.id}`);
+      if (currentProject?.id !== exportProjectId) return;
       if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
     }
-    clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === currentProject?.id);
+    if (currentProject?.id !== exportProjectId) return;
+    const resultClips = await api("/api/clips");
+    if (currentProject?.id !== exportProjectId) return;
+    clips = resultClips.clips.filter((clip) => clip.projectId === exportProjectId);
     renderClipLibrary();
     const finished = clips.find((clip) => clip.id === result.clip.id);
     if (finished?.status === "ready") { if (exportStatus) exportStatus.textContent = "Export ready"; showToast("Your clip is ready to download."); }
