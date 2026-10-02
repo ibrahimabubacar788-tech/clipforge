@@ -43,6 +43,7 @@ const copyClipLinksButton = document.querySelector("#copy-clip-links");
 const exportClipListButton = document.querySelector("#export-clip-list");
 const copyClipTitlesButton = document.querySelector("#copy-clip-titles");
 const copyClipDurationButton = document.querySelector("#copy-clip-duration");
+const copyClipJsonButton = document.querySelector("#copy-clip-json");
 const exportStatus = document.querySelector("#export-status");
 const projectSelect = document.querySelector("#project-select");
 const deleteProjectButton = document.querySelector("#delete-project");
@@ -831,6 +832,7 @@ copyClipLinksButton?.addEventListener("click", () => { void copySelectedClipLink
 exportClipListButton?.addEventListener("click", exportSelectedClipList);
 copyClipTitlesButton?.addEventListener("click", () => { void copySelectedClipTitles(); });
 copyClipDurationButton?.addEventListener("click", () => { void copySelectedClipDuration(); });
+copyClipJsonButton?.addEventListener("click", () => { void copySelectedClipJson(); });
 refreshClipsButton?.addEventListener("click", async () => {
   if (!apiSession || !currentProject) return;
   refreshClipsButton.disabled = true;
@@ -891,6 +893,17 @@ clipLibrary.addEventListener("change", (event) => {
   else selectedClipIds.delete(checkbox.dataset.selectClip);
   updateBulkClipControls();
 });
+async function copySelectedClipJson() {
+  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
+  if (!selected.length) return;
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
+    showToast(`Metadata for ${selected.length} clip${selected.length === 1 ? "" : "s"} copied.`);
+  } catch {
+    showToast("Could not copy clip metadata. Your browser may block clipboard access.");
+  }
+}
+
 async function copySelectedClipDuration() {
   const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
   if (!selected.length) return;
