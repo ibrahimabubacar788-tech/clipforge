@@ -866,13 +866,19 @@ document.querySelector("#rename-project")?.addEventListener("click", async () =>
   if (!name) { showToast("Project name cannot be empty."); return; }
   if (name.length > 120) { showToast("Project name must be 120 characters or fewer."); return; }
   try {
-    const result = await api(`/api/projects/${encodeURIComponent(currentProject.id)}`, {
+    const renamedProjectId = currentProject.id;
+    const result = await api(`/api/projects/${encodeURIComponent(renamedProjectId)}`, {
       method: "PATCH",
       body: JSON.stringify({ name })
     });
+    if (currentProject?.id !== renamedProjectId) {
+      showToast("Project renamed, but the workspace changed before the update finished.");
+      return;
+    }
     currentProject = result.project;
     document.querySelector("#workspace-title").textContent = currentProject.name;
     const projects = (await api("/api/projects")).projects;
+    if (currentProject?.id !== renamedProjectId) return;
     renderProjectSelector(projects);
     renderClipLibrary();
     showToast("Project renamed.");
