@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { createReadStream, createWriteStream } from "node:fs";
 import { access, mkdir, realpath, stat, unlink } from "node:fs/promises";
@@ -498,8 +499,26 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       const safe = `${user.id}-${uploadId}-${filename}`;
       const target = join(storageDir, "uploads", safe);
       const existing = await stat(target).catch(() => null);
+      const hashStream = async (stream) => {
+        const hash = createHash("sha256");
+        let bytes = 0;
+        for await (const chunk of stream) {
+          bytes += chunk.length;
+          if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
+          hash.update(chunk);
+        }
+        if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
+        return { bytes, hash: hash.digest("hex") };
+      };
       if (existing?.isFile() && contentLength !== null && existing.size === contentLength) {
-        return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
+        const incoming = await hashStream(req);
+        const existingHash = createHash("sha256");
+        const existingStream = createReadStream(target);
+        for await (const chunk of existingStream) existingHash.update(chunk);
+        if (incoming.hash === existingHash.digest("hex")) {
+          return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
+        }
+        throw Object.assign(new Error("An upload with this retry ID already exists with different content."), { status: 409 });
       }
       let bytes = 0;
       const limited = async function* () { for await (const chunk of req) { bytes += chunk.length; if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 }); yield chunk; } if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 }); };
@@ -509,7 +528,14 @@ if (req.method === "POST" && pathname === "/api/uploads") {
         if (error?.code === "EEXIST") {
           const concurrent = await stat(target).catch(() => null);
           if (concurrent?.isFile() && contentLength !== null && concurrent.size === contentLength) {
-            return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
+            const incoming = await hashStream(req);
+            const existingHash = createHash("sha256");
+            const existingStream = createReadStream(target);
+            for await (const chunk of existingStream) existingHash.update(chunk);
+            if (incoming.hash === existingHash.digest("hex")) {
+              return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
+            }
+            throw Object.assign(new Error("An upload with this retry ID already exists with different content."), { status: 409 });
           }
           throw Object.assign(new Error("An upload with this retry ID is already in progress or conflicts with different content."), { status: 409 });
         }
