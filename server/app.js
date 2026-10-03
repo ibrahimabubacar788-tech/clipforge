@@ -518,12 +518,15 @@ if (req.method === "POST" && pathname === "/api/uploads") {
           if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
           return { bytes, hash: hash.digest("hex") };
         };
-        if (existing?.isFile() && contentLength !== null && existing.size === contentLength) {
+        if (existing) {
+          if (!existing.isFile()) throw Object.assign(new Error("Upload retry target already exists and is not a regular file."), { status: 409 });
           const incoming = await hashStream(req);
-          const existingHash = createHash("sha256");
-          const existingStream = createReadStream(target);
-          for await (const chunk of existingStream) existingHash.update(chunk);
-          if (incoming.hash === existingHash.digest("hex")) return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
+          if (existing.size === incoming.bytes) {
+            const existingHash = createHash("sha256");
+            const existingStream = createReadStream(target);
+            for await (const chunk of existingStream) existingHash.update(chunk);
+            if (incoming.hash === existingHash.digest("hex")) return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
+          }
           throw Object.assign(new Error("An upload with this retry ID already exists with different content."), { status: 409 });
         }
         let bytes = 0;
