@@ -821,12 +821,13 @@ transcriptFile?.addEventListener("change", async () => {
 autoTranscribeButton?.addEventListener("click", async () => {
   try {
     if (!sourceVideo) throw new Error("Upload a source video first.");
+    const transcriptionProjectId = currentProject?.id;
     const transcriptionVideoId = sourceVideo.id;
     autoTranscribeButton.disabled = true;
     autoTranscribeButton.textContent = "Transcribing…";
     showToast("Transcribing your video…");
     const result = await api(`/api/videos/${encodeURIComponent(transcriptionVideoId)}/transcribe`, { method: "POST", body: JSON.stringify({ language: "en" }) });
-    if (sourceVideo?.id !== transcriptionVideoId) {
+    if (currentProject?.id !== transcriptionProjectId || sourceVideo?.id !== transcriptionVideoId) {
       showToast("Transcript finished for the original source video, but the workspace changed during transcription.");
       return;
     }
@@ -854,20 +855,21 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
   runButton.textContent = "Generating…";
   try {
     if (!sourceVideo) throw new Error("Upload a source video first.");
+    const generationProjectId = currentProject?.id;
     const generationVideoId = sourceVideo.id;
     const rawTranscript = transcriptInput.value.trim();
     if (!rawTranscript) throw new Error("Add or import a transcript before generating clips.");
     await api(`/api/videos/${encodeURIComponent(generationVideoId)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
-    if (sourceVideo?.id !== generationVideoId) {
-      throw new Error("The source video changed while generation was running. Please reopen the original project before generating clips.");
+    if (currentProject?.id !== generationProjectId || sourceVideo?.id !== generationVideoId) {
+      throw new Error("The source video or project changed while generation was running. Please reopen the original project before generating clips.");
     }
     const format = document.querySelector(".format-option.selected").dataset.format;
     const result = await api(`/api/videos/${encodeURIComponent(generationVideoId)}/generate-clips`, {
       method: "POST",
       body: JSON.stringify({ limit: 40, format, style: captionStyle })
     });
-    if (sourceVideo?.id !== generationVideoId) {
-      throw new Error("The source video changed while generation was running. The generated clips were kept on the original source.");
+    if (currentProject?.id !== generationProjectId || sourceVideo?.id !== generationVideoId) {
+      throw new Error("The source video or project changed while generation was running. The generated clips were kept on the original source.");
     }
     transcriptDialog.close();
     clips = [...result.clips.map((item) => item.clip), ...clips];
