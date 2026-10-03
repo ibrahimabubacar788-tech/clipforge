@@ -224,5 +224,5 @@ export class ClipQueue {
     if (!resolvedCandidate || !resolvedExportDir) return;
     const relativeResolved = relative(resolvedExportDir, resolvedCandidate);
     if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) return;
-    await unlink(candidate).catch(() => {});
+    await unlink(resolvedCandidate).catch(() => {});
   }}
