@@ -439,6 +439,28 @@ test("clip downloads reject export symlinks that escape storage", async (t) => {
   assert.match((await response.json()).error, /invalid export path/i);
 });
 
+test("clip downloads reject export directories as invalid targets", async (t) => {
+  const { dir, server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "download-directory@example.com", password: "password-123" });
+  const exportsDir = join(server.clipQueue.storageDir, "exports");
+  const targetDir = join(exportsDir, "directory-target.mp4");
+  await mkdir(targetDir, { recursive: true });
+  await server.database.transaction((d) => d.clips.push({
+    id: "clip-download-directory",
+    userId: user.body.user.id,
+    title: "Directory export",
+    status: "ready",
+    downloadUrl: "/storage/exports/directory-target.mp4",
+    createdAt: new Date().toISOString()
+  }));
+  const response = await fetch(base + "/api/clips/clip-download-directory/download", {
+    headers: { authorization: "Bearer " + user.body.token }
+  });
+  assert.equal(response.status, 403);
+  assert.match((await response.json()).error, /invalid export path/i);
+});
+
 test("clip downloads are protected by ownership", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
