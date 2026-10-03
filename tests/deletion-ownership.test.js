@@ -116,3 +116,28 @@ test("clip deletion is protected by clip ownership", async (t) => {
   assert.equal(ownerClips.body.clips.length, 1);
   assert.equal(ownerClips.body.clips[0].id, clip.body.clip.id);
 });
+
+test("the final project cannot be deleted", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "delete-final-project@example.com",
+    password: "password-123"
+  });
+  const projects = await request(base, "/api/projects", "GET", undefined, user.body.token);
+  assert.equal(projects.body.projects.length, 1);
+
+  const denied = await request(
+    base,
+    `/api/projects/${projects.body.projects[0].id}`,
+    "DELETE",
+    undefined,
+    user.body.token
+  );
+  assert.equal(denied.status, 409);
+  assert.match(denied.body.error, /At least one project must remain/);
+
+  const remaining = await request(base, "/api/projects", "GET", undefined, user.body.token);
+  assert.equal(remaining.body.projects.length, 1);
+});
