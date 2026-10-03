@@ -24,3 +24,13 @@ test("parses pipe transcript timestamps", () => {
   assert.equal(result[1].start, 18);
   assert.equal(result[1].speaker, "GUEST");
 });
+
+test("normalizes malformed transcript entries safely", () => {
+  const result = parseTimestampedTranscript("");
+  assert.deepEqual(result, []);
+  const normalized = parseTimestampedTranscript("1\n00:00:00.000 --> 00:00:01.000\nValid", "srt");
+  assert.equal(normalized.length, 1);
+  assert.equal(normalized[0].start, 0);
+  assert.equal(normalized[0].end, 1);
+  assert.equal(normalized[0].text, "Valid");
+});
