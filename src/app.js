@@ -974,8 +974,13 @@ deleteProjectButton?.addEventListener("click", async () => {
 });
 
 projectSelect?.addEventListener("change", async () => {
-  try { await loadProject(projectSelect.value); showToast("Project switched."); }
-  catch (error) { showToast(error.message); }
+  const requestedProjectId = projectSelect.value;
+  try {
+    await loadProject(requestedProjectId);
+    if (currentProject?.id === requestedProjectId) showToast("Project switched.");
+  } catch (error) {
+    if (currentProject?.id === requestedProjectId) showToast(error.message);
+  }
 });
 
 newProjectButton?.addEventListener("click", async () => {
