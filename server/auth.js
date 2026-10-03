@@ -21,7 +21,7 @@ export async function register(db, email, password) {
 export async function login(db, email, password) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const user = await db.read((d) => d.users.find((u) => u.email === normalizedEmail));
-  if (!user || !matchesDigest(password || "", user.salt, user.passwordHash)) throw Object.assign(new Error("Invalid email or password."), { status: 401 });
+  if (!user || typeof password !== "string" || !matchesDigest(password, user.salt, user.passwordHash)) throw Object.assign(new Error("Invalid email or password."), { status: 401 });
   if (user.passwordHash.length !== 128) {
     await db.transaction((d) => {
       const current = d.users.find((u) => u.id === user.id);
