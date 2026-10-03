@@ -33,3 +33,14 @@ test("highlight engine ignores malformed transcript segments", () => {
   assert.equal(candidates.length, 1);
   assert.equal(candidates[0].start, 0);
 });
+
+test("highlight engine caps oversized transcript input", () => {
+  const segments = Array.from({ length: 5001 }, (_, index) => ({
+    start: index,
+    end: index + 1,
+    text: `segment ${index}`,
+  }));
+  const candidates = rankHighlights(segments, { limit: 40, minDuration: 15, maxDuration: 75 });
+  assert.ok(candidates.length <= 40);
+  assert.ok(candidates.every((item) => item.end <= 5000));
+});
