@@ -89,7 +89,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const rangeHeader = String(req.headers.range || "");
       if (!rangeHeader) {
         res.writeHead(200, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": total, "accept-ranges": "bytes", "cache-control": "private, no-store" });
-        createReadStream(file).pipe(res);
+        createReadStream(resolvedFile).pipe(res);
         return;
       }
       const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
@@ -103,7 +103,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       }
       const boundedEnd = Math.min(end, total - 1);
       res.writeHead(206, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": boundedEnd - start + 1, "content-range": `bytes ${start}-${boundedEnd}/${total}`, "accept-ranges": "bytes", "cache-control": "private, no-store" });
-      createReadStream(file, { start, end: boundedEnd }).pipe(res);
+      createReadStream(resolvedFile, { start, end: boundedEnd }).pipe(res);
       return;
     }
 
@@ -127,7 +127,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (!resolvedSource || !resolvedStorageRoot) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
       const relativeResolved = requireRelative(resolvedStorageRoot, resolvedSource);
       if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
-      const transcript = await transcribeVideo({ source, ffmpegPath: queue.ffmpegPath });
+      const transcript = await transcribeVideo({ source: resolvedSource, ffmpegPath: queue.ffmpegPath });
       if (!transcript.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
       await db.transaction((d) => {
         const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
@@ -237,7 +237,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           if (!resolvedSource || !resolvedStorageRoot) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
           const relativeResolved = requireRelative(resolvedStorageRoot, resolvedSource);
           if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
-          segments = await transcribeVideo({ source, ffmpegPath: queue.ffmpegPath, language: payload.language || "en" });
+          segments = await transcribeVideo({ source: resolvedSource, ffmpegPath: queue.ffmpegPath, language: payload.language || "en" });
           if (!segments.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
           transcribed = true;
           await db.transaction((d) => {
@@ -570,7 +570,7 @@ if (req.method === "POST" && pathname === "/api/uploads") {
         if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid export path."), { status: 403 });
         const downloadName = String(clip.title || "ClipForge clip").replace(/[<>:"/\|?* -]/g, "_").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 100) || "ClipForge clip";
         res.writeHead(200, { "content-type": "video/mp4", "content-disposition": `attachment; filename="${downloadName}.mp4"`, "cache-control": "private, no-store" });
-        return createReadStream(candidate).pipe(res);
+        return createReadStream(resolvedCandidate).pipe(res);
       } catch (error) {
         if (error?.status === 403) throw error;
         throw Object.assign(new Error("Clip export is no longer available on this server."), { status: 404 });
@@ -611,7 +611,7 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       const url = new URL(req.url, "http://localhost"); if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname); const isStorage = url.pathname.startsWith("/storage/"); if (isStorage) return json(res, 404, { error: "Not found" }); const baseDir = root;
       const candidate = normalize(join(baseDir, url.pathname === "/" ? "index.html" : url.pathname));
       const relativeCandidate = requireRelative(baseDir, candidate);
-      if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); const resolvedCandidate = await realpath(candidate); const resolvedRoot = await realpath(baseDir); const relativeResolved = requireRelative(resolvedRoot, resolvedCandidate); if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); createReadStream(candidate).pipe(res); } catch (error) { if (error?.status === 403) throw error; if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } } } catch (error) { json(res, error.status || 500, { error: error.message || "Internal server error" }); } });
+      if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); const resolvedCandidate = await realpath(candidate); const resolvedRoot = await realpath(baseDir); const relativeResolved = requireRelative(resolvedRoot, resolvedCandidate); if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); createReadStream(resolvedCandidate).pipe(res); } catch (error) { if (error?.status === 403) throw error; if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } } } catch (error) { json(res, error.status || 500, { error: error.message || "Internal server error" }); } });
   server.clipQueue = queue;
   server.database = db;
   return server;
