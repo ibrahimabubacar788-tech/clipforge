@@ -1142,21 +1142,35 @@ selectShortClipsButton?.addEventListener("click", () => {
   renderClipLibrary();
 });
 retryFailedClipsButton?.addEventListener("click", async () => {
+  const retryProjectId = currentProject?.id;
   const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
-  if (!failed.length) return;
+  if (!failed.length || !retryProjectId) return;
   retryFailedClipsButton.disabled = true;
   let retried = 0;
-  for (const clip of failed) {
-    try {
-      const result = await api(`/api/clips/${encodeURIComponent(clip.id)}/retry`, { method: "POST" });
-      const updated = result.clip || result;
-      const target = clips.find((item) => item.id === clip.id);
-      if (target) Object.assign(target, updated, { status: updated.status || "queued" });
-      retried += 1;
-    } catch (error) { showToast(error.message); }
+  try {
+    for (const clip of failed) {
+      if (currentProject?.id !== retryProjectId) {
+        showToast("Workspace changed while retries were running. Remaining clips were left unchanged.");
+        return;
+      }
+      try {
+        const result = await api(`/api/clips/${encodeURIComponent(clip.id)}/retry`, { method: "POST" });
+        if (currentProject?.id !== retryProjectId) {
+          showToast("Retry was queued for the original project, but the workspace changed before the update finished.");
+          return;
+        }
+        const updated = result.clip || result;
+        const target = clips.find((item) => item.id === clip.id);
+        if (target) Object.assign(target, updated, { status: updated.status || "queued" });
+        retried += 1;
+      } catch (error) { showToast(error.message); }
+    }
+    if (currentProject?.id !== retryProjectId) return;
+    renderClipLibrary();
+    showToast(`${retried} of ${failed.length} failed clip${failed.length === 1 ? "" : "s"} retried.`);
+  } finally {
+    retryFailedClipsButton.disabled = false;
   }
-  renderClipLibrary();
-  showToast(`${retried} of ${failed.length} failed clip${failed.length === 1 ? "" : "s"} retried.`);
 });
 refreshClipsButton?.addEventListener("click", async () => {
   if (!apiSession || !currentProject) return;
