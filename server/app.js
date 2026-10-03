@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
-import { createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream } from "node:fs";
 import { access, lstat, mkdir, open, realpath, stat, unlink } from "node:fs/promises";
 import { O_NOFOLLOW, O_RDONLY } from "node:constants";
 import { extname, join, normalize, relative } from "node:path";
