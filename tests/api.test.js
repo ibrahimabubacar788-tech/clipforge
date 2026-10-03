@@ -270,10 +270,11 @@ test("static asset serving rejects root-escaping symlinks", async (t) => {
   const { dir, server, base } = await app();
   t.after(() => server.close());
   const outside = join(dir, "outside-static.txt");
-  const linked = join(dir, "linked-static.txt");
+  const linked = join(process.cwd(), ".clipforge-static-symlink-test.txt");
   await writeFile(outside, Buffer.from("secret"));
   await symlink(outside, linked);
-  const response = await fetch(base + "/linked-static.txt");
+  t.after(async () => { await unlink(linked).catch(() => {}); });
+  const response = await fetch(base + "/.clipforge-static-symlink-test.txt");
   assert.equal(response.status, 403);
   assert.match((await response.json()).error, /forbidden/i);
 });
