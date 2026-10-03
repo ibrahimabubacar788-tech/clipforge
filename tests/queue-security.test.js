@@ -40,7 +40,9 @@ test("queue export cleanup refuses symlinks escaping the export directory", asyn
 
   assert.equal(await import("node:fs/promises").then(({ access }) => access(outside).then(() => true).catch(() => false)), true);
 });
-\n\ntest("queue render rejects a symlinked export target", async () => {
+
+
+test("queue render rejects a symlinked export target", async () => {
   const { dir, uploads, exportsDir } = await fixture();
   const source = join(uploads, "source.mp4");
   const outside = join(dir, "protected-output.mp4");
