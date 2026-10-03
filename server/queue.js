@@ -153,6 +153,13 @@ export class ClipQueue {
     if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\\\")) throw new Error("Invalid source video path.");
     const exportDir = join(this.storageDir, "exports");
     await mkdir(exportDir, { recursive: true });
+    const exportDirInfo = await lstat(exportDir).catch(() => null);
+    if (!exportDirInfo?.isDirectory() || exportDirInfo.isSymbolicLink()) throw new Error("Invalid export output path.");
+    const resolvedStorageDir = await realpath(this.storageDir).catch(() => null);
+    const resolvedExportDir = await realpath(exportDir).catch(() => null);
+    if (!resolvedStorageDir || !resolvedExportDir) throw new Error("Invalid export output path.");
+    const relativeExportDir = relative(resolvedStorageDir, resolvedExportDir);
+    if (relativeExportDir.startsWith("..") || relativeExportDir.startsWith("/") || relativeExportDir.startsWith("\\\\")) throw new Error("Invalid export output path.");
     const filename = `${clip.id}.mp4`;
     const output = join(exportDir, filename);
     const outputInfo = await lstat(output).catch(() => null);
