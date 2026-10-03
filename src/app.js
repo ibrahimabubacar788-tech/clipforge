@@ -491,9 +491,10 @@ async function uploadSource(file) {
         automaticClipFailures.add(autoClipVideoId);
       }
     }
+    if (currentProject?.id !== autoClipProjectId || sourceVideo?.id !== autoClipVideoId) return;
     if (error.status === 409) {
       showToast("Automatic clipping is already running for this video. We are using the existing job.");
-      if (currentProject?.id === autoClipProjectId && sourceVideo?.id === autoClipVideoId) void pollAutoClipStatus(autoClipVideoId);
+      void pollAutoClipStatus(autoClipVideoId);
     } else if (error.status === 503) {
       showToast("Automatic transcription needs a server key. You can import a transcript and use ClipForge's built-in highlight engine.");
       document.querySelector("#transcript-dialog")?.showModal();
