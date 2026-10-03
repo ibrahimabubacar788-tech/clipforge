@@ -64,12 +64,13 @@ async function safeUnlinkStorageFile(storageDir, sourceUrl) {
 
 const normalizeCaptionSegments = (value) => {
   if (!Array.isArray(value)) return [];
-  return value.slice(0, 2000).map((segment) => ({
-    start: Number(segment?.start),
-    end: Number(segment?.end),
-    text: String(segment?.text || "").slice(0, 500),
-    speaker: String(segment?.speaker || "").slice(0, 120)
-  }));
+  return value.slice(0, 2000).map((segment) => {
+    const start = Number(segment?.start);
+    const end = Number(segment?.end);
+    const text = String(segment?.text || "").slice(0, 500);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start || !text.trim()) return null;
+    return { start, end, text, speaker: String(segment?.speaker || "").slice(0, 120) };
+  }).filter(Boolean);
 };
 export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "data", "clipforge.json"), storageDir = join(process.cwd(), "storage") } = {}) {
   const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);
