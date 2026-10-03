@@ -16,7 +16,7 @@ const parseTime = (value) => {
 const cleanText = (value) => String(value || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 
 export function normalizeTranscript(segments) {
-  return (Array.isArray(segments) ? segments : [])
+  return (Array.isArray(segments) ? segments.slice(0, 5000) : [])
     .filter((segment) => segment && Number.isFinite(Number(segment.start)) && Number.isFinite(Number(segment.end)) && Number(segment.start) >= 0 && Number(segment.end) > Number(segment.start) && String(segment.text || "").trim())
     .map((segment) => ({
       start: Number(segment.start),
