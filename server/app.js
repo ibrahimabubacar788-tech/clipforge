@@ -577,8 +577,17 @@ if (req.method === "POST" && pathname === "/api/uploads") {
           const incoming = await hashStream(req);
           if (existing.size === incoming.bytes) {
             const existingHash = createHash("sha256");
-            const existingStream = createReadStream(target);
-            for await (const chunk of existingStream) existingHash.update(chunk);
+            let existingHandle;
+            try {
+              existingHandle = await open(target, O_RDONLY | O_NOFOLLOW);
+              const openedInfo = await existingHandle.stat();
+              if (!openedInfo.isFile()) throw Object.assign(new Error("Upload retry target is no longer a regular file."), { status: 409 });
+              const existingStream = existingHandle.createReadStream({ autoClose: true });
+              existingHandle = null;
+              for await (const chunk of existingStream) existingHash.update(chunk);
+            } finally {
+              if (existingHandle) await existingHandle.close().catch(() => {});
+            }
             if (incoming.hash === existingHash.digest("hex")) return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
           }
           throw Object.assign(new Error("An upload with this retry ID already exists with different content."), { status: 409 });
