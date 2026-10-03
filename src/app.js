@@ -1504,7 +1504,9 @@ clipLibrary.addEventListener("click", async (event) => {
   }
   const previewButton = event.target.closest("[data-preview-clip]");
   if (previewButton) {
-    const clip = clips.find((item) => item.id === previewButton.dataset.previewClip);
+    const previewProjectId = currentProject?.id;
+    const previewClipId = previewButton.dataset.previewClip;
+    const clip = clips.find((item) => item.id === previewClipId);
     if (!clip) return;
     if (clip.status !== "ready" || !clip.downloadUrl) { showToast("This clip is not ready for preview yet."); return; }
     clipPreviewTitle.textContent = clip.title || "Clip preview";
@@ -1513,15 +1515,20 @@ clipLibrary.addEventListener("click", async (event) => {
     clipPreviewVideo.load();
     try {
       const response = await fetch(`/api/clips/${encodeURIComponent(clip.id)}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
+      if (currentProject?.id !== previewProjectId) return;
       if (!response.ok) throw new Error("The rendered clip is no longer available.");
       const blobUrl = URL.createObjectURL(await response.blob());
+      if (currentProject?.id !== previewProjectId) {
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
       clipPreviewVideo.dataset.previewBlobUrl = blobUrl;
       clipPreviewVideo.src = blobUrl;
       clipPreviewVideo.onloadedmetadata = () => clipPreviewVideo.play().catch(() => {});
       clipPreviewVideo.ontimeupdate = null;
       clipPreviewDialog.showModal();
     } catch (error) {
-      showToast(`Could not load clip preview: ${error.message}`);
+      if (currentProject?.id === previewProjectId) showToast(`Could not load clip preview: ${error.message}`);
     }
     return;
   }
@@ -1549,14 +1556,18 @@ clipLibrary.addEventListener("click", async (event) => {
   }
   const downloadButton = event.target.closest("[data-download-clip]");
   if (downloadButton) {
+    const downloadProjectId = currentProject?.id;
+    const downloadClipId = downloadButton.dataset.downloadClip;
     try {
-      const response = await fetch(`/api/clips/${downloadButton.dataset.downloadClip}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
+      const response = await fetch(`/api/clips/${encodeURIComponent(downloadClipId)}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
+      if (currentProject?.id !== downloadProjectId) return;
       if (!response.ok) throw new Error("Download failed.");
       const blob = await response.blob();
+      if (currentProject?.id !== downloadProjectId) return;
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      const clip = clips.find((item) => item.id === downloadButton.dataset.downloadClip);
+      const clip = clips.find((item) => item.id === downloadClipId);
       const safeTitle = String(clip?.title || "ClipForge clip")
         .replace(/[<>:"/\\|?*\\x00-\\x1F]/g, "_")
         .replace(/\\s+/g, " ")
@@ -1566,7 +1577,9 @@ clipLibrary.addEventListener("click", async (event) => {
       link.download = `${safeTitle}.mp4`;
       link.click();
       URL.revokeObjectURL(url);
-    } catch (error) { showToast(error.message); }
+    } catch (error) {
+      if (currentProject?.id === downloadProjectId) showToast(error.message);
+    }
     return;
   }
   const button = event.target.closest("[data-delete-clip]");
