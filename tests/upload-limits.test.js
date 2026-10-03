@@ -222,3 +222,31 @@ test("concurrent identical uploads with the same retry ID are safely deduplicate
   const bodies = await Promise.all(responses.map((response) => response.json()));
   assert.equal(bodies[0].url, bodies[1].url);
 });
+
+
+test("concurrent uploads with the same retry ID but different payloads reject the conflict safely", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "upload-concurrent-conflict@example.com",
+    password: "password-123"
+  });
+  const headers = {
+    authorization: "Bearer " + user.body.token,
+    "content-type": "video/mp4",
+    "content-length": "524288",
+    "x-filename": "conflict.mp4",
+    "x-upload-id": "conflict-retry"
+  };
+  const firstPayload = Buffer.alloc(512 * 1024, 7);
+  const secondPayload = Buffer.alloc(512 * 1024, 8);
+  const [first, second] = await Promise.all([
+    fetch(base + "/api/uploads", { method: "POST", headers, body: firstPayload }),
+    fetch(base + "/api/uploads", { method: "POST", headers, body: secondPayload })
+  ]);
+  const responses = [first, second];
+  const statuses = responses.map((response) => response.status).sort();
+  assert.deepEqual(statuses, [201, 409]);
+  const conflict = responses.find((response) => response.status === 409);
+  assert.match((await conflict.json()).error, /different content/i);
+});
