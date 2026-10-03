@@ -166,3 +166,102 @@ test("the final project cannot be deleted", async (t) => {
   assert.equal(remaining.body.projects.length, 1);
   assert.equal(remaining.body.projects[0].id, second.body.project.id);
 });
+
+
+test("project deletion is blocked while a child clip is queued", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "delete-project-busy@example.com",
+    password: "password-123"
+  });
+  const project = await request(base, "/api/projects", "POST", { name: "Busy project" }, user.body.token);
+  const otherProject = await request(base, "/api/projects", "POST", { name: "Keep project" }, user.body.token);
+  const video = await request(base, "/api/videos", "POST", {
+    projectId: project.body.project.id,
+    name: "Queued source",
+    duration: 30
+  }, user.body.token);
+
+  const clip = {
+    id: "clip_busy_project",
+    userId: user.body.user.id,
+    videoId: video.body.video.id,
+    projectId: project.body.project.id,
+    title: "Queued clip",
+    start: 0,
+    end: 10,
+    status: "queued",
+    createdAt: new Date().toISOString()
+  };
+  await server.database.transaction((d) => {
+    d.clips.push(clip);
+    d.jobs.push({ id: "job_busy_project", clipId: clip.id, status: "queued", progress: 0, createdAt: new Date().toISOString() });
+  });
+
+  const denied = await request(
+    base,
+    `/api/projects/${project.body.project.id}`,
+    "DELETE",
+    undefined,
+    user.body.token
+  );
+  assert.equal(denied.status, 409);
+  assert.match(denied.body.error, /currently rendering/);
+
+  const projects = await request(base, "/api/projects", "GET", undefined, user.body.token);
+  assert.equal(projects.body.projects.some((item) => item.id === project.body.project.id), true);
+  assert.equal(projects.body.projects.some((item) => item.id === otherProject.body.project.id), true);
+});
+
+test("video deletion is blocked while a child clip is processing", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "delete-video-busy@example.com",
+    password: "password-123"
+  });
+  const project = await request(base, "/api/projects", "POST", { name: "Video busy project" }, user.body.token);
+  const video = await request(base, "/api/videos", "POST", {
+    projectId: project.body.project.id,
+    name: "Processing source",
+    duration: 30
+  }, user.body.token);
+
+  const clip = {
+    id: "clip_busy_video",
+    userId: user.body.user.id,
+    videoId: video.body.video.id,
+    projectId: project.body.project.id,
+    title: "Processing clip",
+    start: 0,
+    end: 10,
+    status: "processing",
+    createdAt: new Date().toISOString()
+  };
+  await server.database.transaction((d) => {
+    d.clips.push(clip);
+    d.jobs.push({ id: "job_busy_video", clipId: clip.id, status: "processing", progress: 50, createdAt: new Date().toISOString() });
+  });
+
+  const denied = await request(
+    base,
+    `/api/videos/${video.body.video.id}`,
+    "DELETE",
+    undefined,
+    user.body.token
+  );
+  assert.equal(denied.status, 409);
+  assert.match(denied.body.error, /currently rendering/);
+
+  const videos = await request(
+    base,
+    `/api/videos?projectId=${project.body.project.id}`,
+    "GET",
+    undefined,
+    user.body.token
+  );
+  assert.equal(videos.body.videos.some((item) => item.id === video.body.video.id), true);
+});
