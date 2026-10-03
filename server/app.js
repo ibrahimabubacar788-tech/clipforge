@@ -508,9 +508,14 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       const target = join(storageDir, "uploads", safe);
       let releaseUpload;
       const uploadReservation = new Promise((resolve) => { releaseUpload = resolve; });
-      const activeUpload = uploadInFlight.get(target);
-      if (activeUpload) await activeUpload;
-      else uploadInFlight.set(target, uploadReservation);
+      while (true) {
+        const activeUpload = uploadInFlight.get(target);
+        if (!activeUpload) {
+          uploadInFlight.set(target, uploadReservation);
+          break;
+        }
+        await activeUpload;
+      }
       try {
         const existing = await lstat(target).catch(() => null);
         if (existing?.isSymbolicLink()) throw Object.assign(new Error("Upload target conflicts with an unsafe symbolic link."), { status: 409 });
@@ -553,7 +558,7 @@ if (req.method === "POST" && pathname === "/api/uploads") {
           throw error;
         }
       } finally {
-        if (!activeUpload && uploadInFlight.get(target) === uploadReservation) {
+        if (uploadInFlight.get(target) === uploadReservation) {
           uploadInFlight.delete(target);
           releaseUpload();
         }
