@@ -823,6 +823,7 @@ const transcriptDialog = document.querySelector("#transcript-dialog");
 const transcriptInput = document.querySelector("#transcript-input");
 const transcriptFile = document.querySelector("#transcript-file");
 const autoTranscribeButton = document.querySelector("#auto-transcribe");
+const transcriptionLanguage = document.querySelector("#transcription-language");
 
 function parseTranscript(rawText) {
   return rawText.split("\n").map((line) => {
@@ -857,7 +858,7 @@ autoTranscribeButton?.addEventListener("click", async () => {
     autoTranscribeButton.disabled = true;
     autoTranscribeButton.textContent = "Transcribing…";
     showToast("Transcribing your video…");
-    const result = await api(`/api/videos/${encodeURIComponent(transcriptionVideoId)}/transcribe`, { method: "POST", body: JSON.stringify({ language: "en" }) });
+    const result = await api(`/api/videos/${encodeURIComponent(transcriptionVideoId)}/transcribe`, { method: "POST", body: JSON.stringify({ language: transcriptionLanguage?.value || "en" }) });
     if (currentProject?.id !== transcriptionProjectId || sourceVideo?.id !== transcriptionVideoId) {
       showToast("Transcript finished for the original source video, but the workspace changed during transcription.");
       return;
