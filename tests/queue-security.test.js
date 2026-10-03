@@ -58,3 +58,23 @@ test("queue render rejects a symlinked export target", async () => {
   );
   assert.equal(await import("node:fs/promises").then(({ readFile }) => readFile(outside, "utf8")), "keep me");
 });
+
+
+test("queue render rejects an export directory symlink", async () => {
+  const { dir, uploads, exportsDir } = await fixture();
+  const source = join(uploads, "source.mp4");
+  const outside = join(dir, "outside-exports");
+  const storage = join(dir, "storage");
+  await writeFile(source, "not-a-real-video");
+  await mkdir(outside, { recursive: true });
+  const { rm } = await import("node:fs/promises");
+  await rm(exportsDir, { recursive: true, force: true });
+  await symlink(outside, exportsDir);
+
+  const queue = new ClipQueue({}, storage, { ffmpegPath: process.execPath });
+  await assert.rejects(
+    queue.render({ id: "clip-export-dir", sourceUrl: "/storage/uploads/source.mp4", start: 0, end: 1, format: "9:16" }),
+    /Invalid export output path/
+  );
+  assert.equal(await import("node:fs/promises").then(({ readdir }) => readdir(outside).then((items) => items.length)), 0);
+});
