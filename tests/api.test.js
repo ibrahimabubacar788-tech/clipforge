@@ -266,6 +266,18 @@ test("video creation validates unsafe and directory-backed upload sources", asyn
   assert.equal(directory.status, 422);
 });
 
+test("static asset serving rejects root-escaping symlinks", async (t) => {
+  const { dir, server, base } = await app();
+  t.after(() => server.close());
+  const outside = join(dir, "outside-static.txt");
+  const linked = join(dir, "linked-static.txt");
+  await writeFile(outside, Buffer.from("secret"));
+  await symlink(outside, linked);
+  const response = await fetch(base + "/linked-static.txt");
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), await readFile(join(process.cwd(), "index.html"), "utf8"));
+});
+
 test("uploaded videos can be streamed only by their owner", async (t) => {
   const { dir, server, base } = await app(); t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "stream@example.com", password: "password-123" });
