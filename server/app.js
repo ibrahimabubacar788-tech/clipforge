@@ -51,6 +51,8 @@ async function safeUnlinkStorageFile(storageDir, sourceUrl) {
   const lexicalRoot = normalize(storageDir).replace(/[\\/]$/, "");
   const relativeCandidate = requireRelative(lexicalRoot, candidate);
   if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\")) return;
+  const candidateInfo = await lstat(candidate).catch(() => null);
+  if (!candidateInfo || candidateInfo.isSymbolicLink() || !candidateInfo.isFile()) return;
   const resolvedCandidate = await realpath(candidate).catch(() => null);
   if (!resolvedCandidate) return;
   const relativeResolved = requireRelative(storageRoot, resolvedCandidate);
