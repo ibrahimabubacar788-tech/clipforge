@@ -897,3 +897,54 @@ test("automatic AI clipping reuses an existing auto batch instead of duplicating
   const listed = await request(base, "/api/clips", "GET", undefined, user.body.token);
   assert.equal(listed.body.clips.filter((clip) => clip.generation === "auto-ai").length, 2);
 });
+
+test("project deletion succeeds when export cleanup fails", async (t) => {
+  const { server, base } = await app(); t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "project-cleanup@example.com", password: "password-123" });
+  const token = user.body.token;
+  const project = await request(base, "/api/projects", "POST", { name: "Cleanup project" }, token);
+  const keep = await request(base, "/api/projects", "POST", { name: "Keep project" }, token);
+  const video = await request(base, "/api/videos", "POST", {
+    projectId: project.body.project.id, name: "Video", duration: 3, sourceUrl: "/storage/uploads/missing.mp4"
+  }, token);
+  await server.database.transaction((d) => d.clips.push({
+    id: "clip-project-cleanup", userId: user.body.user.id, videoId: video.body.video.id,
+    projectId: project.body.project.id, status: "ready", downloadUrl: "/storage/exports/missing.mp4"
+  }));
+  server.clipQueue.removeExport = async () => { throw new Error("simulated export cleanup failure"); };
+  const response = await request(base, "/api/projects/" + project.body.project.id, "DELETE", undefined, token);
+  assert.equal(response.status, 204);
+  const state = await server.database.read((d) => ({
+    project: d.projects.find((item) => item.id === project.body.project.id),
+    video: d.videos.find((item) => item.id === video.body.video.id),
+    clip: d.clips.find((item) => item.id === "clip-project-cleanup"),
+    keep: d.projects.find((item) => item.id === keep.body.project.id)
+  }));
+  assert.equal(state.project, undefined);
+  assert.equal(state.video, undefined);
+  assert.equal(state.clip, undefined);
+  assert.ok(state.keep);
+});
+
+test("video deletion succeeds when export cleanup fails", async (t) => {
+  const { server, base } = await app(); t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "video-cleanup@example.com", password: "password-123" });
+  const token = user.body.token;
+  const project = await request(base, "/api/projects", "POST", { name: "Video cleanup" }, token);
+  const video = await request(base, "/api/videos", "POST", {
+    projectId: project.body.project.id, name: "Video", duration: 3, sourceUrl: "/storage/uploads/missing.mp4"
+  }, token);
+  await server.database.transaction((d) => d.clips.push({
+    id: "clip-video-cleanup", userId: user.body.user.id, videoId: video.body.video.id,
+    projectId: project.body.project.id, status: "ready", downloadUrl: "/storage/exports/missing.mp4"
+  }));
+  server.clipQueue.removeExport = async () => { throw new Error("simulated export cleanup failure"); };
+  const response = await request(base, "/api/videos/" + video.body.video.id, "DELETE", undefined, token);
+  assert.equal(response.status, 204);
+  const state = await server.database.read((d) => ({
+    video: d.videos.find((item) => item.id === video.body.video.id),
+    clip: d.clips.find((item) => item.id === "clip-video-cleanup")
+  }));
+  assert.equal(state.video, undefined);
+  assert.equal(state.clip, undefined);
+});
