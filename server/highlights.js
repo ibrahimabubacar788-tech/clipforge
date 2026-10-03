@@ -155,7 +155,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
       if (firstBrace < 0 || lastBrace <= firstBrace) throw new Error("AI returned invalid highlight JSON.");
       parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
     }
-    const selections = Array.isArray(parsed.selections) ? parsed.selections : [];
+    const selections = Array.isArray(parsed.selections) ? parsed.selections.slice(0, safeLimit * 3) : [];
     const byId = new Map(baseline.map((item, id) => [id, item]));
     const ranked = selections.map((selection) => {
       const base = byId.get(Number(selection.id));
