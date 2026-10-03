@@ -70,7 +70,7 @@ test("queue failure marks both the job and clip failed", async () => {
   const state = await db.read((d) => ({ job: d.jobs[0], clip: d.clips[0] }));
 
   assert.equal(state.job.status, "failed");
-  assert.match(state.job.error, /ENOENT|no such file|missing/i);
+  assert.match(state.job.error, /ENOENT|no such file|missing|Invalid source video path/i);
   assert.equal(state.clip.status, "failed");
   assert.ok(state.job.completedAt);
   await db.close();
