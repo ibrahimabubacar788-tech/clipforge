@@ -96,3 +96,22 @@ test("queue export cleanup refuses a symlinked export directory", async () => {
 
   assert.equal(await import("node:fs/promises").then(({ readFile }) => readFile(protectedFile, "utf8")), "keep me");
 });
+
+
+test("queue render cleanup refuses a symlinked temporary output", async () => {
+  const { dir, uploads, exportsDir } = await fixture();
+  const source = join(uploads, "source.mp4");
+  const outside = join(dir, "protected-temp.mp4");
+  const tempOutput = join(exportsDir, ".clip-temp.mp4");
+  await writeFile(source, "not-a-real-video");
+  await writeFile(outside, "keep me");
+  await symlink(outside, tempOutput);
+
+  const queue = new ClipQueue({}, join(dir, "storage"), { ffmpegPath: process.execPath });
+  const cleanup = queue.render.bind(queue);
+  await assert.rejects(
+    cleanup({ id: "clip-temp", sourceUrl: "/storage/uploads/source.mp4", start: 0, end: 1, format: "9:16" }),
+    /FFmpeg exited with code/
+  );
+  assert.equal(await import("node:fs/promises").then(({ readFile }) => readFile(outside, "utf8")), "keep me");
+});
