@@ -79,13 +79,19 @@ export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDura
 
 export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75 } = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
-  const fallback = () => rankHighlights(segments, { limit, minDuration, maxDuration });
+  const safeLimit = Math.max(1, Math.min(40, Number(limit) || 12));
+  const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.max(0, Number(minDuration)) : 15;
+  const parsedMaxDuration = Number(maxDuration);
+  const safeMaxDuration = Number.isFinite(parsedMaxDuration) && parsedMaxDuration > 0
+    ? Math.max(safeMinDuration, Math.min(300, parsedMaxDuration))
+    : 75;
+  const fallback = () => rankHighlights(segments, { limit: safeLimit, minDuration: safeMinDuration, maxDuration: safeMaxDuration });
   if (!apiKey) return { candidates: fallback(), engine: "heuristic-fallback" };
 
   const baseline = rankHighlights(segments, {
-    limit: Math.min(40, Math.max(limit * 3, limit)),
-    minDuration,
-    maxDuration,
+    limit: Math.min(40, safeLimit * 3),
+    minDuration: safeMinDuration,
+    maxDuration: safeMaxDuration,
   });
   if (!baseline.length) return { candidates: [], engine: "openai-highlights-v1" };
 
@@ -180,7 +186,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
     // automatic pipeline productive when the model is conservative or truncates
     // its JSON response, while preserving AI selections at the top.
     for (const candidate of baseline) {
-      if (selected.length >= limit) break;
+      if (selected.length >= safeLimit) break;
       addIfDistinct(candidate);
     }
 
