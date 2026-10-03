@@ -129,6 +129,40 @@ test("authentication rejects malformed and oversized session tokens", async (t) 
   assert.equal(valid.status, 200);
 });
 
+test("authentication works through the session cookie", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+
+  const registeredResponse = await fetch(base + "/api/auth/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "cookie@example.com", password: "correct-password" })
+  });
+  assert.equal(registeredResponse.status, 201);
+  const registeredCookie = registeredResponse.headers.get("set-cookie");
+  assert.match(registeredCookie || "", /^clipforge_session=[^;]+;/);
+  assert.match(registeredCookie || "", /HttpOnly/);
+  assert.match(registeredCookie || "", /SameSite=Lax/);
+
+  const me = await fetch(base + "/api/me", {
+    headers: { cookie: registeredCookie.split(";")[0] }
+  });
+  assert.equal(me.status, 200);
+  assert.equal((await me.json()).user.email, "cookie@example.com");
+
+  const logoutResponse = await fetch(base + "/api/auth/logout", {
+    method: "POST",
+    headers: { cookie: registeredCookie.split(";")[0] }
+  });
+  assert.equal(logoutResponse.status, 204);
+  assert.match(logoutResponse.headers.get("set-cookie") || "", /Max-Age=0/);
+
+  const afterLogout = await fetch(base + "/api/me", {
+    headers: { cookie: registeredCookie.split(";")[0] }
+  });
+  assert.equal(afterLogout.status, 401);
+});
+
 test("project videos endpoint returns only the owner project videos", async (t) => {
   const { dir, server, base } = await app(); t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "videos@example.com", password: "password-123" });
