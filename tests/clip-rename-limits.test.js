@@ -54,6 +54,10 @@ test("clip rename trims whitespace and rejects empty or oversized titles", async
   }, user.body.token);
 
   assert.equal(created.status, 202);
+  await server.database.transaction((d) => {
+    const clip = d.clips.find((item) => item.id === created.body.clip.id);
+    clip.status = "ready";
+  });
 
   const renamed = await request(base, `/api/clips/${created.body.clip.id}`, "PATCH", {
     title: "   Renamed clip   "
