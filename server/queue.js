@@ -213,6 +213,8 @@ export class ClipQueue {
   async removeExport(downloadUrl) {
     if (!downloadUrl?.startsWith("/storage/exports/")) return;
     const exportDir = resolve(this.storageDir, "exports");
+    const exportDirInfo = await lstat(exportDir).catch(() => null);
+    if (!exportDirInfo?.isDirectory() || exportDirInfo.isSymbolicLink()) return;
     const candidate = resolve(this.storageDir, downloadUrl.slice("/storage/".length));
     const relativeExport = relative(exportDir, candidate);
     if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\")) return;
