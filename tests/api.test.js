@@ -201,6 +201,22 @@ test("clip retry is protected by clip ownership", async (t) => {
   assert.equal(denied.status, 404);
 });
 
+test("static files reject symlinks that escape the web root", async (t) => {
+  const { dir, server, base } = await app();
+  t.after(() => server.close());
+  const outside = join(dir, "outside-static.txt");
+  const target = join(process.cwd(), "static-symlink-test.txt");
+  await writeFile(outside, "secret");
+  await symlink(outside, target);
+  try {
+    const response = await fetch(base + "/static-symlink-test.txt");
+    assert.equal(response.status, 403);
+  } finally {
+    const { unlink } = await import("node:fs/promises");
+    await unlink(target).catch(() => {});
+  }
+});
+
 test("responses include baseline security headers", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
