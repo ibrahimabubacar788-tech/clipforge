@@ -11,8 +11,8 @@ const PAYOFFS = [
 const normalize = (segment) => ({
   start: Number(segment.start),
   end: Number(segment.end),
-  text: String(segment.text || "").trim(),
-  speaker: segment.speaker ? String(segment.speaker).trim() : undefined,
+  text: String(segment.text || "").trim().slice(0, 500),
+  speaker: segment.speaker ? String(segment.speaker).trim().slice(0, 120) : undefined,
 });
 function valid(segment) {
   return Number.isFinite(segment.start) && Number.isFinite(segment.end)
