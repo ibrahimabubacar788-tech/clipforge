@@ -51,6 +51,7 @@ const normalizeCaptionSegments = (value) => {
 export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "data", "clipforge.json"), storageDir = join(process.cwd(), "storage") } = {}) {
   const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);
   const autoClipInFlight = new Set();
+  const uploadInFlight = new Map();
   async function api(req, res, pathname) {
     if (!["GET", "POST", "PATCH", "DELETE"].includes(req.method)) {
       res.setHeader("allow", "GET, POST, PATCH, DELETE");
@@ -511,7 +512,24 @@ if (req.method === "POST" && pathname === "/api/uploads") {
         if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
         return { bytes, hash: hash.digest("hex") };
       };
-      if (existing?.isFile() && contentLength !== null && existing.size === contentLength) {
+      const activeUpload = uploadInFlight.get(target);
+      if (activeUpload) await activeUpload;
+      const refreshedExisting = await lstat(target).catch(() => null);
+      if (refreshedExisting?.isSymbolicLink()) throw Object.assign(new Error("Upload target conflicts with an unsafe symbolic link."), { status: 409 });
+      if (refreshedExisting?.isFile() && contentLength !== null && refreshedExisting.size === contentLength) {
+        const incoming = await hashStream(req);
+        const existingHash = createHash("sha256");
+        const existingStream = createReadStream(target);
+        for await (const chunk of existingStream) existingHash.update(chunk);
+        if (incoming.hash === existingHash.digest("hex")) {
+          return json(res, 200, { url: "/storage/uploads/" + safe, reused: true });
+        }
+        throw Object.assign(new Error("An upload with this retry ID already exists with different content."), { status: 409 });
+      }
+      let releaseUpload;
+      const uploadReservation = new Promise((resolve) => { releaseUpload = resolve; });
+      uploadInFlight.set(target, uploadReservation);
+
         const incoming = await hashStream(req);
         const existingHash = createHash("sha256");
         const existingStream = createReadStream(target);
@@ -542,8 +560,13 @@ if (req.method === "POST" && pathname === "/api/uploads") {
         }
         await unlink(target).catch(() => {});
         throw error;
+      } finally {
+        if (uploadInFlight.get(target) === uploadReservation) {
+          uploadInFlight.delete(target);
+          releaseUpload();
+        }
       }
-      return json(res, 201, { url: `/storage/uploads/${safe}` });
+      return json(res, 201, { url: "/storage/uploads/" + safe });
     }
     const downloadMatch = pathname.match(/^\/api\/clips\/([^/]+)\/download$/);
     if (downloadMatch && req.method === "GET") {
