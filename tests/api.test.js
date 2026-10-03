@@ -539,6 +539,63 @@ test("automatic AI clipping creates multiple ranked clips from a stored transcri
   assert.ok(generated.body.clips.every((item) => item.clip.videoId === video.body.video.id && item.job));
 });
 
+
+test("automatic AI clipping forwards the requested transcription language", { skip: hasFfmpeg ? false : "ffmpeg-static is required for media integration tests" }, async (t) => {
+  const { dir, server, base } = await app();
+  t.after(() => server.close());
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  let transcriptionLanguage = null;
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("/v1/audio/transcriptions")) {
+      transcriptionLanguage = options.body?.get?.("language") || null;
+      return new Response(JSON.stringify({
+        segments: [
+          { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
+          { start: 8, end: 16, text: "You need to know why this changed everything." },
+          { start: 100, end: 108, text: "Imagine what happens when you understand the secret." },
+          { start: 108, end: 116, text: "The result surprised everyone." }
+        ]
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (String(url).includes("/v1/responses")) {
+      return new Response(JSON.stringify({
+        output_text: JSON.stringify({
+          selections: [
+            { id: 0, score: 91, reason: "Strong hook", title: "Big lesson" },
+            { id: 1, score: 84, reason: "Strong payoff", title: "Big result" }
+          ]
+        })
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return previousFetch(url, options);
+  };
+  try {
+    const user = await request(base, "/api/auth/register", "POST", { email: "auto-language@example.com", password: "password-123" });
+    const project = await request(base, "/api/projects", "POST", { name: "Auto language" }, user.body.token);
+    const sourceUrl = await uploadFixture(base, user.body.token, dir);
+    const video = await request(base, "/api/videos", "POST", {
+      projectId: project.body.project.id,
+      name: "Episode",
+      duration: 150,
+      sourceUrl
+    }, user.body.token);
+    const generated = await request(base, `/api/videos/${video.body.video.id}/auto-clip`, "POST", {
+      limit: 2,
+      format: "9:16",
+      language: "yo"
+    }, user.body.token);
+    assert.equal(generated.status, 202);
+    assert.equal(generated.body.transcribed, true);
+    assert.equal(transcriptionLanguage, "yo");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
 test("video streaming rejects uploaded source symlinks that escape storage", async (t) => {
   const { dir, server, base } = await app();
   t.after(() => server.close());
