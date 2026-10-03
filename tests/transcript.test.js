@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseTimestampedTranscript, parsePipeTranscript } from "../server/transcript.js";
+import { normalizeTranscript, parseTimestampedTranscript, parsePipeTranscript } from "../server/transcript.js";
 
 test("parses SRT timestamps and speaker labels", () => {
   const result = parseTimestampedTranscript("1\n00:00:01,000 --> 00:00:04,500\n[SPEAKER A]: Here is the thing.\n\n2\n00:00:05,000 --> 00:00:07,000\nThis is the next line.", "srt");
@@ -26,8 +26,8 @@ test("parses pipe transcript timestamps", () => {
 });
 
 test("normalizes malformed transcript entries safely", () => {
-  const result = parseTimestampedTranscript("");
-  assert.deepEqual(result, []);
+  const result = normalizeTranscript([null, { start: -1, end: 1, text: "negative" }, { start: 0, end: 1, text: "ok" }]);
+  assert.deepEqual(result, [{ start: 0, end: 1, text: "ok" }]);
   const normalized = parseTimestampedTranscript("1\n00:00:00.000 --> 00:00:01.000\nValid", "srt");
   assert.equal(normalized.length, 1);
   assert.equal(normalized[0].start, 0);
