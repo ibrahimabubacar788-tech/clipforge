@@ -23,7 +23,7 @@ test("queue recovery requeues stale processing jobs and restarts them", async ()
   });
   const queue = new ClipQueue(db, storageDir);
   await queue.recover();
-  const state = await db.read((d) => ({ job: d.jobs[0], running: queue.running }));
+  let state;\n  for (let attempt = 0; attempt < 40; attempt += 1) {\n    state = await db.read((d) => ({ job: d.jobs[0], running: queue.running }));\n    if (state.job.status === "failed") break;\n    await new Promise((resolve) => setTimeout(resolve, 10));\n  }
   assert.equal(state.job.status, "failed");
   assert.equal(state.job.progress, 0);
   assert.equal(state.job.error, "Clip not found.");
