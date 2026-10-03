@@ -18,7 +18,8 @@ async function request(base, path, method, body, token) {
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
-  return { status: response.status, body: response.status === 204 ? null : await response.text() };
+  const text = response.status === 204 ? null : await response.text();
+  return { status: response.status, body: text ? JSON.parse(text) : null };
 }
 
 test("clip downloads reject a symlinked export directory", async (t) => {
