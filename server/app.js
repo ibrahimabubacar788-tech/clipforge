@@ -606,6 +606,8 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       const relativeExport = requireRelative(exportDir, candidate);
       if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\")) throw Object.assign(new Error("Invalid export path."), { status: 403 });
       try {
+        const candidateInfo = await lstat(candidate).catch(() => null);
+        if (!candidateInfo || candidateInfo.isSymbolicLink() || !candidateInfo.isFile()) throw Object.assign(new Error("Invalid export path."), { status: 403 });
         await access(candidate);
         const resolvedCandidate = await realpath(candidate);
         const resolvedExportDir = await realpath(exportDir);
