@@ -1,4 +1,4 @@
-imp\n\ntest("login rejects malformed password values without a server error", async (t) => {\n  const { server, base } = await app();\n  t.after(() => server.close());\n  const registered = await request(base, "/api/auth/register", "POST", { email: "malformed-login@example.com", password: "correct-password" });\n  assert.equal(registered.status, 201);\n  const malformed = await request(base, "/api/auth/login", "POST", { email: "malformed-login@example.com", password: { nested: true } });\n  assert.equal(malformed.status, 401);\n  assert.equal(malformed.body.error, "Invalid email or password.");\n});ort test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { spawn, spawnSync } from "node:child_process";
@@ -62,6 +62,16 @@ test("authentication sessions enforce credentials and logout", async (t) => {
 
   const afterLogout = await request(base, "/api/me", "GET", undefined, login.body.token);
   assert.equal(afterLogout.status, 401);
+});
+
+test("login rejects malformed password values without a server error", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const registered = await request(base, "/api/auth/register", "POST", { email: "malformed-login@example.com", password: "correct-password" });
+  assert.equal(registered.status, 201);
+  const malformed = await request(base, "/api/auth/login", "POST", { email: "malformed-login@example.com", password: { nested: true } });
+  assert.equal(malformed.status, 401);
+  assert.equal(malformed.body.error, "Invalid email or password.");
 });
 
 test("project videos endpoint returns only the owner project videos", async (t) => {
