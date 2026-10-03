@@ -28,6 +28,23 @@ test("queue render rejects uploaded source symlinks escaping storage", async () 
   );
 });
 
+test("queue export cleanup refuses directories and symlinks inside the export directory", async () => {
+  const { exportsDir } = await fixture();
+  const target = join(exportsDir, "clip-target.mp4");
+  const link = join(exportsDir, "clip-link.mp4");
+  await mkdir(target, { recursive: true });
+  await writeFile(join(exportsDir, "protected.mp4"), "keep me");
+  await symlink(join(exportsDir, "protected.mp4"), link);
+
+  const queue = new ClipQueue({}, join(exportsDir, ".."));
+  await queue.removeExport("/storage/exports/clip-target.mp4");
+  await queue.removeExport("/storage/exports/clip-link.mp4");
+
+  const { access } = await import("node:fs/promises");
+  assert.equal(await access(target).then(() => true).catch(() => false), true);
+  assert.equal(await access(join(exportsDir, "protected.mp4")).then(() => true).catch(() => false), true);
+});
+
 test("queue export cleanup refuses symlinks escaping the export directory", async () => {
   const { dir, exportsDir } = await fixture();
   const outside = join(dir, "protected.txt");
