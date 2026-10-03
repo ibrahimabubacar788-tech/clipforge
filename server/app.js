@@ -521,6 +521,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
 if (req.method === "POST" && pathname === "/api/uploads") {
       const user = await requireUser(req, db);
       const filename = String(req.headers["x-filename"] || "video.mp4").slice(0, 120).replace(/[^a-zA-Z0-9._-]/g, "_");
+      const uploadMime = mime[extname(filename).toLowerCase()];
+      if (!uploadMime?.startsWith("video/")) throw Object.assign(new Error("Upload filename must use a supported video extension."), { status: 415 });
       const rawContentLength = req.headers["content-length"];
       const contentLength = rawContentLength === undefined ? null : Number(rawContentLength);
       const maxUploadBytes = 250 * 1024 * 1024;
