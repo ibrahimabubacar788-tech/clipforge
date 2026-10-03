@@ -1523,7 +1523,12 @@ clipLibrary.addEventListener("click", async (event) => {
       if (finished?.status === "ready") showToast("Retry finished. Your clip is ready to download.");
       else if (finished?.status === "failed") showToast(`Retry failed: ${finished.error || "FFmpeg could not render this clip."}`);
       else showToast("Retry is still rendering. Check My clips for its current status.");
-    } catch (error) { showToast(error.message); renderClipLibrary(); }
+    } catch (error) {
+      if (currentProject?.id === retryProjectId) {
+        showToast(error.message);
+        renderClipLibrary();
+      }
+    }
     return;
   }
   const renameButton = event.target.closest("[data-rename-clip]");
