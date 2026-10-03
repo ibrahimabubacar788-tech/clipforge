@@ -76,7 +76,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const total = info.size;
       const rangeHeader = String(req.headers.range || "");
       if (!rangeHeader) {
-        res.writeHead(200, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": total, "accept-ranges": "bytes" });
+        res.writeHead(200, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": total, "accept-ranges": "bytes", "cache-control": "private, no-store" });
         createReadStream(file).pipe(res);
         return;
       }
@@ -90,7 +90,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         return;
       }
       const boundedEnd = Math.min(end, total - 1);
-      res.writeHead(206, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": boundedEnd - start + 1, "content-range": `bytes ${start}-${boundedEnd}/${total}`, "accept-ranges": "bytes" });
+      res.writeHead(206, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": boundedEnd - start + 1, "content-range": `bytes ${start}-${boundedEnd}/${total}`, "accept-ranges": "bytes", "cache-control": "private, no-store" });
       createReadStream(file, { start, end: boundedEnd }).pipe(res);
       return;
     }
@@ -523,7 +523,7 @@ if (req.method === "POST" && pathname === "/api/uploads") {
         const relativeResolved = requireRelative(resolvedExportDir, resolvedCandidate);
         if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid export path."), { status: 403 });
         const downloadName = String(clip.title || "ClipForge clip").replace(/[<>:"/\|?* -]/g, "_").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 100) || "ClipForge clip";
-        res.writeHead(200, { "content-type": "video/mp4", "content-disposition": `attachment; filename="${downloadName}.mp4"` });
+        res.writeHead(200, { "content-type": "video/mp4", "content-disposition": `attachment; filename="${downloadName}.mp4"`, "cache-control": "private, no-store" });
         return createReadStream(candidate).pipe(res);
       } catch (error) {
         if (error?.status === 403) throw error;
