@@ -194,7 +194,10 @@ async function ensureWorkspace() {
         if (loadVersion !== workspaceLoadVersion) return false;
         if (projects.length) currentProject = projects[0];
         else {
-          currentProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+          const createdProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
+          if (loadVersion !== workspaceLoadVersion) return false;
+          if (!createdProject?.id) throw new Error("Project creation returned an invalid project.");
+          currentProject = createdProject;
           projects.push(currentProject);
         }
         document.querySelector("#workspace-title").textContent = currentProject.name;
