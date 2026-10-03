@@ -1,4 +1,4 @@
-import { access, mkdir, realpath, unlink } from "node:fs/promises";
+import { access, lstat, mkdir, realpath, unlink } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { join, relative, resolve } from "node:path";
 import { id, now } from "./database.js";
@@ -155,6 +155,8 @@ export class ClipQueue {
     await mkdir(exportDir, { recursive: true });
     const filename = `${clip.id}.mp4`;
     const output = join(exportDir, filename);
+    const outputInfo = await lstat(output).catch(() => null);
+    if (outputInfo?.isSymbolicLink()) throw new Error("Invalid export output path.");
     const duration = clip.end - clip.start;
     try {
       const { writeFile } = await import("node:fs/promises");
