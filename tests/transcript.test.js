@@ -34,3 +34,15 @@ test("normalizes malformed transcript entries safely", () => {
   assert.equal(normalized[0].end, 1);
   assert.equal(normalized[0].text, "Valid");
 });
+
+test("caps oversized transcript segment lists", () => {
+  const input = Array.from({ length: 5001 }, (_, index) => ({
+    start: index,
+    end: index + 1,
+    text: `segment ${index}`,
+  }));
+  const result = normalizeTranscript(input);
+  assert.equal(result.length, 5000);
+  assert.equal(result[0].text, "segment 0");
+  assert.equal(result.at(-1).text, "segment 4999");
+});
