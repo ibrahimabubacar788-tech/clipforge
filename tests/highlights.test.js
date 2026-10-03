@@ -84,3 +84,9 @@ test("AI highlight wrapper normalizes unsafe options without an API key", async 
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+
+test("highlight engine caps extreme minimum duration", () => {
+  const candidates = rankHighlights([{ start: 0, end: 20, text: "A useful story that should still be handled safely." }], { minDuration: 999999, maxDuration: 999999 });
+  assert.equal(candidates.length, 0);
+});
