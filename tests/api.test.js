@@ -110,13 +110,13 @@ test("project videos endpoint returns only the owner project videos", async (t) 
   assert.equal(listed.status, 200); assert.equal(listed.body.videos.length, 1); assert.equal(listed.body.videos[0].name, "Episode");
 });
 
-test("video creation rejects missing and directory-backed upload sources", async (t) => {
+test("video creation validates unsafe and directory-backed upload sources", async (t) => {
   const { dir, server, base } = await app();
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "video-source-validation@example.com", password: "password-123" });
   const project = await request(base, "/api/projects", "POST", { name: "Sources" }, user.body.token);
-  const missing = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Missing", duration: 3, sourceUrl: "/storage/uploads/" + user.body.user.id + "-missing.mp4" }, user.body.token);
-  assert.equal(missing.status, 422);
+  const traversal = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Traversal", duration: 3, sourceUrl: "/storage/uploads/../outside.mp4" }, user.body.token);
+  assert.equal(traversal.status, 403);
   const { mkdir, symlink } = await import("node:fs/promises");
   const uploads = join(server.clipQueue.storageDir, "uploads");
   const outsideDir = join(dir, "outside-video-source");
