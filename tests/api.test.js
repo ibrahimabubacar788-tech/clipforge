@@ -187,6 +187,21 @@ test("production session cookies include the Secure flag", async (t) => {
 });
 
 
+test("production responses include HSTS", async (t) => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  const { server, base } = await app();
+  t.after(() => {
+    server.close();
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  });
+
+  const response = await fetch(base + "/api/ready");
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("strict-transport-security"), "max-age=31536000; includeSubDomains");
+});
+
 test("project videos endpoint returns only the owner project videos", async (t) => {
   const { dir, server, base } = await app(); t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "videos@example.com", password: "password-123" });
