@@ -1604,19 +1604,23 @@ clipLibrary.addEventListener("click", async (event) => {
     const videoId = sourceButton.dataset.openSource;
     const sourceProjectId = currentProject?.id;
     if (videoId && sourceProjectId) {
-      const videos = (await api("/api/videos?projectId=" + encodeURIComponent(sourceProjectId))).videos;
-      if (currentProject?.id !== sourceProjectId) {
-        showToast("Workspace changed while opening the source video.");
-        return;
-      }
-      const video = videos.find((item) => item.id === videoId);
-      if (video) {
-        sourceVideo = video;
-        restoreSourcePreview(video);
-        document.querySelector('[data-view="editor"]')?.click();
-        showToast("Source video opened in the editor.");
-      } else {
-        showToast("That source video is no longer available.");
+      try {
+        const videos = (await api("/api/videos?projectId=" + encodeURIComponent(sourceProjectId))).videos;
+        if (currentProject?.id !== sourceProjectId) {
+          showToast("Workspace changed while opening the source video.");
+          return;
+        }
+        const video = videos.find((item) => item.id === videoId);
+        if (video) {
+          sourceVideo = video;
+          restoreSourcePreview(video);
+          document.querySelector('[data-view="editor"]')?.click();
+          showToast("Source video opened in the editor.");
+        } else {
+          showToast("That source video is no longer available.");
+        }
+      } catch (error) {
+        if (currentProject?.id === sourceProjectId) showToast(`Could not open source video: ${error.message}`);
       }
     }
     return;
@@ -1667,7 +1671,9 @@ clipLibrary.addEventListener("click", async (event) => {
     renderClipLibrary();
     showToast("Clip removed from your library.");
   } catch (error) {
-    showToast(error.status === 409 ? "This clip is still rendering. Try again when rendering finishes." : `Could not remove clip: ${error.message}`);
+    if (currentProject?.id === deleteProjectId) {
+      showToast(error.status === 409 ? "This clip is still rendering. Try again when rendering finishes." : `Could not remove clip: ${error.message}`);
+    }
   }
 });
 
