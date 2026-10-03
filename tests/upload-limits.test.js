@@ -96,3 +96,27 @@ test("uploads sanitize filenames and retry IDs into a safe storage path", async 
   assert.doesNotMatch(body.url, /[/]unsafe name/);
   assert.equal(body.url.split("/").length, 4);
 });
+
+
+test("uploads reuse an identical retry safely", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "upload-retry@example.com",
+    password: "password-123"
+  });
+  const headers = {
+    authorization: "Bearer " + user.body.token,
+    "content-type": "video/mp4",
+    "x-filename": "retry.mp4",
+    "x-upload-id": "same-retry"
+  };
+  const first = await fetch(base + "/api/uploads", { method: "POST", headers, body: Buffer.from("video") });
+  assert.equal(first.status, 201);
+  const firstBody = await first.json();
+  const second = await fetch(base + "/api/uploads", { method: "POST", headers, body: Buffer.from("video") });
+  assert.equal(second.status, 200);
+  const secondBody = await second.json();
+  assert.equal(secondBody.reused, true);
+  assert.equal(secondBody.url, firstBody.url);
+});
