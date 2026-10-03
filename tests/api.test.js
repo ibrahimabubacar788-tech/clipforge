@@ -82,7 +82,7 @@ test("JSON body limits are enforced by bytes", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
 
-  const oversizedPassword = "x".repeat(24_999_900);
+  const oversizedPassword = "x".repeat(25_000_100);
   const response = await fetch(base + "/api/auth/login", {
     method: "POST",
     headers: { "content-type": "application/json" },
