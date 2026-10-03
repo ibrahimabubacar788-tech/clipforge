@@ -292,6 +292,26 @@ test("uploaded videos can be streamed only by their owner", async (t) => {
   assert.equal(denied.status, 404);
 });
 
+test("clip creation filters malformed caption segments", async (t) => {
+  const { dir, server, base } = await app(); t.after(() => server.close());
+  const registered = await request(base, "/api/auth/register", "POST", { email: "caption-validation@example.com", password: "password-123" });
+  const token = registered.body.token;
+  const project = await request(base, "/api/projects", "POST", { name: "Caption validation" }, token);
+  const sourceUrl = await uploadFixture(base, token, dir);
+  const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Episode", duration: 3, sourceUrl }, token);
+  const clip = await request(base, "/api/clips", "POST", {
+    videoId: video.body.video.id, start: 0, end: 2, captions: true,
+    captionSegments: [
+      { start: 0, end: 1, text: "valid" },
+      { start: "bad", end: 1, text: "invalid" },
+      { start: 1, end: 1, text: "invalid" },
+      { start: -1, end: 1, text: "invalid" },
+      { start: 1, end: 2, text: "   " }
+    ]
+  }, token);
+  assert.equal(clip.status, 202);
+  assert.deepEqual(clip.body.clip.captionSegments, [{ start: 0, end: 1, text: "valid", speaker: "" }]);
+});
 test("FFmpeg renders an uploaded video into a downloadable MP4 clip with bitmap captions", { skip: hasFfmpeg ? false : "ffmpeg-static is required for media integration tests" }, async (t) => {
   const { dir, server, base } = await app(); t.after(() => server.close());
   const registered = await request(base, "/api/auth/register", "POST", { email: "creator@example.com", password: "password-123" });
