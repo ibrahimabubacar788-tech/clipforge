@@ -546,10 +546,10 @@ test("automatic AI clipping forwards the requested transcription language", { sk
   const previousKey = process.env.OPENAI_API_KEY;
   const previousFetch = globalThis.fetch;
   process.env.OPENAI_API_KEY = "test-key";
-  let transcriptionLanguage = null;
+  const transcriptionLanguages = [];
   globalThis.fetch = async (url, options = {}) => {
     if (String(url).includes("/v1/audio/transcriptions")) {
-      transcriptionLanguage = options.body?.get?.("language") || null;
+      transcriptionLanguages.push(options.body?.get?.("language") || null);
       return new Response(JSON.stringify({
         segments: [
           { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
@@ -588,7 +588,16 @@ test("automatic AI clipping forwards the requested transcription language", { sk
     }, user.body.token);
     assert.equal(generated.status, 202);
     assert.equal(generated.body.transcribed, true);
-    assert.equal(transcriptionLanguage, "yo");
+    assert.deepEqual(transcriptionLanguages, ["yo"]);
+
+    const regenerated = await request(base, `/api/videos/${video.body.video.id}/auto-clip`, "POST", {
+      limit: 2,
+      format: "9:16",
+      language: "en"
+    }, user.body.token);
+    assert.equal(regenerated.status, 202);
+    assert.equal(regenerated.body.transcribed, true);
+    assert.deepEqual(transcriptionLanguages, ["yo", "en"]);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
