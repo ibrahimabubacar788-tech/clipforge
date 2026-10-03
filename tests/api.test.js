@@ -292,6 +292,22 @@ test("uploaded videos can be streamed only by their owner", async (t) => {
   assert.equal(denied.status, 404);
 });
 
+test("clip creation normalizes caption style", async (t) => {
+  const { dir, server, base } = await app(); t.after(() => server.close());
+  const registered = await request(base, "/api/auth/register", "POST", { email: "caption-style@example.com", password: "password-123" });
+  const token = registered.body.token;
+  const project = await request(base, "/api/projects", "POST", { name: "Caption style" }, token);
+  const sourceUrl = await uploadFixture(base, token, dir);
+  const video = await request(base, "/api/videos", "POST", { projectId: project.body.project.id, name: "Episode", duration: 3, sourceUrl }, token);
+  const clip = await request(base, "/api/clips", "POST", {
+    videoId: video.body.video.id, start: 0, end: 2, captions: true,
+    captionSegments: [{ start: 0, end: 1, text: "valid" }],
+    style: { color: "not-a-color", weight: "not-a-weight", extra: "ignored" }
+  }, token);
+  assert.equal(clip.status, 202);
+  assert.deepEqual(clip.body.clip.style, { color: "lime", weight: "bold" });
+});
+
 test("clip creation filters malformed caption segments", async (t) => {
   const { dir, server, base } = await app(); t.after(() => server.close());
   const registered = await request(base, "/api/auth/register", "POST", { email: "caption-validation@example.com", password: "password-123" });
