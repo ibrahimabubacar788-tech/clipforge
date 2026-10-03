@@ -502,8 +502,8 @@ async function uploadSource(file) {
   }
   } finally {
     if (!uploadCommitted) {
-      if (previousSourceVideo?.id) restoreSourcePreview(previousSourceVideo);
-      else clearSourcePreview();
+      if (currentProject?.id === uploadProjectId && previousSourceVideo?.id) restoreSourcePreview(previousSourceVideo);
+      else if (currentProject?.id === uploadProjectId) clearSourcePreview();
       uploadProgress?.setAttribute("hidden", "");
     }
     uploadInFlight = false;
