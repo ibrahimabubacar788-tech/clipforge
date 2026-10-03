@@ -1319,7 +1319,7 @@ async function batchRenameClips() {
       if (target) target.title = updated.title || `${cleanPrefix} ${index + 1}`;
       renamed += 1;
     } catch (error) {
-      showToast(error.message);
+      if (currentProject?.id === renameProjectId) showToast(error.message);
     }
   }
   if (currentProject?.id !== renameProjectId) return;
