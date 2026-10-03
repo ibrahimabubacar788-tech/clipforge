@@ -460,7 +460,7 @@ test("video streaming rejects uploaded source symlinks that escape storage", asy
   const project = await request(base, "/api/projects", "POST", { name: "Stream security" }, user.body.token);
   const uploads = join(server.clipQueue.storageDir, "uploads");
   await mkdir(uploads, { recursive: true });
-  const outside = join(server.clipQueue.storageDir, "outside-stream.mp4");
+  const outside = join(server.dir, "outside-stream.mp4");
   const target = join(uploads, user.body.user.id + "-stream.mp4");
   await writeFile(outside, Buffer.from("not-a-video"));
   await symlink(outside, target);
