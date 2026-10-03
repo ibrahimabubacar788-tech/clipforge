@@ -441,14 +441,17 @@ async function uploadSource(file) {
   if (uploadProgressLabel) uploadProgressLabel.textContent = "Upload complete";
   showToast("Video uploaded. ClipForge is preparing the strongest moments…");
   try {
+    const autoClipProjectId = currentProject?.id;
+    const autoClipVideoId = sourceVideo?.id;
+    if (!autoClipProjectId || !autoClipVideoId) throw new Error("The source video is no longer available.");
     const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
     const autoClipPayload = JSON.stringify({ limit: 12, format, style: captionStyle, language: "en" });
-    const requestAutomaticClipping = () => api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/auto-clip`, {
+    const requestAutomaticClipping = () => api(`/api/videos/${encodeURIComponent(autoClipVideoId)}/auto-clip`, {
       method: "POST",
       body: autoClipPayload
     });
     showToast("ClipForge is analyzing your video and finding the strongest moments…");
-    void pollAutoClipStatus(sourceVideo.id);
+    void pollAutoClipStatus(autoClipVideoId);
     let result;
     try {
       result = await requestAutomaticClipping();
@@ -459,7 +462,11 @@ async function uploadSource(file) {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       result = await requestAutomaticClipping();
     }
-    automaticClipFailures.delete(sourceVideo.id);
+    if (currentProject?.id !== autoClipProjectId || sourceVideo?.id !== autoClipVideoId) {
+      showToast("Automatic clipping finished for the original source, but the workspace changed during analysis.");
+      return;
+    }
+    automaticClipFailures.delete(autoClipVideoId);
     clips = [...result.clips.map((item) => item.clip), ...clips.filter((clip) => !result.clips.some((item) => item.clip.id === clip.id))];
     renderClipLibrary();
     startClipStatusPolling();
@@ -468,23 +475,24 @@ async function uploadSource(file) {
       : `AI highlight analysis found ${result.generated} clips and started rendering them.`);
     void refreshClipLibraryWhileRendering();
   } catch (error) {
-    if (sourceVideo?.id && error.status !== 409) {
+    if (autoClipVideoId && currentProject?.id === autoClipProjectId && sourceVideo?.id === autoClipVideoId && error.status !== 409) {
       try {
-        const status = await api(`/api/videos/${encodeURIComponent(sourceVideo.id)}/auto-clip-status`);
+        const status = await api(`/api/videos/${encodeURIComponent(autoClipVideoId)}/auto-clip-status`);
+        if (currentProject?.id !== autoClipProjectId || sourceVideo?.id !== autoClipVideoId) return;
         const hasAutomaticWork = status.total > 0 || status.analysisInProgress;
         if (hasAutomaticWork) {
-          automaticClipFailures.delete(sourceVideo.id);
-          void pollAutoClipStatus(sourceVideo.id);
+          automaticClipFailures.delete(autoClipVideoId);
+          void pollAutoClipStatus(autoClipVideoId);
         } else {
-          automaticClipFailures.add(sourceVideo.id);
+          automaticClipFailures.add(autoClipVideoId);
         }
       } catch {
-        automaticClipFailures.add(sourceVideo.id);
+        automaticClipFailures.add(autoClipVideoId);
       }
     }
     if (error.status === 409) {
       showToast("Automatic clipping is already running for this video. We are using the existing job.");
-      if (sourceVideo.id) void pollAutoClipStatus(sourceVideo.id);
+      if (currentProject?.id === autoClipProjectId && sourceVideo?.id === autoClipVideoId) void pollAutoClipStatus(autoClipVideoId);
     } else if (error.status === 503) {
       showToast("Automatic transcription needs a server key. You can import a transcript and use ClipForge's built-in highlight engine.");
       document.querySelector("#transcript-dialog")?.showModal();
