@@ -141,6 +141,29 @@ test("uploads reject a different payload that reuses the same retry ID", async (
   assert.match(body.error, /different content/);
 });
 
+test("uploads preserve the existing retry target when a conflicting payload has a different length", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "upload-retry-length-conflict@example.com",
+    password: "password-123"
+  });
+  const headers = {
+    authorization: "Bearer " + user.body.token,
+    "content-type": "video/mp4",
+    "x-filename": "retry-length.mp4",
+    "x-upload-id": "same-retry"
+  };
+  const first = await fetch(base + "/api/uploads", { method: "POST", headers, body: Buffer.from("original") });
+  assert.equal(first.status, 201);
+  const second = await fetch(base + "/api/uploads", { method: "POST", headers, body: Buffer.from("different-length-payload") });
+  assert.equal(second.status, 409);
+  assert.match((await second.json()).error, /different content/i);
+  const third = await fetch(base + "/api/uploads", { method: "POST", headers, body: Buffer.from("original") });
+  assert.equal(third.status, 200);
+  assert.equal((await third.json()).reused, true);
+});
+
 test("uploads reuse an identical retry safely", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
