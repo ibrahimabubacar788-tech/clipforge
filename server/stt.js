@@ -1,4 +1,4 @@
-import { readFile, unlink, mkdir } from "node:fs/promises";
+import { readFile, unlink, mkdtemp, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { join, dirname } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -46,9 +46,8 @@ export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw Object.assign(new Error("Automatic transcription is not configured. Add OPENAI_API_KEY to the server environment."), { status: 503 });
 
-  const tempDir = join(dirname(source), "transcription-temp");
+  const tempDir = await mkdtemp(join(dirname(source), ".clipforge-transcription-"));
   const audioFile = join(tempDir, `audio-${randomUUID()}.mp3`);
-  await mkdir(tempDir, { recursive: true });
 
   try {
     await run(ffmpegPath, ["-y", "-i", source, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "32k", audioFile]);
@@ -86,5 +85,6 @@ export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
     return normalizeTranscriptionResponse(result);
   } finally {
     await unlink(audioFile).catch(() => {});
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 }
