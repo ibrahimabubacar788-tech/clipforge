@@ -35,8 +35,10 @@ function scoreWindow(text, duration) {
 export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDuration = 75 } = {}) {
   const safeLimit = Math.max(1, Math.min(40, Number(limit) || 40));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.max(0, Number(minDuration)) : 15;
-  const parsedMaxDuration = Number(maxDuration);\n  const safeMaxDuration = Number.isFinite(parsedMaxDuration) && parsedMaxDuration > 0\n    ? Math.max(safeMinDuration, Math.min(300, parsedMaxDuration))\n    : 75;
-  const clean = (Array.isArray(segments) ? segments.slice(0, 5000) : [])
+  const parsedMaxDuration = Number(maxDuration);
+  const safeMaxDuration = Number.isFinite(parsedMaxDuration) && parsedMaxDuration > 0
+    ? Math.max(safeMinDuration, Math.min(300, parsedMaxDuration))
+    : 75;  const clean = (Array.isArray(segments) ? segments.slice(0, 5000) : [])
     .map(normalize).filter(valid).sort((a, b) => a.start - b.start);
   const candidates = [];
   for (let i = 0; i < clean.length; i += 1) {
