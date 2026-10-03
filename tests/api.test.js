@@ -1,4 +1,4 @@
-import test from "node:test";
+imp\n\ntest("login rejects malformed password values without a server error", async (t) => {\n  const { server, base } = await app();\n  t.after(() => server.close());\n  const registered = await request(base, "/api/auth/register", "POST", { email: "malformed-login@example.com", password: "correct-password" });\n  assert.equal(registered.status, 201);\n  const malformed = await request(base, "/api/auth/login", "POST", { email: "malformed-login@example.com", password: { nested: true } });\n  assert.equal(malformed.status, 401);\n  assert.equal(malformed.body.error, "Invalid email or password.");\n});ort test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { spawn, spawnSync } from "node:child_process";
