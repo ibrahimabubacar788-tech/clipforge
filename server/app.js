@@ -185,7 +185,12 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const video = await db.read((d) => d.videos.find((item) => item.id === autoClipStatusMatch[1] && item.userId === user.id));
       if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
       const result = await db.read((d) => {
-        const clips = d.clips.filter((item) => item.videoId === video.id && item.userId === user.id && item.generation === "auto-ai");
+        const clips = d.clips.filter((item) =>
+          item.videoId === video.id &&
+          item.userId === user.id &&
+          item.generation === "auto-ai" &&
+          (item.transcriptLanguage || video.transcriptLanguage || "en") === String(video.transcriptLanguage || "en").trim().toLowerCase()
+        );
         const jobs = d.jobs.filter((job) => clips.some((clip) => clip.id === job.clipId));
         return { clips, jobs };
       });
@@ -226,7 +231,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         const existingAutoClipsBeforeAnalysis = await db.read((d) => d.clips.filter((clip) =>
           clip.videoId === video.id &&
           clip.userId === user.id &&
-          clip.generation === "auto-ai"
+          clip.generation === "auto-ai" &&
+          (clip.transcriptLanguage || video.transcriptLanguage || "en") === language
         ));
         const activeAutoClipsBeforeAnalysis = existingAutoClipsBeforeAnalysis.filter((clip) => clip.status !== "failed");
         if (activeAutoClipsBeforeAnalysis.length > 0) {
@@ -254,7 +260,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         }
         let segments = normalizeTranscript(Array.isArray(video.transcript) ? video.transcript : []);
         let transcribed = false;
-        if (!segments.length) {
+        const storedTranscriptLanguage = String(video.transcriptLanguage || "en").trim().toLowerCase();
+        if (!segments.length || storedTranscriptLanguage !== language) {
           const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
           const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
           if (!source.startsWith(storageRoot + "/") && !source.startsWith(storageRoot + "\\")) {
@@ -272,6 +279,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
             const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
             item.transcript = segments;
             item.transcriptFormat = "auto-stt";
+            item.transcriptLanguage = language;
             item.transcriptUpdatedAt = now();
           });
         }
@@ -279,7 +287,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const existingAutoClips = await db.read((d) => d.clips.filter((clip) =>
           clip.videoId === video.id &&
           clip.userId === user.id &&
-          clip.generation === "auto-ai"
+          clip.generation === "auto-ai" &&
+          (clip.transcriptLanguage || video.transcriptLanguage || "en") === language
         ));
         const activeAutoClips = existingAutoClips.filter((clip) => clip.status !== "failed");
         if (activeAutoClips.length > 0) {
@@ -352,6 +361,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           videoId: video.id,
           projectId: video.projectId,
           sourceUrl: video.sourceUrl,
+          transcriptLanguage: language,
           title: candidate.title,
           start: candidate.start,
           end: candidate.end,
