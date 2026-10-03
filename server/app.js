@@ -151,7 +151,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (!resolvedSource || !resolvedStorageRoot) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
       const relativeResolved = requireRelative(resolvedStorageRoot, resolvedSource);
       if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
-      const transcript = await transcribeVideo({ source: resolvedSource, ffmpegPath: queue.ffmpegPath });
+      const requestedLanguage = String(payload.language || "").trim().toLowerCase();
+      const language = /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "en";
+      const transcript = await transcribeVideo({ source: resolvedSource, ffmpegPath: queue.ffmpegPath, language });
       if (!transcript.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
       await db.transaction((d) => {
         const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
