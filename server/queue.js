@@ -165,7 +165,7 @@ export class ClipQueue {
     const output = join(exportDir, filename);
     const outputInfo = await lstat(output).catch(() => null);
     if (outputInfo?.isSymbolicLink()) throw new Error("Invalid export output path.");
-    const tempOutput = join(exportDir, `.${filename}.${randomUUID()}.mp4.tmp`);
+    const tempOutput = join(exportDir, `.${filename}.${randomUUID()}.tmp.mp4`);
     const duration = clip.end - clip.start;
     try {
       const { writeFile } = await import("node:fs/promises");
