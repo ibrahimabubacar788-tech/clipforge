@@ -8,6 +8,7 @@ const emptyState = () => ({ users: [], sessions: [], projects: [], videos: [], c
 
 const postgresUrl = process.env.DATABASE_URL;
 const hasPostgresUrl = typeof postgresUrl === "string" && /^(postgres|postgresql):\/\//i.test(postgresUrl);
+const postgresSsl = process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false };
 
 export class JsonDatabase {
   constructor(file) {
@@ -17,7 +18,7 @@ export class JsonDatabase {
     this.pool = hasPostgresUrl
       ? new Pool({
           connectionString: postgresUrl,
-          ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false },
+          ssl: postgresSsl,
         })
       : null;
     this.pool?.on("error", (error) => {
