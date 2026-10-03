@@ -33,7 +33,8 @@ function scoreWindow(text, duration) {
   return score;
 }
 export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDuration = 75 } = {}) {
-  const clean = segments.map(normalize).filter(valid).sort((a, b) => a.start - b.start);
+  const clean = (Array.isArray(segments) ? segments.slice(0, 5000) : [])
+    .map(normalize).filter(valid).sort((a, b) => a.start - b.start);
   const candidates = [];
   for (let i = 0; i < clean.length; i += 1) {
     let text = "";
