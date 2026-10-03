@@ -28,6 +28,20 @@ test("queue render rejects uploaded source symlinks escaping storage", async () 
   );
 });
 
+test("queue render rejects source symlinks that stay inside uploads", async () => {
+  const { dir, uploads } = await fixture();
+  const target = join(uploads, "real.mp4");
+  const link = join(uploads, "alias.mp4");
+  await writeFile(target, "not-a-real-video");
+  await symlink(target, link);
+
+  const queue = new ClipQueue({}, join(dir, "storage"), { ffmpegPath: process.execPath });
+  await assert.rejects(
+    queue.render({ id: "clip-source-link", sourceUrl: "/storage/uploads/alias.mp4", start: 0, end: 1, format: "9:16" }),
+    /Invalid source video path/
+  );
+});
+
 test("queue export cleanup refuses directories and symlinks inside the export directory", async () => {
   const { exportsDir } = await fixture();
   const target = join(exportsDir, "clip-target.mp4");
