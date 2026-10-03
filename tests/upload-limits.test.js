@@ -195,3 +195,30 @@ test("uploads reject retry targets that are symbolic links", async (t) => {
   assert.equal(response.status, 409);
   assert.match((await response.json()).error, /symbolic link/i);
 });
+
+
+test("concurrent identical uploads with the same retry ID are safely deduplicated", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "upload-concurrent@example.com",
+    password: "password-123"
+  });
+  const headers = {
+    authorization: "Bearer " + user.body.token,
+    "content-type": "video/mp4",
+    "content-length": "1048576",
+    "x-filename": "concurrent.mp4",
+    "x-upload-id": "concurrent-retry"
+  };
+  const payload = Buffer.alloc(1024 * 1024, 7);
+  const [first, second] = await Promise.all([
+    fetch(base + "/api/uploads", { method: "POST", headers, body: payload }),
+    fetch(base + "/api/uploads", { method: "POST", headers, body: payload })
+  ]);
+  const responses = [first, second];
+  const statuses = responses.map((response) => response.status).sort();
+  assert.deepEqual(statuses, [200, 201]);
+  const bodies = await Promise.all(responses.map((response) => response.json()));
+  assert.equal(bodies[0].url, bodies[1].url);
+});
