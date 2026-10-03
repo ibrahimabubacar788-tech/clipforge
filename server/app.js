@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
-import { createReadStream, createWriteStream } from "node:fs";
-import { access, lstat, mkdir, realpath, stat, unlink } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { access, lstat, mkdir, open, realpath, stat, unlink } from "node:fs/promises";
+import { O_NOFOLLOW, O_RDONLY } from "node:constants";
 import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
@@ -109,25 +110,35 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (!resolvedFile || !resolvedStorageRoot) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
       const relativeResolved = requireRelative(resolvedStorageRoot, resolvedFile);
       if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
-      const total = info.size;
-      const rangeHeader = String(req.headers.range || "");
-      if (!rangeHeader) {
-        res.writeHead(200, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": total, "accept-ranges": "bytes", "cache-control": "private, no-store" });
-        createReadStream(resolvedFile).pipe(res);
-        return;
+      let handle;
+      try {
+        handle = await open(resolvedFile, O_RDONLY | O_NOFOLLOW);
+        const openedInfo = await handle.stat();
+        if (!openedInfo.isFile()) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
+        const total = openedInfo.size;
+        const rangeHeader = String(req.headers.range || "");
+        if (!rangeHeader) {
+          res.writeHead(200, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": total, "accept-ranges": "bytes", "cache-control": "private, no-store" });
+          handle.createReadStream({ autoClose: true }).pipe(res);
+          handle = null;
+          return;
+        }
+        const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+        if (!match) throw Object.assign(new Error("Invalid range."), { status: 416 });
+        const start = match[1] ? Number(match[1]) : Math.max(0, total - Number(match[2]));
+        const end = match[2] ? Number(match[2]) : total - 1;
+        if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || start >= total) {
+          res.writeHead(416, { "content-range": `bytes */${total}` });
+          res.end();
+          return;
+        }
+        const boundedEnd = Math.min(end, total - 1);
+        res.writeHead(206, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": boundedEnd - start + 1, "content-range": `bytes ${start}-${boundedEnd}/${total}`, "accept-ranges": "bytes", "cache-control": "private, no-store" });
+        handle.createReadStream({ start, end: boundedEnd, autoClose: true }).pipe(res);
+        handle = null;
+      } finally {
+        if (handle) await handle.close().catch(() => {});
       }
-      const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
-      if (!match) throw Object.assign(new Error("Invalid range."), { status: 416 });
-      const start = match[1] ? Number(match[1]) : Math.max(0, total - Number(match[2]));
-      const end = match[2] ? Number(match[2]) : total - 1;
-      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || start >= total) {
-        res.writeHead(416, { "content-range": `bytes */${total}` });
-        res.end();
-        return;
-      }
-      const boundedEnd = Math.min(end, total - 1);
-      res.writeHead(206, { "content-type": mime[extname(file).toLowerCase()] || "application/octet-stream", "content-length": boundedEnd - start + 1, "content-range": `bytes ${start}-${boundedEnd}/${total}`, "accept-ranges": "bytes", "cache-control": "private, no-store" });
-      createReadStream(resolvedFile, { start, end: boundedEnd }).pipe(res);
       return;
     }
 
