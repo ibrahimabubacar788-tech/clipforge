@@ -1402,7 +1402,11 @@ async function downloadSelectedClips() {
       }
       const response = await fetch(`/api/clips/${encodeURIComponent(clip.id)}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
       if (!response.ok) throw new Error(`Could not download ${clip.title || "clip"}.`);
-      const blobUrl = URL.createObjectURL(await response.blob());
+      const blob = await response.blob();
+      if (currentProject?.id !== selectedProjectId) {
+        throw new Error("Workspace changed while downloading selected clips.");
+      }
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = blobUrl;
       link.download = `${clip.title || "ClipForge clip"}.mp4`;
