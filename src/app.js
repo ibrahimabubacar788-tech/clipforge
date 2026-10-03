@@ -1430,7 +1430,9 @@ async function downloadSelectedClips() {
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     showToast(`Downloaded ${selected.length} selected clip${selected.length === 1 ? "" : "s"}.`);
-  } catch (error) { showToast(error.message); }
+  } catch (error) {
+    if (currentProject?.id === selectedProjectId) showToast(error.message);
+  }
   finally { updateBulkClipControls(); }
 }
 async function deleteSelectedClips() {
@@ -1462,7 +1464,7 @@ async function deleteSelectedClips() {
     renderClipLibrary();
     showToast(failed ? `Deleted ${deletedIds.size}; ${failed} could not be deleted.` : `Deleted ${deletedIds.size} selected clip${deletedIds.size === 1 ? "" : "s"}.`);
   } catch (error) {
-    showToast(`Could not delete selected clips: ${error.message}`);
+    if (currentProject?.id === selectedProjectId) showToast(`Could not delete selected clips: ${error.message}`);
     updateBulkClipControls();
   }
 }
