@@ -83,6 +83,33 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
   const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);
   const autoClipInFlight = new Set();
   const uploadInFlight = new Map();
+  const authAttempts = new Map();
+  const authWindowMs = 60_000;
+  const authLimit = 10;
+  const authClientKey = (req) => String(req.socket?.remoteAddress || "unknown").slice(0, 128);
+  const checkAuthLimit = (req) => {
+    const key = authClientKey(req);
+    const nowMs = Date.now();
+    for (const [client, attempt] of authAttempts) if (attempt.resetAt <= nowMs) authAttempts.delete(client);
+    const attempt = authAttempts.get(key);
+    if (attempt && attempt.resetAt > nowMs && attempt.count >= authLimit) {
+      const retryAfter = Math.max(1, Math.ceil((attempt.resetAt - nowMs) / 1000));
+      throw Object.assign(new Error("Too many authentication attempts. Try again later."), { status: 429, retryAfter });
+    }
+  };
+  const recordAuthFailure = (req) => {
+    const key = authClientKey(req);
+    const nowMs = Date.now();
+    const current = authAttempts.get(key);
+    const attempt = current && current.resetAt > nowMs ? current : { count: 0, resetAt: nowMs + authWindowMs };
+    attempt.count += 1;
+    authAttempts.set(key, attempt);
+    if (authAttempts.size > 5000) for (const [client, value] of authAttempts) {
+      if (value.resetAt <= nowMs) authAttempts.delete(client);
+      if (authAttempts.size <= 5000) break;
+    }
+  };
+  const clearAuthFailures = (req) => authAttempts.delete(authClientKey(req));
   async function api(req, res, pathname) {
     if (!["GET", "POST", "PATCH", "DELETE"].includes(req.method)) {
       res.setHeader("allow", "GET, POST, PATCH, DELETE");
@@ -95,8 +122,31 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const mediaPersistent = String(process.env.MEDIA_STORAGE_PERSISTENT || "").toLowerCase() === "true";
       return json(res, 200, { ok: true, service: "clipforge", mediaStorage: { mode: "local", persistent: mediaPersistent } });
     }
-    if (req.method === "POST" && pathname === "/api/auth/register") { const user = await register(db, payload.email, payload.password); const session = await login(db, payload.email, payload.password); res.setHeader("set-cookie", sessionCookie(session.token)); return json(res, 201, { token: session.token, user: publicUser(user) }); }
-    if (req.method === "POST" && pathname === "/api/auth/login") { const session = await login(db, payload.email, payload.password); res.setHeader("set-cookie", sessionCookie(session.token)); return json(res, 200, { token: session.token, user: publicUser(session.user) }); }
+    if (req.method === "POST" && pathname === "/api/auth/register") {
+      checkAuthLimit(req);
+      try {
+        const user = await register(db, payload.email, payload.password);
+        const session = await login(db, payload.email, payload.password);
+        clearAuthFailures(req);
+        res.setHeader("set-cookie", sessionCookie(session.token));
+        return json(res, 201, { token: session.token, user: publicUser(user) });
+      } catch (error) {
+        recordAuthFailure(req);
+        throw error;
+      }
+    }
+    if (req.method === "POST" && pathname === "/api/auth/login") {
+      checkAuthLimit(req);
+      try {
+        const session = await login(db, payload.email, payload.password);
+        clearAuthFailures(req);
+        res.setHeader("set-cookie", sessionCookie(session.token));
+        return json(res, 200, { token: session.token, user: publicUser(session.user) });
+      } catch (error) {
+        recordAuthFailure(req);
+        throw error;
+      }
+    }
     if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); res.setHeader("set-cookie", sessionCookie("", 0)); res.writeHead(204); res.end(); return; }
     const user = await requireUser(req, db);
     if (["POST", "PATCH"].includes(req.method) && pathname !== "/api/uploads") payload = await body(req);
@@ -698,7 +748,7 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       const url = new URL(req.url, "http://localhost"); if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname); const isStorage = url.pathname.startsWith("/storage/"); if (isStorage) return json(res, 404, { error: "Not found" }); const baseDir = root;
       const candidate = normalize(join(baseDir, url.pathname === "/" ? "index.html" : url.pathname));
       const relativeCandidate = requireRelative(baseDir, candidate);
-      if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); const resolvedCandidate = await realpath(candidate); const resolvedRoot = await realpath(baseDir); const relativeResolved = requireRelative(resolvedRoot, resolvedCandidate); if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); let handle; try { handle = await open(resolvedCandidate, O_RDONLY | O_NOFOLLOW); const openedInfo = await handle.stat(); if (!openedInfo.isFile()) return json(res, 403, { error: "Forbidden" }); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); handle.createReadStream({ autoClose: true }).pipe(res); handle = null; } finally { if (handle) await handle.close().catch(() => {}); } } catch (error) { if (error?.status === 403) throw error; if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } } } catch (error) { const status = Number.isInteger(error?.status) && error.status >= 400 && error.status < 500 ? error.status : 500; if (status >= 500) console.error("ClipForge request failed:", error); json(res, status, { error: status < 500 ? (error.message || "Request failed.") : "Internal server error." }); } });
+      if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); const resolvedCandidate = await realpath(candidate); const resolvedRoot = await realpath(baseDir); const relativeResolved = requireRelative(resolvedRoot, resolvedCandidate); if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); let handle; try { handle = await open(resolvedCandidate, O_RDONLY | O_NOFOLLOW); const openedInfo = await handle.stat(); if (!openedInfo.isFile()) return json(res, 403, { error: "Forbidden" }); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); handle.createReadStream({ autoClose: true }).pipe(res); handle = null; } finally { if (handle) await handle.close().catch(() => {}); } } catch (error) { if (error?.status === 403) throw error; if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } } } catch (error) { const status = Number.isInteger(error?.status) && error.status >= 400 && error.status < 500 ? error.status : 500; if (status === 429 && Number.isInteger(error?.retryAfter)) res.setHeader("retry-after", String(error.retryAfter)); if (status >= 500) console.error("ClipForge request failed:", error); json(res, status, { error: status < 500 ? (error.message || "Request failed.") : "Internal server error." }); } });
   server.clipQueue = queue;
   server.database = db;
   return server;
