@@ -43,6 +43,21 @@ async function body(req) {
 }
 const own = (items, user) => items.filter((item) => item.userId === user.id);
 const requireRelative = (base, target) => relative(base, target);
+async function safeUnlinkStorageFile(storageDir, sourceUrl) {
+  if (typeof sourceUrl !== "string" || !sourceUrl.startsWith("/storage/")) return;
+  const storageRoot = await realpath(storageDir).catch(() => null);
+  if (!storageRoot) return;
+  const candidate = normalize(join(storageDir, sourceUrl.slice("/storage/".length)));
+  const lexicalRoot = normalize(storageDir).replace(/[\\/]$/, "");
+  const relativeCandidate = requireRelative(lexicalRoot, candidate);
+  if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\")) return;
+  const resolvedCandidate = await realpath(candidate).catch(() => null);
+  if (!resolvedCandidate) return;
+  const relativeResolved = requireRelative(storageRoot, resolvedCandidate);
+  if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) return;
+  await unlink(resolvedCandidate).catch(() => {});
+}
+
 
 const normalizeCaptionSegments = (value) => {
   if (!Array.isArray(value)) return [];
@@ -457,10 +472,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       for (const clip of removed.clips) await queue.removeExport(clip.downloadUrl);
       for (const video of removed.videos) {
         if (!video.sourceUrl) continue;
-        const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
-        const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
         const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === video.sourceUrl));
-        const relativeSource = requireRelative(storageRoot, source); if (!stillReferenced && !relativeSource.startsWith("..") && !relativeSource.startsWith("/") && !relativeSource.startsWith("\\")) await unlink(source).catch(() => {});
+        if (!stillReferenced) await safeUnlinkStorageFile(storageDir, video.sourceUrl);
       }
       res.writeHead(204); res.end(); return;
     }
@@ -481,10 +494,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       });
       for (const clip of removed.clips) await queue.removeExport(clip.downloadUrl);
       if (removed.video.sourceUrl) {
-        const source = normalize(join(storageDir, removed.video.sourceUrl.slice("/storage/".length)));
-        const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
         const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === removed.video.sourceUrl));
-        const relativeSource = requireRelative(storageRoot, source); if (!stillReferenced && !relativeSource.startsWith("..") && !relativeSource.startsWith("/") && !relativeSource.startsWith("\\")) await unlink(source).catch(() => {});
+        if (!stillReferenced) await safeUnlinkStorageFile(storageDir, removed.video.sourceUrl);
       }
       res.writeHead(204); res.end(); return;
     }
