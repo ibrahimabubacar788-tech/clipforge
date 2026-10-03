@@ -1068,8 +1068,14 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     if (finished?.status === "ready") { if (exportStatus) exportStatus.textContent = "Export ready"; showToast("Your clip is ready to download."); }
     else if (finished?.status === "failed") { if (exportStatus) exportStatus.textContent = "Export failed"; showToast("Clip render failed: " + (finished.error || "FFmpeg could not render this clip.")); }
     else { if (exportStatus) exportStatus.textContent = "Still rendering"; showToast("Clip is still rendering. Check My clips for its current status."); }
-  } catch (error) { if (exportStatus) exportStatus.textContent = "Export failed"; showToast(error.message); }
-  finally { exportButton.disabled = false; }
+  } catch (error) {
+    if (currentProject?.id === exportProjectId && sourceVideo?.id === exportVideoId) {
+      if (exportStatus) exportStatus.textContent = "Export failed";
+      showToast(error.message);
+    }
+  } finally {
+    exportButton.disabled = false;
+  }
 });
 
 clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; renderClipLibrary(); });
