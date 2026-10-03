@@ -29,8 +29,6 @@ async function request(base, path, method = "GET", body) {
   };
 }
 
-
-
 test("uploads reject non-video content and oversized declared bodies", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
@@ -68,10 +66,10 @@ test("uploads reject non-video content and oversized declared bodies", async (t)
         "Connection: close",
         "",
         ""
-      ].join("\\r\\n"));
+      ].join("\r\n"));
     });
   });
-  assert.match(oversized, /^HTTP\\/1\\.1 413 /);
+  assert.match(oversized, /^HTTP\/1\.1 413 /);
 });
 
 test("uploads sanitize filenames and retry IDs into a safe storage path", async (t) => {
@@ -95,5 +93,6 @@ test("uploads sanitize filenames and retry IDs into a safe storage path", async 
   assert.equal(response.status, 201);
   const body = await response.json();
   assert.match(body.url, /^\/storage\/uploads\/[^/]+$/);
-  assert.doesNotMatch(body.url, /[/]unsafe name/);\n  assert.equal(body.url.split("/").length, 4);
+  assert.doesNotMatch(body.url, /[/]unsafe name/);
+  assert.equal(body.url.split("/").length, 4);
 });
