@@ -674,7 +674,7 @@ if (req.method === "POST" && pathname === "/api/uploads") {
         item.status = "queued"; item.updatedAt = now(); delete item.downloadUrl; delete item.error;
         return { clip: { ...item }, previousDownloadUrl };
       });
-      await queue.removeExport(previousDownloadUrl);
+      await queue.removeExport(previousDownloadUrl).catch((error) => console.warn("Clip retry export cleanup failed:", error));
       const job = await queue.enqueue(clip);
       return json(res, 202, { clip, job });
     }
