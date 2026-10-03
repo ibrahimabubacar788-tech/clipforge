@@ -173,9 +173,10 @@ test("production session cookies include the Secure flag", async (t) => {
     else process.env.NODE_ENV = previousNodeEnv;
   });
 
-  const response = await request(base, "/api/auth/register", "POST", {
-    email: "secure-cookie@example.com",
-    password: "password-123"
+  const response = await fetch(base + "/api/auth/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "secure-cookie@example.com", password: "password-123" })
   });
 
   assert.equal(response.status, 201);
