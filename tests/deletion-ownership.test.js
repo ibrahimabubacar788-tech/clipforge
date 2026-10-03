@@ -125,12 +125,36 @@ test("the final project cannot be deleted", async (t) => {
     email: "delete-final-project@example.com",
     password: "password-123"
   });
-  const projects = await request(base, "/api/projects", "GET", undefined, user.body.token);
-  assert.equal(projects.body.projects.length, 1);
+
+  const first = await request(
+    base,
+    "/api/projects",
+    "POST",
+    { name: "First project" },
+    user.body.token
+  );
+  const second = await request(
+    base,
+    "/api/projects",
+    "POST",
+    { name: "Second project" },
+    user.body.token
+  );
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+
+  const removed = await request(
+    base,
+    `/api/projects/${first.body.project.id}`,
+    "DELETE",
+    undefined,
+    user.body.token
+  );
+  assert.equal(removed.status, 204);
 
   const denied = await request(
     base,
-    `/api/projects/${projects.body.projects[0].id}`,
+    `/api/projects/${second.body.project.id}`,
     "DELETE",
     undefined,
     user.body.token
@@ -140,4 +164,5 @@ test("the final project cannot be deleted", async (t) => {
 
   const remaining = await request(base, "/api/projects", "GET", undefined, user.body.token);
   assert.equal(remaining.body.projects.length, 1);
+  assert.equal(remaining.body.projects[0].id, second.body.project.id);
 });
