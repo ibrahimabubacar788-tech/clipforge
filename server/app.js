@@ -565,7 +565,7 @@ if (req.method === "POST" && pathname === "/api/uploads") {
           await pipeline(limited(), createWriteStream(target, { flags: "wx" }));
           return json(res, 201, { url: `/storage/uploads/${safe}` });
         } catch (error) {
-          await unlink(target).catch(() => {});
+          await safeUnlinkStorageFile(storageDir, `/storage/uploads/${safe}`);
           throw error;
         }
       } finally {
