@@ -101,13 +101,25 @@ export class ClipQueue {
     return new Promise((resolve) => {
       const child = spawn(this.ffmpegPath, ["-hide_banner", "-filters"], { stdio: ["ignore", "pipe", "pipe"] });
       let output = "";
+      let settled = false;
+      const finish = (supported) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(supported);
+      };
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        console.warn("ClipForge FFmpeg capability check timed out.");
+        finish(false);
+      }, 10_000);
       child.stdout.on("data", (chunk) => { output += chunk; });
       child.stderr.on("data", (chunk) => { output += chunk; });
-      child.on("error", (error) => { console.warn("ClipForge FFmpeg capability check failed:", error.message); resolve(false); });
+      child.on("error", (error) => { console.warn("ClipForge FFmpeg capability check failed:", error.message); finish(false); });
       child.on("close", () => {
         const supported = /\bsubtitles\b/.test(output);
         console.log(`ClipForge FFmpeg subtitles filter: ${supported ? "available" : "unavailable"}`);
-        resolve(supported);
+        finish(supported);
       });
     });
   }
