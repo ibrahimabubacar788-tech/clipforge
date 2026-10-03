@@ -499,49 +499,51 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       const uploadId = requestedUploadId || id("upload");
       const safe = `${user.id}-${uploadId}-${filename}`;
       const target = join(storageDir, "uploads", safe);
-      const activeUpload = uploadInFlight.get(target);
-      if (activeUpload) await activeUpload;
-      const existing = await lstat(target).catch(() => null);
-      if (existing?.isSymbolicLink()) throw Object.assign(new Error("Upload target conflicts with an unsafe symbolic link."), { status: 409 });
-      const hashStream = async (stream) => {
-        const hash = createHash("sha256");
-        let bytes = 0;
-        for await (const chunk of stream) {
-          bytes += chunk.length;
-          if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
-          hash.update(chunk);
-        }
-        if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
-        return { bytes, hash: hash.digest("hex") };
-      };
-      if (existing?.isFile() && contentLength !== null && existing.size === contentLength) {
-        const incoming = await hashStream(req);
-        const existingHash = createHash("sha256");
-        const existingStream = createReadStream(target);
-        for await (const chunk of existingStream) existingHash.update(chunk);
-        if (incoming.hash === existingHash.digest("hex")) return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
-        throw Object.assign(new Error("An upload with this retry ID already exists with different content."), { status: 409 });
-      }
       let releaseUpload;
       const uploadReservation = new Promise((resolve) => { releaseUpload = resolve; });
-      uploadInFlight.set(target, uploadReservation);
-      let bytes = 0;
-      const limited = async function* () {
-        for await (const chunk of req) {
-          bytes += chunk.length;
-          if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
-          yield chunk;
-        }
-        if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
-      };
+      const activeUpload = uploadInFlight.get(target);
+      if (activeUpload) await activeUpload;
+      else uploadInFlight.set(target, uploadReservation);
       try {
-        await pipeline(limited(), createWriteStream(target, { flags: "wx" }));
-        return json(res, 201, { url: `/storage/uploads/${safe}` });
-      } catch (error) {
-        await unlink(target).catch(() => {});
-        throw error;
+        const existing = await lstat(target).catch(() => null);
+        if (existing?.isSymbolicLink()) throw Object.assign(new Error("Upload target conflicts with an unsafe symbolic link."), { status: 409 });
+        const hashStream = async (stream) => {
+          const hash = createHash("sha256");
+          let bytes = 0;
+          for await (const chunk of stream) {
+            bytes += chunk.length;
+            if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
+            hash.update(chunk);
+          }
+          if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
+          return { bytes, hash: hash.digest("hex") };
+        };
+        if (existing?.isFile() && contentLength !== null && existing.size === contentLength) {
+          const incoming = await hashStream(req);
+          const existingHash = createHash("sha256");
+          const existingStream = createReadStream(target);
+          for await (const chunk of existingStream) existingHash.update(chunk);
+          if (incoming.hash === existingHash.digest("hex")) return json(res, 200, { url: `/storage/uploads/${safe}`, reused: true });
+          throw Object.assign(new Error("An upload with this retry ID already exists with different content."), { status: 409 });
+        }
+        let bytes = 0;
+        const limited = async function* () {
+          for await (const chunk of req) {
+            bytes += chunk.length;
+            if (bytes > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
+            yield chunk;
+          }
+          if (bytes === 0) throw Object.assign(new Error("Upload body is empty."), { status: 400 });
+        };
+        try {
+          await pipeline(limited(), createWriteStream(target, { flags: "wx" }));
+          return json(res, 201, { url: `/storage/uploads/${safe}` });
+        } catch (error) {
+          await unlink(target).catch(() => {});
+          throw error;
+        }
       } finally {
-        if (uploadInFlight.get(target) === uploadReservation) {
+        if (!activeUpload && uploadInFlight.get(target) === uploadReservation) {
           uploadInFlight.delete(target);
           releaseUpload();
         }
