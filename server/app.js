@@ -62,6 +62,13 @@ async function safeUnlinkStorageFile(storageDir, sourceUrl) {
 }
 
 
+const normalizeCaptionStyle = (value) => {
+  const style = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const color = ["lime", "pink", "sky"].includes(style.color) ? style.color : "lime";
+  const weight = ["normal", "bold"].includes(style.weight) ? style.weight : "bold";
+  return { color, weight };
+};
+
 const normalizeCaptionSegments = (value) => {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 2000).map((segment) => {
@@ -381,7 +388,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           format,
           captions: true,
           captionSegments: candidate.captionSegments,
-          style: payload.style || { color: "lime", weight: "bold" },
+          style: normalizeCaptionStyle(payload.style),
           status: "queued",
           generation: "auto-ai",
           aiEngine: analysis.engine,
