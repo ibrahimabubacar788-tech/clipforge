@@ -644,6 +644,7 @@ if (req.method === "POST" && pathname === "/api/uploads") {
     res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
     res.setHeader("x-frame-options", "SAMEORIGIN");
     res.setHeader("permissions-policy", "camera=(), microphone=(), geolocation=()");
+    if (process.env.NODE_ENV === "production") res.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
     res.setHeader("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
     try {
       res.setHeader("x-content-type-options", "nosniff");
