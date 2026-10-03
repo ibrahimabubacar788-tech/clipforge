@@ -40,4 +40,19 @@ test("queue export cleanup refuses symlinks escaping the export directory", asyn
 
   assert.equal(await import("node:fs/promises").then(({ access }) => access(outside).then(() => true).catch(() => false)), true);
 });
-\n\ntest("queue render rejects a symlinked export target", async () => {\n  const { dir, uploads, exportsDir } = await fixture();\n  const source = join(uploads, "source.mp4");\n  const outside = join(dir, "protected-output.mp4");\n  const output = join(exportsDir, "clip-output.mp4");\n  await writeFile(source, "not-a-real-video");\n  await writeFile(outside, "keep me");\n  await symlink(outside, output);\n\n  const queue = new ClipQueue({}, join(dir, "storage"), { ffmpegPath: process.execPath });\n  await assert.rejects(\n    queue.render({ id: "clip-output", sourceUrl: "/storage/uploads/source.mp4", start: 0, end: 1, format: "9:16" }),\n    /Invalid export output path/\n  );\n  assert.equal(await import("node:fs/promises").then(({ readFile }) => readFile(outside, "utf8")), "keep me");\n});\n
+\n\ntest("queue render rejects a symlinked export target", async () => {
+  const { dir, uploads, exportsDir } = await fixture();
+  const source = join(uploads, "source.mp4");
+  const outside = join(dir, "protected-output.mp4");
+  const output = join(exportsDir, "clip-output.mp4");
+  await writeFile(source, "not-a-real-video");
+  await writeFile(outside, "keep me");
+  await symlink(outside, output);
+
+  const queue = new ClipQueue({}, join(dir, "storage"), { ffmpegPath: process.execPath });
+  await assert.rejects(
+    queue.render({ id: "clip-output", sourceUrl: "/storage/uploads/source.mp4", start: 0, end: 1, format: "9:16" }),
+    /Invalid export output path/
+  );
+  assert.equal(await import("node:fs/promises").then(({ readFile }) => readFile(outside, "utf8")), "keep me");
+});
