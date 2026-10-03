@@ -90,3 +90,32 @@ test("highlight engine caps extreme minimum duration", () => {
   const candidates = rankHighlights([{ start: 0, end: 20, text: "A useful story that should still be handled safely." }], { minDuration: 999999, maxDuration: 999999 });
   assert.equal(candidates.length, 0);
 });
+
+test("AI highlight wrapper caps oversized selection arrays", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  const segments = Array.from({ length: 30 }, (_, index) => ({
+    start: index * 20,
+    end: index * 20 + 20,
+    text: `Here is the thing: useful highlight number ${index} with a memorable payoff.`,
+  }));
+  const selections = Array.from({ length: 200 }, (_, index) => ({
+    id: index % 30,
+    score: 100 - (index % 30),
+    reason: "useful",
+    title: `Highlight ${index}`,
+  }));
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    output_text: JSON.stringify({ selections }),
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const result = await rankHighlightsWithAI(segments, { limit: 2, minDuration: 15, maxDuration: 75 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.ok(result.candidates.length <= 2);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
