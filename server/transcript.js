@@ -17,12 +17,12 @@ const cleanText = (value) => String(value || "").replace(/<[^>]+>/g, " ").replac
 
 export function normalizeTranscript(segments) {
   return (Array.isArray(segments) ? segments : [])
-    .filter((segment) => Number.isFinite(Number(segment.start)) && Number.isFinite(Number(segment.end)) && Number(segment.end) > Number(segment.start) && String(segment.text || "").trim())
+    .filter((segment) => segment && Number.isFinite(Number(segment.start)) && Number.isFinite(Number(segment.end)) && Number(segment.start) >= 0 && Number(segment.end) > Number(segment.start) && String(segment.text || "").trim())
     .map((segment) => ({
       start: Number(segment.start),
       end: Number(segment.end),
-      ...(segment.speaker ? { speaker: String(segment.speaker).trim() } : {}),
-      text: cleanText(segment.text),
+      ...(segment.speaker ? { speaker: String(segment.speaker).trim().slice(0, 120) } : {}),
+      text: cleanText(segment.text).slice(0, 500),
     }))
     .sort((a, b) => a.start - b.start);
 }
