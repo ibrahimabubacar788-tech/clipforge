@@ -23,6 +23,8 @@ async function safeUnlinkExportFile(exportDir, candidate) {
   const lexicalCandidate = resolve(candidate);
   const relativeLexical = relative(resolve(exportDir), lexicalCandidate);
   if (relativeLexical.startsWith("..") || relativeLexical.startsWith("/") || relativeLexical.startsWith("\\\\")) return;
+  const candidateInfo = await lstat(lexicalCandidate).catch(() => null);
+  if (!candidateInfo || candidateInfo.isSymbolicLink() || !candidateInfo.isFile()) return;
   const resolvedCandidate = await realpath(lexicalCandidate).catch(() => null);
   if (!resolvedCandidate) return;
   const relativeResolved = relative(exportRoot, resolvedCandidate);
