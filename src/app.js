@@ -933,7 +933,7 @@ renameProjectButton?.addEventListener("click", async () => {
     renderClipLibrary();
     showToast("Project renamed.");
   } catch (error) {
-    showToast(`Could not rename project: ${error.message}`);
+    if (currentProject?.id === renamedProjectId) showToast(`Could not rename project: ${error.message}`);
   } finally {
     renameProjectButton.disabled = false;
     renameProjectButton.textContent = originalRenameLabel;
@@ -942,21 +942,25 @@ renameProjectButton?.addEventListener("click", async () => {
 
 deleteProjectButton?.addEventListener("click", async () => {
   if (!currentProject) return;
+  const requestedDeleteProjectId = currentProject.id;
   if (uploadInFlight) {
     showToast("Finish or cancel the active video upload before deleting this project.");
     return;
   }
   try {
     const { projects } = await api("/api/projects");
+    if (currentProject?.id !== requestedDeleteProjectId) return;
     if (projects.length <= 1) {
       showToast("Keep at least one project in ClipForge.");
       return;
     }
-    const projectName = currentProject.name;
+    const project = projects.find((item) => item.id === requestedDeleteProjectId);
+    if (!project) throw new Error("Project is no longer available.");
+    const projectName = project.name;
     if (!window.confirm(`Delete "${projectName}"? This removes its videos and clips.`)) return;
     deleteProjectButton.disabled = true;
     workspaceLoadVersion += 1;
-    const deletedId = currentProject.id;
+    const deletedId = requestedDeleteProjectId;
     await api(`/api/projects/${encodeURIComponent(deletedId)}`, { method: "DELETE" });
     if (currentProject?.id !== deletedId) return;
     const remaining = projects.filter((project) => project.id !== deletedId);
@@ -966,9 +970,11 @@ deleteProjectButton?.addEventListener("click", async () => {
     await loadProject(currentProject.id);
     showToast("Project deleted.");
   } catch (error) {
-    showToast(error.status === 409
-      ? "This project still has active processing. Try again when rendering finishes."
-      : `Could not delete project: ${error.message}`);
+    if (currentProject?.id === requestedDeleteProjectId) {
+      showToast(error.status === 409
+        ? "This project still has active processing. Try again when rendering finishes."
+        : `Could not delete project: ${error.message}`);
+    }
   } finally {
     deleteProjectButton.disabled = false;
   }
