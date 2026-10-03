@@ -715,7 +715,16 @@ cancelUploadButton?.addEventListener("click", () => {
   uploadProgress?.setAttribute("hidden", "");
   showToast("Upload cancelled.");
 });
-sourceUpload.addEventListener("change", async () => { try { await uploadSource(sourceUpload.files[0]); } catch (error) { showToast(error.message); } finally { sourceUpload.value = ""; } });
+sourceUpload.addEventListener("change", async () => {
+  const uploadEventProjectId = currentProject?.id;
+  try {
+    await uploadSource(sourceUpload.files[0]);
+  } catch (error) {
+    if (currentProject?.id === uploadEventProjectId) showToast(error.message);
+  } finally {
+    sourceUpload.value = "";
+  }
+});
 videoDropzone?.addEventListener("dragover", (event) => {
   if (![...event.dataTransfer.items].some((item) => item.kind === "file")) return;
   event.preventDefault();
@@ -730,7 +739,12 @@ videoDropzone?.addEventListener("drop", async (event) => {
   videoDropzone.classList.remove("is-dragging");
   const file = [...event.dataTransfer.files].find((item) => item.type.startsWith("video/") || /\.(mp4|mov|webm|m4v)$/i.test(item.name));
   if (!file) { showToast("Drop a video file (MP4, MOV, WebM, or M4V)."); return; }
-  try { await uploadSource(file); } catch (error) { showToast(error.message); }
+  const uploadEventProjectId = currentProject?.id;
+  try {
+    await uploadSource(file);
+  } catch (error) {
+    if (currentProject?.id === uploadEventProjectId) showToast(error.message);
+  }
 });
 videoDropzone?.addEventListener("keydown", (event) => {
   if (event.key === "Enter" || event.key === " ") {
@@ -1038,7 +1052,7 @@ newProjectButton?.addEventListener("click", async () => {
     switchView("editor");
     showToast("New project created.");
   } catch (error) {
-    showToast(`Could not create project: ${error.message}`);
+    if (creationLoadVersion === workspaceLoadVersion) showToast(`Could not create project: ${error.message}`);
   } finally {
     newProjectButton.disabled = false;
     newProjectButton.textContent = originalLabel;
