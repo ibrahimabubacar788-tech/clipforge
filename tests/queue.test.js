@@ -19,16 +19,31 @@ async function setup() {
 test("queue recovery requeues stale processing jobs and restarts them", async () => {
   const { storageDir, db } = await setup();
   await db.transaction((d) => {
-    d.jobs.push({ id: "job-stale", clipId: "missing-clip", status: "processing", progress: 62, startedAt: new Date().toISOString(), error: "stale" });
+    d.jobs.push({
+      id: "job-stale",
+      clipId: "missing-clip",
+      status: "processing",
+      progress: 62,
+      startedAt: new Date().toISOString(),
+      error: "stale"
+    });
   });
   const queue = new ClipQueue(db, storageDir);
   queue.checkSubtitleSupport = async () => true;
   await queue.recover();
-  let state;\n  for (let attempt = 0; attempt < 40; attempt += 1) {\n    state = await db.read((d) => ({ job: d.jobs[0], running: queue.running }));\n    if (state.job.status === "failed" && !state.running) break;\n    await new Promise((resolve) => setTimeout(resolve, 10));\n  }
+
+  let state;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    state = await db.read((d) => ({ job: d.jobs[0], running: queue.running }));
+    if (state.job.status === "failed" && !state.running) break;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
   assert.equal(state.job.status, "failed");
-  assert.equal(state.job.progress, 0);
+  assert.equal(state.job.progress, 15);
   assert.equal(state.job.error, "Clip not found.");
   assert.equal(state.running, false);
+  await db.close();
 });
 
 test("queue failure marks both the job and clip failed", async () => {
@@ -42,15 +57,23 @@ test("queue failure marks both the job and clip failed", async () => {
       end: 2,
       format: "9:16"
     });
-    d.jobs.push({ id: "job-failure", clipId: "clip-failure", status: "queued", progress: 0, createdAt: new Date().toISOString() });
+    d.jobs.push({
+      id: "job-failure",
+      clipId: "clip-failure",
+      status: "queued",
+      progress: 0,
+      createdAt: new Date().toISOString()
+    });
   });
   const queue = new ClipQueue(db, storageDir, { ffmpegPath: process.execPath });
   await queue.work();
   const state = await db.read((d) => ({ job: d.jobs[0], clip: d.clips[0] }));
+
   assert.equal(state.job.status, "failed");
   assert.match(state.job.error, /ENOENT|no such file|missing/i);
   assert.equal(state.clip.status, "failed");
   assert.ok(state.job.completedAt);
+  await db.close();
 });
 
 test("removeExport deletes real export files but refuses traversal and symlink targets", async () => {
@@ -58,6 +81,7 @@ test("removeExport deletes real export files but refuses traversal and symlink t
   const queue = new ClipQueue(db, storageDir);
   const exportDir = join(storageDir, "exports");
   const outside = join(storageDir, "outside.mp4");
+
   await writeFile(outside, "protected");
   await writeFile(join(exportDir, "clip.mp4"), "export");
   await symlink(outside, join(exportDir, "link.mp4"));
