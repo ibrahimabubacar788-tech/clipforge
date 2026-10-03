@@ -1270,6 +1270,10 @@ async function batchRenameClips() {
     }
     try {
       const result = await api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "PATCH", body: JSON.stringify({ title: `${cleanPrefix} ${index + 1}` }) });
+      if (currentProject?.id !== renameProjectId) {
+        showToast("Workspace changed while batch rename was running. Remaining clips were left unchanged.");
+        return;
+      }
       const updated = result.clip || result;
       const target = clips.find((item) => item.id === clip.id);
       if (target) target.title = updated.title || `${cleanPrefix} ${index + 1}`;
@@ -1503,7 +1507,9 @@ clipLibrary.addEventListener("click", async (event) => {
       showToast("Render retry queued.");
       for (let attempt = 0; attempt < 450; attempt += 1) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
+        if (currentProject?.id !== retryProjectId) return;
         const jobResult = await api(`/api/jobs/${result.job.id}`);
+        if (currentProject?.id !== retryProjectId) return;
         if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
       }
       if (currentProject?.id !== retryProjectId) return;
