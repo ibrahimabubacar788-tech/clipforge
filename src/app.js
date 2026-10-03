@@ -650,7 +650,7 @@ async function refreshClipLibraryWhileRendering() {
       renderClipLibrary();
       if (!clips.some((clip) => !["ready", "failed"].includes(clip.status))) break;
     } catch {
-      break;
+      // Keep polling through temporary API/network failures; the next attempt can recover.
     }
   }
 }
