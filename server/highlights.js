@@ -35,7 +35,7 @@ function scoreWindow(text, duration) {
 export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDuration = 75 } = {}) {
   const safeLimit = Math.max(1, Math.min(40, Number(limit) || 40));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.max(0, Number(minDuration)) : 15;
-  const safeMaxDuration = Number.isFinite(Number(maxDuration)) ? Math.max(safeMinDuration, Math.min(300, Number(maxDuration))) : 75;
+  const parsedMaxDuration = Number(maxDuration);\n  const safeMaxDuration = Number.isFinite(parsedMaxDuration) && parsedMaxDuration > 0\n    ? Math.max(safeMinDuration, Math.min(300, parsedMaxDuration))\n    : 75;
   const clean = (Array.isArray(segments) ? segments.slice(0, 5000) : [])
     .map(normalize).filter(valid).sort((a, b) => a.start - b.start);
   const candidates = [];
@@ -120,10 +120,10 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
           },
           {
             role: "user",
-            content: [{ type: "input_text", text: JSON.stringify({ requested: limit, candidates }) }],
+            content: [{ type: "input_text", text: JSON.stringify({ requested: safeLimit, candidates }) }],
           },
         ],
-        max_output_tokens: Math.max(800, limit * 120),
+        max_output_tokens: Math.max(800, safeLimit * 120),
       }),
     });
 
@@ -163,7 +163,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
 
     const selected = [];
     const addIfDistinct = (candidate) => {
-      if (!candidate || selected.length >= limit) return false;
+      if (!candidate || selected.length >= safeLimit) return false;
       const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
       if (overlaps) return false;
       selected.push(candidate);
@@ -171,7 +171,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
     };
 
     for (const candidate of ranked) {
-      if (selected.length >= limit) break;
+      if (selected.length >= safeLimit) break;
       addIfDistinct(candidate);
     }
 
