@@ -555,7 +555,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         d.jobs = d.jobs.filter((job) => !clips.some((clip) => clip.id === job.clipId));
         return { videos, clips };
       });
-      for (const clip of removed.clips) await queue.removeExport(clip.downloadUrl);
+      for (const clip of removed.clips) await queue.removeExport(clip.downloadUrl).catch((error) => console.warn("Project delete export cleanup failed:", error));
       for (const video of removed.videos) {
         if (!video.sourceUrl) continue;
         const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === video.sourceUrl));
@@ -578,7 +578,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         d.jobs = d.jobs.filter((job) => !clips.some((clip) => clip.id === job.clipId));
         return { video, clips };
       });
-      for (const clip of removed.clips) await queue.removeExport(clip.downloadUrl);
+      for (const clip of removed.clips) await queue.removeExport(clip.downloadUrl).catch((error) => console.warn("Video delete export cleanup failed:", error));
       if (removed.video.sourceUrl) {
         const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === removed.video.sourceUrl));
         if (!stillReferenced) await safeUnlinkStorageFile(storageDir, removed.video.sourceUrl);
