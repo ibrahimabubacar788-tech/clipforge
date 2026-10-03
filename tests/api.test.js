@@ -78,6 +78,21 @@ test("protected JSON routes authenticate before parsing request bodies", async (
   assert.equal(body.error, "Authentication required.");
 });
 
+test("JSON body limits are enforced by bytes", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+
+  const oversizedPassword = "x".repeat(24_999_900);
+  const response = await fetch(base + "/api/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "body-limit@example.com", password: oversizedPassword })
+  });
+  assert.equal(response.status, 413);
+  const body = await response.json();
+  assert.equal(body.error, "Request body too large.");
+});
+
 test("login rejects malformed password values without a server error", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
