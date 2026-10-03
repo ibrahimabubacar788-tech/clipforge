@@ -163,6 +163,29 @@ test("authentication works through the session cookie", async (t) => {
   assert.equal(afterLogout.status, 401);
 });
 
+test("production session cookies include the Secure flag", async (t) => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  const { server, base } = await app();
+  t.after(() => {
+    server.close();
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  });
+
+  const response = await request(base, "/api/auth/register", "POST", {
+    email: "secure-cookie@example.com",
+    password: "password-123"
+  });
+
+  assert.equal(response.status, 201);
+  const cookie = response.headers.get("set-cookie") || "";
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /SameSite=Lax/);
+  assert.match(cookie, /Secure/);
+});
+
+
 test("project videos endpoint returns only the owner project videos", async (t) => {
   const { dir, server, base } = await app(); t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "videos@example.com", password: "password-123" });
