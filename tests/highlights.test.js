@@ -58,3 +58,12 @@ test("highlight engine caps oversized segment text and speaker fields", () => {
   assert.equal(candidates[0].captionSegments[0].text.length, 500);
   assert.equal(candidates[0].captionSegments[0].speaker.length, 120);
 });
+
+test("highlight engine normalizes unsafe ranking options", () => {
+  const candidates = rankHighlights([
+    { start: 0, end: 20, text: "A useful story about how this finally worked." },
+  ], { limit: 999999, minDuration: "bad", maxDuration: -10 });
+  assert.equal(candidates.length, 1);
+  assert.ok(candidates[0].duration >= 15);
+  assert.ok(candidates[0].duration <= 75);
+});
