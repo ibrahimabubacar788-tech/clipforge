@@ -98,6 +98,27 @@ test("uploads sanitize filenames and retry IDs into a safe storage path", async 
 });
 
 
+test("uploads reject a different payload that reuses the same retry ID", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "upload-retry-conflict@example.com",
+    password: "password-123"
+  });
+  const headers = {
+    authorization: "Bearer " + user.body.token,
+    "content-type": "video/mp4",
+    "x-filename": "retry.mp4",
+    "x-upload-id": "same-retry"
+  };
+  const first = await fetch(base + "/api/uploads", { method: "POST", headers, body: Buffer.from("video") });
+  assert.equal(first.status, 201);
+  const second = await fetch(base + "/api/uploads", { method: "POST", headers, body: Buffer.from("other") });
+  assert.equal(second.status, 409);
+  const body = await second.json();
+  assert.match(body.error, /different content/);
+});
+
 test("uploads reuse an identical retry safely", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
