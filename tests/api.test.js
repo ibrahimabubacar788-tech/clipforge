@@ -241,6 +241,31 @@ test("public source uploads are not directly accessible", async (t) => {
   assert.equal(media.status, 404);
 });
 
+test("clip downloads reject export symlinks that escape storage", async (t) => {
+  const { dir, server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "download-symlink@example.com", password: "password-123" });
+  const exportsDir = join(server.clipQueue.storageDir, "exports");
+  await mkdir(exportsDir, { recursive: true });
+  const outside = join(dir, "outside-export.mp4");
+  const target = join(exportsDir, "unsafe.mp4");
+  await writeFile(outside, Buffer.from("not-a-video"));
+  await symlink(outside, target);
+  await server.database.transaction((d) => d.clips.push({
+    id: "clip-download-symlink",
+    userId: user.body.user.id,
+    title: "Unsafe export",
+    status: "ready",
+    downloadUrl: "/storage/exports/unsafe.mp4",
+    createdAt: new Date().toISOString()
+  }));
+  const response = await fetch(base + "/api/clips/clip-download-symlink/download", {
+    headers: { authorization: "Bearer " + user.body.token }
+  });
+  assert.equal(response.status, 403);
+  assert.match((await response.json()).error, /invalid export path/i);
+});
+
 test("clip downloads are protected by ownership", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
