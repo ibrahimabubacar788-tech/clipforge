@@ -1458,6 +1458,10 @@ clipLibrary.addEventListener("click", async (event) => {
     const retryProjectId = currentProject?.id;
     try {
       const result = await api(`/api/clips/${retryButton.dataset.retryClip}/retry`, { method: "POST" });
+      if (currentProject?.id !== retryProjectId) {
+        showToast("Retry was queued for the original project, but the workspace changed before the update finished.");
+        return;
+      }
       clips = clips.map((clip) => clip.id === result.clip.id ? result.clip : clip);
       renderClipLibrary();
       showToast("Render retry queued.");
