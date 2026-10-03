@@ -758,7 +758,9 @@ document.querySelector("#delete-source-video")?.addEventListener("click", async 
     renderClipLibrary();
     showToast("Source video deleted.");
   } catch (error) {
-    showToast(error.status === 409 ? "This video is still processing. Try again when rendering finishes." : "Could not delete video: " + error.message);
+    if (currentProject?.id === deletedVideoProjectId) {
+      showToast(error.status === 409 ? "This video is still processing. Try again when rendering finishes." : "Could not delete video: " + error.message);
+    }
   } finally { button.disabled = false; }
 });
 captionToggle.addEventListener("change", () => {
