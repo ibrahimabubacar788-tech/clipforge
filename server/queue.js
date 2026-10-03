@@ -17,6 +17,19 @@ function escapeDrawtext(value) {
   return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/:/g, "\\:").replace(/%/g, "\\%");
 }
 
+async function safeUnlinkExportFile(exportDir, candidate) {
+  const exportRoot = await realpath(exportDir).catch(() => null);
+  if (!exportRoot) return;
+  const lexicalCandidate = resolve(candidate);
+  const relativeLexical = relative(resolve(exportDir), lexicalCandidate);
+  if (relativeLexical.startsWith("..") || relativeLexical.startsWith("/") || relativeLexical.startsWith("\\\\")) return;
+  const resolvedCandidate = await realpath(lexicalCandidate).catch(() => null);
+  if (!resolvedCandidate) return;
+  const relativeResolved = relative(exportRoot, resolvedCandidate);
+  if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\\\")) return;
+  await unlink(resolvedCandidate).catch(() => {});
+}
+
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
@@ -180,11 +193,11 @@ export class ClipQueue {
       await run(this.ffmpegPath,args);
       await rename(tempOutput, output);
     } catch (error) {
-      await unlink(tempOutput).catch(() => {});
+      await safeUnlinkExportFile(exportDir, tempOutput);
       throw error;
     } finally {
-      await unlink(watermarkPath).catch(()=>{});
-      for(const p of captionPaths) await unlink(p).catch(()=>{});
+      await safeUnlinkExportFile(exportDir, watermarkPath);
+      for(const p of captionPaths) await safeUnlinkExportFile(exportDir, p);
     }
     return { filename, output };
   }
