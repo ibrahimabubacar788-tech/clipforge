@@ -79,6 +79,7 @@ const storageKey = "clipforge-exports";
 const sessionKey = "clipforge-session";
 const styleKey = "clipforge-caption-style";
 const favoriteKey = "clipforge-favorite-clips";
+const transcriptionLanguageKey = "clipforge-transcription-language";
 const safeStorageParse = (key, fallback) => {
   try {
     const raw = window.localStorage.getItem(key);
@@ -824,6 +825,13 @@ const transcriptInput = document.querySelector("#transcript-input");
 const transcriptFile = document.querySelector("#transcript-file");
 const autoTranscribeButton = document.querySelector("#auto-transcribe");
 const transcriptionLanguage = document.querySelector("#transcription-language");
+const savedTranscriptionLanguage = safeStorageParse(transcriptionLanguageKey, "en");
+if (transcriptionLanguage && [...transcriptionLanguage.options].some((option) => option.value === savedTranscriptionLanguage)) {
+  transcriptionLanguage.value = savedTranscriptionLanguage;
+}
+transcriptionLanguage?.addEventListener("change", () => {
+  window.localStorage.setItem(transcriptionLanguageKey, transcriptionLanguage.value || "en");
+});
 
 function parseTranscript(rawText) {
   return rawText.split("\n").map((line) => {
