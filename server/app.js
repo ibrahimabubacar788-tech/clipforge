@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { createReadStream, createWriteStream } from "node:fs";
-import { access, mkdir, realpath, stat, unlink } from "node:fs/promises";
+import { access, lstat, mkdir, realpath, stat, unlink } from "node:fs/promises";
 import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
@@ -498,7 +498,8 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       const uploadId = requestedUploadId || id("upload");
       const safe = `${user.id}-${uploadId}-${filename}`;
       const target = join(storageDir, "uploads", safe);
-      const existing = await stat(target).catch(() => null);
+      const existing = await lstat(target).catch(() => null);
+      if (existing?.isSymbolicLink()) throw Object.assign(new Error("Upload target conflicts with an unsafe symbolic link."), { status: 409 });
       const hashStream = async (stream) => {
         const hash = createHash("sha256");
         let bytes = 0;
