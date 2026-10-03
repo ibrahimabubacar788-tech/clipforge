@@ -38,10 +38,16 @@ export async function login(db, email, password) {
 }
 function sessionToken(req) {
   const bearer = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
-  if (bearer) return bearer;
+  if (bearer) return bearer.length <= 256 ? bearer : "";
   const cookie = String(req.headers.cookie || "");
   const match = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("clipforge_session="));
-  return match ? decodeURIComponent(match.slice("clipforge_session=".length)) : "";
+  if (!match) return "";
+  try {
+    const token = decodeURIComponent(match.slice("clipforge_session=".length));
+    return token.length <= 256 ? token : "";
+  } catch {
+    return "";
+  }
 }
 export async function requireUser(req, db) {
   const token = sessionToken(req);
