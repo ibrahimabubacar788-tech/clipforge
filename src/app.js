@@ -446,7 +446,7 @@ async function uploadSource(file) {
     const autoClipVideoId = sourceVideo?.id;
     if (!autoClipProjectId || !autoClipVideoId) throw new Error("The source video is no longer available.");
     const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
-    const autoClipPayload = JSON.stringify({ limit: 12, format, style: captionStyle, language: "en" });
+    const autoClipPayload = JSON.stringify({ limit: 12, format, style: captionStyle, language: transcriptionLanguage?.value || "en" });
     const requestAutomaticClipping = () => api(`/api/videos/${encodeURIComponent(autoClipVideoId)}/auto-clip`, {
       method: "POST",
       body: autoClipPayload
