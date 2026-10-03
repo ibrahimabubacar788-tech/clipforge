@@ -32,6 +32,7 @@ test("clip downloads reject a symlinked export directory", async (t) => {
 
   const storage = server.clipQueue.storageDir;
   const exportsDir = join(storage, "exports");
+  await mkdir(storage, { recursive: true });
   const outside = join(dir, "outside-exports");
   await mkdir(outside, { recursive: true });
   await writeFile(join(outside, "clip-safe.mp4"), "protected");
