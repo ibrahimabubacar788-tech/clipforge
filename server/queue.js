@@ -165,13 +165,14 @@ export class ClipQueue {
     const output = join(exportDir, filename);
     const outputInfo = await lstat(output).catch(() => null);
     if (outputInfo?.isSymbolicLink()) throw new Error("Invalid export output path.");
-    const tempOutput = join(exportDir, `.${filename}.${randomUUID()}.tmp.mp4`);
+    const renderId = randomUUID();
+    const tempOutput = join(exportDir, `.${filename}.${renderId}.tmp.mp4`);
     const duration = clip.end - clip.start;
     try {
       const { writeFile } = await import("node:fs/promises");
-      const watermarkPath = join(exportDir, `watermark-${clip.id}.ppm`);
+      const watermarkPath = join(exportDir, `.${clip.id}.${renderId}.watermark.ppm`);
       const captions = captionSegmentsForClip(clip);
-      const captionPaths = captions.map((_,i)=>join(exportDir,`caption-${clip.id}-${i}.ppm`));
+      const captionPaths = captions.map((_,i)=>join(exportDir,`.${clip.id}.${renderId}.caption-${i}.ppm`));
       await writeFile(watermarkPath, watermarkPpm(), "utf8");
       for(let i=0;i<captions.length;i++) await writeFile(captionPaths[i],captionPpm(captions[i].text,clip.style?.color==="pink"?"ff8fbe":clip.style?.color==="sky"?"8be1ff":"d3e964"),"utf8");
       try {
