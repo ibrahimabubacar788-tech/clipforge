@@ -17,6 +17,15 @@ async function app() {
 }
 
 function upload(base, token, chunks) {
+  const body = new ReadableStream({
+    async start(controller) {
+      for (let index = 0; index < chunks.length; index += 1) {
+        await new Promise((resolve) => setTimeout(resolve, index * 5));
+        controller.enqueue(Buffer.from(chunks[index]));
+      }
+      controller.close();
+    }
+  });
   return fetch(base + "/api/uploads", {
     method: "POST",
     headers: {
@@ -26,10 +35,7 @@ function upload(base, token, chunks) {
       authorization: `Bearer ${token}`
     },
     duplex: "half",
-    body: ReadableStream.from(chunks.map((chunk, index) => (async function* () {
-      await new Promise((resolve) => setTimeout(resolve, index * 5));
-      yield Buffer.from(chunk);
-    })()))
+    body
   });
 }
 
