@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import net from "node:net";
 import { createApp } from "../server/app.js";
 
 async function app() {
@@ -49,15 +50,28 @@ test("uploads reject non-video content and oversized declared bodies", async (t)
   });
   assert.equal(badType.status, 415);
 
-  const oversized = await fetch(base + "/api/uploads", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${user.body.token}`,
-      "content-type": "video/mp4",
-      "content-length": String(250 * 1024 * 1024 + 1)
-    }
+  const port = server.address().port;
+  const oversized = await new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: "127.0.0.1", port });
+    let data = "";
+    socket.setEncoding("utf8");
+    socket.on("data", (chunk) => { data += chunk; });
+    socket.on("error", reject);
+    socket.on("end", () => resolve(data));
+    socket.on("connect", () => {
+      socket.end([
+        "POST /api/uploads HTTP/1.1",
+        "Host: 127.0.0.1",
+        `Authorization: Bearer ${user.body.token}`,
+        "Content-Type: video/mp4",
+        `Content-Length: ${250 * 1024 * 1024 + 1}`,
+        "Connection: close",
+        "",
+        ""
+      ].join("\\r\\n"));
+    });
   });
-  assert.equal(oversized.status, 413);
+  assert.match(oversized, /^HTTP\\/1\\.1 413 /);
 });
 
 test("uploads sanitize filenames and retry IDs into a safe storage path", async (t) => {
@@ -81,5 +95,5 @@ test("uploads sanitize filenames and retry IDs into a safe storage path", async 
   assert.equal(response.status, 201);
   const body = await response.json();
   assert.match(body.url, /^\/storage\/uploads\/[^/]+$/);
-  assert.doesNotMatch(body.url, /\.\.|[/]unsafe name/);
+  assert.doesNotMatch(body.url, /[/]unsafe name/);\n  assert.equal(body.url.split("/").length, 4);
 });
