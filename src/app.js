@@ -1064,11 +1064,11 @@ document.querySelector("#export-button").addEventListener("click", async () => {
   const exportButton = document.querySelector("#export-button");
   if (exportButton.disabled) return;
   exportButton.disabled = true;
+  const exportProjectId = currentProject?.id;
+  const exportVideoId = sourceVideo?.id;
   if (exportStatus) { exportStatus.hidden = false; exportStatus.textContent = "Preparing export…"; }
   try {
-    if (!sourceVideo) throw new Error("Upload a source video before exporting.");
-    const exportProjectId = currentProject?.id;
-    const exportVideoId = sourceVideo.id;
+    if (!sourceVideo || !exportProjectId || !exportVideoId) throw new Error("Upload a source video before exporting.");
     const result = await api("/api/clips", { method: "POST", body: JSON.stringify({ videoId: exportVideoId, title: `Midnight Session · Clip ${clips.length + 1}`, start: Number(startInput.value), end: Number(endInput.value), format: selected, captions: captionToggle.checked, style: { color: document.querySelector("#highlight-color").value, weight: document.querySelector("#caption-weight").value } }) });
     if (currentProject?.id !== exportProjectId || sourceVideo?.id !== exportVideoId) {
       showToast("Export was queued for the original source, but the workspace changed before the update finished.");
