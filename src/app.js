@@ -845,7 +845,9 @@ autoTranscribeButton?.addEventListener("click", async () => {
     transcriptInput.value = result.transcript.map((segment) => `${segment.start} | ${segment.end} | ${segment.speaker || ""} | ${segment.text}`).join("\n");
     showToast(`Transcript ready: ${result.count} timed segments.`);
   } catch (error) {
-    showToast(error.status === 503 ? "Automatic transcription needs the server transcription key configured." : error.message);
+    if (currentProject?.id === transcriptionProjectId && sourceVideo?.id === transcriptionVideoId) {
+      showToast(error.status === 503 ? "Automatic transcription needs the server transcription key configured." : error.message);
+    }
   } finally {
     autoTranscribeButton.disabled = false;
     autoTranscribeButton.textContent = "Transcribe video automatically";
@@ -891,7 +893,7 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
       : `AI highlight analysis ranked ${result.generated} clips and queued them for rendering.`);
     void refreshClipLibraryWhileRendering();
   } catch (error) {
-    showToast(error.message);
+    if (currentProject?.id === generationProjectId && sourceVideo?.id === generationVideoId) showToast(error.message);
   } finally {
     runButton.disabled = false;
     runButton.textContent = originalLabel;
@@ -916,9 +918,9 @@ renameProjectButton?.addEventListener("click", async () => {
   if (name.length > 120) { showToast("Project name must be 120 characters or fewer."); return; }
   renameProjectButton.disabled = true;
   const originalRenameLabel = renameProjectButton.textContent;
+  const renamedProjectId = currentProject.id;
   renameProjectButton.textContent = "Renaming…";
   try {
-    const renamedProjectId = currentProject.id;
     const result = await api(`/api/projects/${encodeURIComponent(renamedProjectId)}`, {
       method: "PATCH",
       body: JSON.stringify({ name })
