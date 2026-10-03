@@ -64,6 +64,20 @@ test("authentication sessions enforce credentials and logout", async (t) => {
   assert.equal(afterLogout.status, 401);
 });
 
+test("protected JSON routes authenticate before parsing request bodies", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+
+  const response = await fetch(base + "/api/projects", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{ this is not valid JSON"
+  });
+  assert.equal(response.status, 401);
+  const body = await response.json();
+  assert.equal(body.error, "Authentication required.");
+});
+
 test("login rejects malformed password values without a server error", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
