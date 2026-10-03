@@ -41,6 +41,10 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
   const db = new JsonDatabase(dbFile); const queue = new ClipQueue(db, storageDir);
   const autoClipInFlight = new Set();
   async function api(req, res, pathname) {
+    if (!["GET", "POST", "PATCH", "DELETE"].includes(req.method)) {
+      res.setHeader("allow", "GET, POST, PATCH, DELETE");
+      throw Object.assign(new Error("Method not allowed."), { status: 405 });
+    }
     const payload = ["POST", "PATCH"].includes(req.method) && pathname !== "/api/uploads" ? await body(req) : {};
     if (req.method === "GET" && pathname === "/api/ready") {
       await db.load();
