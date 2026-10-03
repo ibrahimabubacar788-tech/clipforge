@@ -637,7 +637,6 @@ if (req.method === "POST" && pathname === "/api/uploads") {
           if (handle) await handle.close().catch(() => {});
         }
         return;
-        return createReadStream(resolvedCandidate).pipe(res);
       } catch (error) {
         if (error?.status === 403) throw error;
         throw Object.assign(new Error("Clip export is no longer available on this server."), { status: 404 });
