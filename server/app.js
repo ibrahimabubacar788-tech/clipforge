@@ -558,6 +558,8 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       if (!clip || !clip.downloadUrl) throw Object.assign(new Error("Clip export not found."), { status: 404 });
       const candidate = normalize(join(storageDir, clip.downloadUrl.slice("/storage/".length)));
       const exportDir = normalize(join(storageDir, "exports"));
+      const exportDirInfo = await lstat(exportDir).catch(() => null);
+      if (!exportDirInfo?.isDirectory() || exportDirInfo.isSymbolicLink()) throw Object.assign(new Error("Invalid export path."), { status: 403 });
       const relativeExport = requireRelative(exportDir, candidate);
       if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\")) throw Object.assign(new Error("Invalid export path."), { status: 403 });
       try {
