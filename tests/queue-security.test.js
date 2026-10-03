@@ -78,3 +78,21 @@ test("queue render rejects an export directory symlink", async () => {
   );
   assert.equal(await import("node:fs/promises").then(({ readdir }) => readdir(outside).then((items) => items.length)), 0);
 });
+
+test("queue export cleanup refuses a symlinked export directory", async () => {
+  const { dir, uploads, exportsDir } = await fixture();
+  const outside = join(dir, "outside-cleanup");
+  const protectedFile = join(outside, "clip-safe.mp4");
+  const storage = join(dir, "storage");
+  await writeFile(join(uploads, "source.mp4"), "not-a-real-video");
+  await mkdir(outside, { recursive: true });
+  await writeFile(protectedFile, "keep me");
+  const { rm } = await import("node:fs/promises");
+  await rm(exportsDir, { recursive: true, force: true });
+  await symlink(outside, exportsDir);
+
+  const queue = new ClipQueue({}, storage);
+  await queue.removeExport("/storage/exports/clip-safe.mp4");
+
+  assert.equal(await import("node:fs/promises").then(({ readFile }) => readFile(protectedFile, "utf8")), "keep me");
+});
