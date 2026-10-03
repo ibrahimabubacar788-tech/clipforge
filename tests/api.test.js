@@ -236,6 +236,8 @@ test("production responses include HSTS", async (t) => {
   const response = await fetch(base + "/api/ready");
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("strict-transport-security"), "max-age=31536000; includeSubDomains");
+  assert.equal(response.headers.get("cross-origin-opener-policy"), "same-origin");
+  assert.equal(response.headers.get("cross-origin-resource-policy"), "same-origin");
 });
 
 test("project videos endpoint returns only the owner project videos", async (t) => {
