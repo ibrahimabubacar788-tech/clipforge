@@ -162,6 +162,8 @@ export class ClipQueue {
   async enqueue(clip) { const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
   async render(clip) {
     const { file: source, uploadsDir } = await sourcePath(this.storageDir, clip.sourceUrl);
+    const sourceInfo = await lstat(source).catch(() => null);
+    if (!sourceInfo?.isFile() || sourceInfo.isSymbolicLink()) throw new Error("Invalid source video path.");
     await access(source);
     const resolvedSource = await realpath(source);
     const resolvedUploadsDir = await realpath(uploadsDir);
