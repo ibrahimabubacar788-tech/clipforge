@@ -840,8 +840,13 @@ function parseTranscript(rawText) {
 transcriptFile?.addEventListener("change", async () => {
   const file = transcriptFile.files?.[0];
   if (!file) return;
-  transcriptInput.value = await file.text();
-  showToast(`${file.name} loaded. Review it, then generate clips.`);
+  try {
+    transcriptInput.value = await file.text();
+    showToast(`${file.name} loaded. Review it, then generate clips.`);
+  } catch (error) {
+    transcriptInput.value = "";
+    showToast(`Could not read ${file.name}: ${error.message}`);
+  }
 });
 
 autoTranscribeButton?.addEventListener("click", async () => {
