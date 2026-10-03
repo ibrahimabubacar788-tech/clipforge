@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { rankHighlights } from "../server/highlights.js";
+import { rankHighlights, rankHighlightsWithAI } from "../server/highlights.js";
 
 test("highlight engine returns ranked non-overlapping candidates with speaker data", () => {
   const segments = [];
@@ -66,4 +66,4 @@ test("highlight engine normalizes unsafe ranking options", () => {
   assert.equal(candidates.length, 1);
   assert.ok(candidates[0].duration >= 15);
   assert.ok(candidates[0].duration <= 75);
-});
+});\n\ntest("AI highlight wrapper normalizes unsafe options without an API key", async () => {\n  const previousKey = process.env.OPENAI_API_KEY;\n  delete process.env.OPENAI_API_KEY;\n  try {\n    const result = await rankHighlightsWithAI([\n      { start: 0, end: 20, text: "A useful story about how this finally worked." },\n    ], { limit: 999999, minDuration: "bad", maxDuration: -10 });\n    assert.equal(result.engine, "heuristic-fallback");\n    assert.equal(result.candidates.length, 1);\n    assert.ok(result.candidates[0].duration >= 15);\n    assert.ok(result.candidates[0].duration <= 75);\n  } finally {\n    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;\n    else process.env.OPENAI_API_KEY = previousKey;\n  }\n});\n
