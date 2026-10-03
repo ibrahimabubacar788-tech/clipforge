@@ -44,3 +44,17 @@ test("highlight engine caps oversized transcript input", () => {
   assert.ok(candidates.length <= 40);
   assert.ok(candidates.every((item) => item.end <= 5000));
 });
+
+test("highlight engine caps oversized segment text and speaker fields", () => {
+  const longText = "x".repeat(2000);
+  const longSpeaker = "speaker ".repeat(100);
+  const candidates = rankHighlights([
+    { start: 0, end: 20, text: longText, speaker: longSpeaker },
+  ], { limit: 1, minDuration: 15, maxDuration: 75 });
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].transcript.length, 500);
+  assert.equal(candidates[0].title.length, 72);
+  assert.equal(candidates[0].speakers[0].length, 120);
+  assert.equal(candidates[0].captionSegments[0].text.length, 500);
+  assert.equal(candidates[0].captionSegments[0].speaker.length, 120);
+});
