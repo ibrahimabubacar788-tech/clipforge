@@ -168,25 +168,23 @@ export class ClipQueue {
     const renderId = randomUUID();
     const tempOutput = join(exportDir, `.${filename}.${renderId}.tmp.mp4`);
     const duration = clip.end - clip.start;
+    const watermarkPath = join(exportDir, `.${clip.id}.${renderId}.watermark.ppm`);
+    const captions = captionSegmentsForClip(clip);
+    const captionPaths = captions.map((_,i)=>join(exportDir,`.${clip.id}.${renderId}.caption-${i}.ppm`));
     try {
-      const watermarkPath = join(exportDir, `.${clip.id}.${renderId}.watermark.ppm`);
-      const captions = captionSegmentsForClip(clip);
-      const captionPaths = captions.map((_,i)=>join(exportDir,`.${clip.id}.${renderId}.caption-${i}.ppm`));
       await writeFile(watermarkPath, watermarkPpm(), { encoding: "utf8", flag: "wx" });
       for(let i=0;i<captions.length;i++) await writeFile(captionPaths[i],captionPpm(captions[i].text,clip.style?.color==="pink"?"ff8fbe":clip.style?.color==="sky"?"8be1ff":"d3e964"),{ encoding: "utf8", flag: "wx" });
-      try {
-        const args=["-y","-i",resolvedSource,"-loop","1","-i",watermarkPath];
-        for(const p of captionPaths) args.push("-loop","1","-i",p);
-        args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart",tempOutput);
-        await run(this.ffmpegPath,args);
-        await rename(tempOutput, output);
-      } finally {
-        await unlink(watermarkPath).catch(()=>{});
-        for(const p of captionPaths) await unlink(p).catch(()=>{});
-      }
+      const args=["-y","-i",resolvedSource,"-loop","1","-i",watermarkPath];
+      for(const p of captionPaths) args.push("-loop","1","-i",p);
+      args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart",tempOutput);
+      await run(this.ffmpegPath,args);
+      await rename(tempOutput, output);
     } catch (error) {
       await unlink(tempOutput).catch(() => {});
       throw error;
+    } finally {
+      await unlink(watermarkPath).catch(()=>{});
+      for(const p of captionPaths) await unlink(p).catch(()=>{});
     }
     return { filename, output };
   }
