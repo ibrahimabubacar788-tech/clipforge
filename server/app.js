@@ -21,15 +21,20 @@ const json = (res, status, value) => {
   res.end(JSON.stringify(value));
 };
 async function body(req) {
+  const maxBytes = 25_000_000;
   const declaredLength = Number(req.headers["content-length"]);
-  if (Number.isFinite(declaredLength) && declaredLength > 25_000_000) {
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
     throw Object.assign(new Error("Request body too large."), { status: 413 });
   }
-  let raw = "";
+  const chunks = [];
+  let totalBytes = 0;
   for await (const part of req) {
-    raw += part;
-    if (raw.length > 25_000_000) throw Object.assign(new Error("Request body too large."), { status: 413 });
+    const chunk = Buffer.isBuffer(part) ? part : Buffer.from(part);
+    totalBytes += chunk.byteLength;
+    if (totalBytes > maxBytes) throw Object.assign(new Error("Request body too large."), { status: 413 });
+    chunks.push(chunk);
   }
+  const raw = Buffer.concat(chunks).toString("utf8");
   try {
     return raw ? JSON.parse(raw) : {};
   } catch {
