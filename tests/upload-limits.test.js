@@ -163,3 +163,35 @@ test("uploads reuse an identical retry safely", async (t) => {
   assert.equal(secondBody.reused, true);
   assert.equal(secondBody.url, firstBody.url);
 });
+
+
+test("uploads reject retry targets that are symbolic links", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "upload-symlink@example.com",
+    password: "password-123"
+  });
+
+  const { mkdir, symlink, writeFile } = await import("node:fs/promises");
+  const storage = server.clipQueue.storageDir;
+  const uploads = join(storage, "uploads");
+  await mkdir(uploads, { recursive: true });
+  const outside = join(storage, "outside.mp4");
+  const target = join(uploads, user.body.user.id + "-unsafe-retry-video.mp4");
+  await writeFile(outside, Buffer.from("video"));
+  await symlink(outside, target);
+
+  const response = await fetch(base + "/api/uploads", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer " + user.body.token,
+      "content-type": "video/mp4",
+      "x-filename": "video.mp4",
+      "x-upload-id": "unsafe-retry"
+    },
+    body: Buffer.from("video")
+  });
+  assert.equal(response.status, 409);
+  assert.match((await response.json()).error, /symbolic link/i);
+});
