@@ -984,16 +984,18 @@ newProjectButton?.addEventListener("click", async () => {
   const originalLabel = newProjectButton.textContent;
   newProjectButton.textContent = "Creating…";
   stopPlayback();
+  const creationLoadVersion = ++workspaceLoadVersion;
   try {
     if (!apiSession || !currentProject) {
       const ready = await ensureWorkspace();
-      if (!ready) throw new Error("ClipForge could not connect your workspace.");
+      if (!ready || creationLoadVersion !== workspaceLoadVersion) return;
     }
     const createdProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: `Project ${new Date().toLocaleDateString()}` }) })).project;
+    if (creationLoadVersion !== workspaceLoadVersion) return;
     if (!createdProject?.id) throw new Error("Project creation returned an invalid project.");
     currentProject = createdProject;
     const refreshedProjects = (await api("/api/projects")).projects;
-    if (currentProject?.id !== createdProject.id) return;
+    if (creationLoadVersion !== workspaceLoadVersion || currentProject?.id !== createdProject.id) return;
     renderProjectSelector(refreshedProjects);
     document.querySelector("#workspace-title").textContent = currentProject.name;
     sourceVideo = undefined;
