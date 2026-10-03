@@ -219,11 +219,12 @@ async function ensureWorkspace() {
         renderClipLibrary();
         return true;
       } catch (retryError) {
-        showToast(`Backend unavailable: ${retryError.message}`);
+        if (loadVersion === workspaceLoadVersion) showToast(`Backend unavailable: ${retryError.message}`);
       }
     } else {
-      showToast(`Backend unavailable: ${error.message}`);
+      if (loadVersion === workspaceLoadVersion) showToast(`Backend unavailable: ${error.message}`);
     }
+    if (loadVersion !== workspaceLoadVersion) return false;
     clips = readSavedClips();
     renderClipLibrary();
     return false;
