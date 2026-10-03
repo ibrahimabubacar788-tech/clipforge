@@ -72,6 +72,28 @@ test("uploads reject non-video content and oversized declared bodies", async (t)
   assert.match(oversized, /^HTTP\/1\.1 413 /);
 });
 
+test("uploads reject empty video bodies", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "upload-empty@example.com",
+    password: "password-123"
+  });
+
+  const response = await fetch(base + "/api/uploads", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer " + user.body.token,
+      "content-type": "video/mp4",
+      "content-length": "0",
+      "x-filename": "empty.mp4"
+    },
+    body: Buffer.alloc(0)
+  });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /empty|zero/i);
+});
+
 test("uploads sanitize filenames and retry IDs into a safe storage path", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
