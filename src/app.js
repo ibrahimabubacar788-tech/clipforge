@@ -1207,13 +1207,14 @@ retryFailedClipsButton?.addEventListener("click", async () => {
 });
 refreshClipsButton?.addEventListener("click", async () => {
   if (!apiSession || !currentProject) return;
+  const refreshProjectId = currentProject.id;
   refreshClipsButton.disabled = true;
   refreshClipsButton.textContent = "Refreshing…";
   try {
     await refreshClipStatuses({ showReadyToast: true });
-    showToast("Clip library refreshed.");
+    if (currentProject?.id === refreshProjectId) showToast("Clip library refreshed.");
   } catch (error) {
-    showToast(`Could not refresh clips: ${error.message}`);
+    if (currentProject?.id === refreshProjectId) showToast(`Could not refresh clips: ${error.message}`);
   } finally {
     refreshClipsButton.disabled = false;
     refreshClipsButton.textContent = "Refresh";
