@@ -542,7 +542,11 @@ if (req.method === "POST" && pathname === "/api/uploads") {
     const clipMatch = pathname.match(/^\/api\/clips\/([^/]+)$/); if (clipMatch && req.method === "PATCH") { const clip = await db.transaction((d) => { const item = d.clips.find((c) => c.id === clipMatch[1] && c.userId === user.id); if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 }); if (["queued", "processing"].includes(item.status)) throw Object.assign(new Error("Wait for rendering to finish before renaming this clip."), { status: 409 }); const title = String(payload.title ?? "").trim(); if (!title) throw Object.assign(new Error("A clip title is required."), { status: 422 }); if (title.length > 160) throw Object.assign(new Error("Clip title must be 160 characters or fewer."), { status: 422 }); item.title = title; item.updatedAt = now(); return item; }); return json(res, 200, { clip }); } if (clipMatch && req.method === "DELETE") { const clip = await db.transaction((d) => { const item = d.clips.find((c) => c.id === clipMatch[1] && c.userId === user.id); if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 }); if (d.jobs.some((job) => job.clipId === item.id && ["queued", "processing"].includes(job.status))) throw Object.assign(new Error("Clip is still rendering."), { status: 409 }); d.clips = d.clips.filter((c) => c.id !== item.id); d.jobs = d.jobs.filter((j) => j.clipId !== item.id); return item; }); await queue.removeExport(clip.downloadUrl); res.writeHead(204); res.end(); return; }
     throw Object.assign(new Error("API route not found."), { status: 404 });
   }
-  const server = createServer(async (req, res) => { try {
+  const server = createServer(async (req, res) => {
+    res.setHeader("x-content-type-options", "nosniff");
+    res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
+    res.setHeader("x-frame-options", "SAMEORIGIN");
+    try {
       res.setHeader("x-content-type-options", "nosniff");
       res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
       res.setHeader("x-frame-options", "SAMEORIGIN");
