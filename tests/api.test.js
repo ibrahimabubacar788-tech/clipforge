@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, mkdir, symlink, writeFile } from "node:fs/promises";
 import { spawn, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -448,6 +448,36 @@ test("automatic AI clipping creates multiple ranked clips from a stored transcri
   assert.ok(generated.body.generated >= 2);
   assert.equal(generated.body.clips.length, generated.body.generated);
   assert.ok(generated.body.clips.every((item) => item.clip.videoId === video.body.video.id && item.job));
+});
+
+test("video streaming rejects uploaded source symlinks that escape storage", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", {
+    email: "stream-symlink@example.com",
+    password: "password-123"
+  });
+  const project = await request(base, "/api/projects", "POST", { name: "Stream security" }, user.body.token);
+  const uploads = join(server.clipQueue.storageDir, "uploads");
+  await mkdir(uploads, { recursive: true });
+  const outside = join(server.clipQueue.storageDir, "outside-stream.mp4");
+  const target = join(uploads, user.body.user.id + "-stream.mp4");
+  await writeFile(outside, Buffer.from("not-a-video"));
+  await symlink(outside, target);
+  await server.database.transaction((d) => d.videos.push({
+    id: "vid-stream-symlink",
+    userId: user.body.user.id,
+    projectId: project.body.project.id,
+    name: "Unsafe source",
+    sourceUrl: "/storage/uploads/" + user.body.user.id + "-stream.mp4",
+    duration: 1,
+    createdAt: new Date().toISOString()
+  }));
+  const response = await fetch(base + "/api/videos/vid-stream-symlink/stream", {
+    headers: { authorization: "Bearer " + user.body.token }
+  });
+  assert.equal(response.status, 403);
+  assert.match((await response.json()).error, /invalid video path/i);
 });
 
 test("automatic AI clipping rejects concurrent runs for the same video", async (t) => {
