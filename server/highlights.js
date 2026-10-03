@@ -33,6 +33,9 @@ function scoreWindow(text, duration) {
   return score;
 }
 export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDuration = 75 } = {}) {
+  const safeLimit = Math.max(1, Math.min(40, Number(limit) || 40));
+  const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.max(0, Number(minDuration)) : 15;
+  const safeMaxDuration = Number.isFinite(Number(maxDuration)) ? Math.max(safeMinDuration, Math.min(300, Number(maxDuration))) : 75;
   const clean = (Array.isArray(segments) ? segments.slice(0, 5000) : [])
     .map(normalize).filter(valid).sort((a, b) => a.start - b.start);
   const candidates = [];
@@ -43,13 +46,13 @@ export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDura
     const speakers = new Set();
     for (let j = i; j < clean.length; j += 1) {
       const next = clean[j];
-      if (next.start - start > maxDuration) break;
+      if (next.start - start > safeMaxDuration) break;
       end = Math.max(end, next.end);
       text = text ? `${text} ${next.text}` : next.text;
       if (next.speaker) speakers.add(next.speaker);
       const duration = end - start;
-      if (duration < minDuration) continue;
-      if (duration > maxDuration) break;
+      if (duration < safeMinDuration) continue;
+      if (duration > safeMaxDuration) break;
       candidates.push({
         start: Number(start.toFixed(3)),
         end: Number(end.toFixed(3)),
@@ -64,7 +67,7 @@ export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDura
   }
   candidates.sort((a, b) => b.score - a.score || a.start - b.start);
   const selected = [];
-  const max = Math.max(1, Math.min(40, Number(limit) || 40));
+  const max = safeLimit;
   for (const candidate of candidates) {
     if (selected.length >= max) break;
     const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
