@@ -3,7 +3,9 @@ WORKDIR /app
 RUN apk add --no-cache ffmpeg
 COPY package*.json ./
 RUN npm install --omit=dev
-COPY . .
+COPY --chown=node:node . .
+RUN chown -R node:node /app
+USER node
 ENV PORT=4173
 EXPOSE 4173
 CMD ["npm", "start"]
