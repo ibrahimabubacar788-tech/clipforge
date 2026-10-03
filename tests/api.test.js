@@ -187,6 +187,24 @@ test("production session cookies include the Secure flag", async (t) => {
 });
 
 
+test("uploads reject non-video filename extensions even with a video content type", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+  const user = await request(base, "/api/auth/register", "POST", { email: "upload-extension@example.com", password: "password-123" });
+  const response = await fetch(base + "/api/uploads", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer " + user.body.token,
+      "content-type": "video/mp4",
+      "content-length": "4",
+      "x-filename": "payload.html"
+    },
+    body: Buffer.from("test")
+  });
+  assert.equal(response.status, 415);
+  assert.match((await response.json()).error, /supported video extension/i);
+});
+
 test("production responses include HSTS", async (t) => {
   const previousNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = "production";
