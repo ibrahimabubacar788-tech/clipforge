@@ -74,6 +74,32 @@ test("login rejects malformed password values without a server error", async (t)
   assert.equal(malformed.body.error, "Invalid email or password.");
 });
 
+test("authentication rejects malformed and oversized session tokens", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+
+  const registered = await request(base, "/api/auth/register", "POST", {
+    email: "auth-token-hardening@example.com",
+    password: "correct-password"
+  });
+  assert.equal(registered.status, 201);
+
+  const malformedCookie = await fetch(base + "/api/me", {
+    headers: { cookie: "clipforge_session=%E0%A4%A" }
+  });
+  assert.equal(malformedCookie.status, 401);
+
+  const oversizedBearer = await fetch(base + "/api/me", {
+    headers: { authorization: "Bearer " + "x".repeat(257) }
+  });
+  assert.equal(oversizedBearer.status, 401);
+
+  const valid = await fetch(base + "/api/me", {
+    headers: { authorization: "Bearer " + registered.body.token }
+  });
+  assert.equal(valid.status, 200);
+});
+
 test("project videos endpoint returns only the owner project videos", async (t) => {
   const { dir, server, base } = await app(); t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "videos@example.com", password: "password-123" });
