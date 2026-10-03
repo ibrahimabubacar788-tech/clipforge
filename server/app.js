@@ -58,6 +58,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       throw Object.assign(new Error("Method not allowed."), { status: 405 });
     }
     let payload = {};
+    if (["POST", "PATCH"].includes(req.method) && ["/api/auth/register", "/api/auth/login"].includes(pathname)) payload = await body(req);
     if (req.method === "GET" && pathname === "/api/ready") {
       await db.load();
       const mediaPersistent = String(process.env.MEDIA_STORAGE_PERSISTENT || "").toLowerCase() === "true";
@@ -66,8 +67,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "POST" && pathname === "/api/auth/register") { const user = await register(db, payload.email, payload.password); const session = await login(db, payload.email, payload.password); res.setHeader("set-cookie", sessionCookie(session.token)); return json(res, 201, { token: session.token, user: publicUser(user) }); }
     if (req.method === "POST" && pathname === "/api/auth/login") { const session = await login(db, payload.email, payload.password); res.setHeader("set-cookie", sessionCookie(session.token)); return json(res, 200, { token: session.token, user: publicUser(session.user) }); }
     if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); res.setHeader("set-cookie", sessionCookie("", 0)); res.writeHead(204); res.end(); return; }
-    if (["POST", "PATCH"].includes(req.method) && pathname !== "/api/uploads") payload = await body(req);
     const user = await requireUser(req, db);
+    if (["POST", "PATCH"].includes(req.method) && pathname !== "/api/uploads") payload = await body(req);
     const bearerToken = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
     if (!req.headers.cookie && bearerToken) res.setHeader("set-cookie", sessionCookie(bearerToken));
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
