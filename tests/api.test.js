@@ -64,6 +64,26 @@ test("authentication sessions enforce credentials and logout", async (t) => {
   assert.equal(afterLogout.status, 401);
 });
 
+test("authentication endpoints rate-limit repeated failures", async (t) => {
+  const { server, base } = await app();
+  t.after(() => server.close());
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await request(base, "/api/auth/login", "POST", {
+      email: "unknown@example.com",
+      password: "wrong-password"
+    });
+    assert.equal(response.status, 401);
+  }
+
+  const limited = await request(base, "/api/auth/login", "POST", {
+    email: "unknown@example.com",
+    password: "wrong-password"
+  });
+  assert.equal(limited.status, 429);
+  assert.match(limited.body.error, /too many authentication attempts/i);
+});
+
 test("protected JSON routes authenticate before parsing request bodies", async (t) => {
   const { server, base } = await app();
   t.after(() => server.close());
