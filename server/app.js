@@ -159,6 +159,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
         item.transcript = transcript;
         item.transcriptFormat = "auto-stt";
+        item.transcriptLanguage = language;
         item.transcriptUpdatedAt = now();
       });
       return json(res, 200, { videoId: video.id, count: transcript.length, transcript, provider: "openai" });
