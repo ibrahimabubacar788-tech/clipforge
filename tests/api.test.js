@@ -451,7 +451,7 @@ test("automatic AI clipping creates multiple ranked clips from a stored transcri
 });
 
 test("video streaming rejects uploaded source symlinks that escape storage", async (t) => {
-  const { server, base } = await app();
+  const { dir, server, base } = await app();
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", {
     email: "stream-symlink@example.com",
