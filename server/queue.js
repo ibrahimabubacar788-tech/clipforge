@@ -234,6 +234,8 @@ export class ClipQueue {
     const candidate = resolve(this.storageDir, downloadUrl.slice("/storage/".length));
     const relativeExport = relative(exportDir, candidate);
     if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\")) return;
+    const candidateInfo = await lstat(candidate).catch(() => null);
+    if (!candidateInfo || candidateInfo.isSymbolicLink() || !candidateInfo.isFile()) return;
     const resolvedCandidate = await realpath(candidate).catch(() => null);
     const resolvedExportDir = await realpath(exportDir).catch(() => null);
     if (!resolvedCandidate || !resolvedExportDir) return;
