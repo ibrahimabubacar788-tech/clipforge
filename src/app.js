@@ -1196,7 +1196,9 @@ retryFailedClipsButton?.addEventListener("click", async () => {
         const target = clips.find((item) => item.id === clip.id);
         if (target) Object.assign(target, updated, { status: updated.status || "queued" });
         retried += 1;
-      } catch (error) { showToast(error.message); }
+      } catch (error) {
+        if (currentProject?.id === retryProjectId) showToast(error.message);
+      }
     }
     if (currentProject?.id !== retryProjectId) return;
     renderClipLibrary();
@@ -1562,7 +1564,9 @@ clipLibrary.addEventListener("click", async (event) => {
       clips = clips.map((item) => item.id === clip.id ? result.clip : item);
       renderClipLibrary();
       showToast("Clip renamed.");
-    } catch (error) { showToast(`Could not rename clip: ${error.message}`); }
+    } catch (error) {
+      if (currentProject?.id === renameProjectId) showToast(`Could not rename clip: ${error.message}`);
+    }
     return;
   }
   const previewButton = event.target.closest("[data-preview-clip]");
