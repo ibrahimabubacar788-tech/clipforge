@@ -1,5 +1,6 @@
-import { access, lstat, mkdir, realpath, unlink } from "node:fs/promises";
+import { access, lstat, mkdir, realpath, rename, unlink } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { join, relative, resolve } from "node:path";
 import { id, now } from "./database.js";
 import ffmpegStatic from "ffmpeg-static";
@@ -164,6 +165,7 @@ export class ClipQueue {
     const output = join(exportDir, filename);
     const outputInfo = await lstat(output).catch(() => null);
     if (outputInfo?.isSymbolicLink()) throw new Error("Invalid export output path.");
+    const tempOutput = join(exportDir, `.${filename}.${randomUUID()}.tmp`);
     const duration = clip.end - clip.start;
     try {
       const { writeFile } = await import("node:fs/promises");
@@ -175,14 +177,15 @@ export class ClipQueue {
       try {
         const args=["-y","-i",source,"-loop","1","-i",watermarkPath];
         for(const p of captionPaths) args.push("-loop","1","-i",p);
-        args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart",output);
+        args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart",tempOutput);
         await run(this.ffmpegPath,args);
+        await rename(tempOutput, output);
       } finally {
         await unlink(watermarkPath).catch(()=>{});
         for(const p of captionPaths) await unlink(p).catch(()=>{});
       }
     } catch (error) {
-      await unlink(output).catch(() => {});
+      await unlink(tempOutput).catch(() => {});
       throw error;
     }
     return { filename, output };
