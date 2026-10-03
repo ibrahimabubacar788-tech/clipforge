@@ -274,8 +274,8 @@ test("static asset serving rejects root-escaping symlinks", async (t) => {
   await writeFile(outside, Buffer.from("secret"));
   await symlink(outside, linked);
   const response = await fetch(base + "/linked-static.txt");
-  assert.equal(response.status, 200);
-  assert.equal(await response.text(), await readFile(join(process.cwd(), "index.html"), "utf8"));
+  assert.equal(response.status, 403);
+  assert.match((await response.json()).error, /forbidden/i);
 });
 
 test("uploaded videos can be streamed only by their owner", async (t) => {
