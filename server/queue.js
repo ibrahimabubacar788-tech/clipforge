@@ -2,6 +2,7 @@ import { access, lstat, mkdir, realpath, rename, unlink, writeFile } from "node:
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { join, relative, resolve } from "node:path";
+import { availableParallelism } from "node:os";
 import { id, now } from "./database.js";
 import ffmpegStatic from "ffmpeg-static";
 import { captionPpm, captionSegmentsForClip } from "./caption-renderer.js";
@@ -127,7 +128,11 @@ function videoFilter(clip, captions = [], subtitlePath = null) {
 }
 
 export class ClipQueue {
-  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; this.subtitleSupport = null; this.concurrency = Math.max(1, Math.min(2, Number(process.env.CLIPFORGE_RENDER_CONCURRENCY) || 2)); }
+  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; this.subtitleSupport = null; const configuredConcurrency = Number(process.env.CLIPFORGE_RENDER_CONCURRENCY);
+    const cpuConcurrency = Math.max(1, Math.min(2, Number(availableParallelism()) || 1));
+    this.concurrency = Number.isFinite(configuredConcurrency) && configuredConcurrency > 0
+      ? Math.max(1, Math.min(2, Math.floor(configuredConcurrency)))
+      : cpuConcurrency; }
   async checkSubtitleSupport() {
     return new Promise((resolve) => {
       const child = spawn(this.ffmpegPath, ["-hide_banner", "-filters"], { stdio: ["ignore", "pipe", "pipe"] });
