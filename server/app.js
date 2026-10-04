@@ -395,7 +395,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           clip.videoId === video.id &&
           clip.userId === user.id &&
           clip.generation === "auto-ai" &&
-          (clip.transcriptLanguage || video.transcriptLanguage || "en") === language
+          (clip.transcriptLanguage || video.transcriptLanguage || "en") === language && (clip.captionLanguage || "original") === captionLanguage
         ));
         const activeAutoClipsBeforeAnalysis = existingAutoClipsBeforeAnalysis.filter((clip) => clip.status !== "failed");
         if (activeAutoClipsBeforeAnalysis.length > 0) {
@@ -452,7 +452,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           clip.videoId === video.id &&
           clip.userId === user.id &&
           clip.generation === "auto-ai" &&
-          (clip.transcriptLanguage || video.transcriptLanguage || "en") === language
+          (clip.transcriptLanguage || video.transcriptLanguage || "en") === language && (clip.captionLanguage || "original") === captionLanguage
         ));
         const activeAutoClips = existingAutoClips.filter((clip) => clip.status !== "failed");
         if (activeAutoClips.length > 0) {
