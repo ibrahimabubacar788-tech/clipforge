@@ -224,7 +224,7 @@ test("AI highlight packs reject near-duplicate transcript windows", async () => 
     output_text: JSON.stringify({
       selections: [
         { id: 0, score: 99, reason: "Best version", title: "Main point", type: "reveal" },
-        { id: 1, score: 98, reason: "Nearly identical", title: "Main point again", type: "insight" },
+        { id: 1, score: 98, reason: "Nearly identical", title: "Main point again", type: "reveal" },
         { id: 2, score: 90, reason: "Different point", title: "Different insight", type: "payoff" },
       ],
     }),
