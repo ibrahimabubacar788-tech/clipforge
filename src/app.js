@@ -1556,6 +1556,18 @@ clipLibrary.addEventListener("click", async (event) => {
     if (!clip || !clipDetailsDialog || !clipDetailsList) return;
     const duration = clipDuration(clip.start, clip.end);
     const status = clip.status === "ready" ? "Ready" : clip.status === "failed" ? "Failed" : "Rendering";
+    const scoreFields = [
+      ["Hook", clip.hookScore],
+      ["Standalone", clip.standaloneScore],
+      ["Payoff", clip.payoffScore],
+      ["Emotion", clip.emotionScore],
+      ["Clarity", clip.clarityScore],
+    ];
+    const scoreBreakdown = scoreFields.some(([, value]) => Number.isFinite(Number(value)))
+      ? '<section class="clip-score-breakdown"><div class="clip-score-breakdown-head"><strong>Why this clip?</strong><span>AI score breakdown</span></div>' +
+        scoreFields.map(([label, value]) => { const score = Number.isFinite(Number(value)) ? Math.max(0, Math.min(100, Math.round(Number(value)))) : null; return '<div class="clip-score-row"><div><span>' + escapeHtml(label) + '</span><b>' + (score === null ? "—" : score + "/100") + '</b></div><div class="clip-score-track"><i style="width:' + (score === null ? 0 : score) + '%"></i></div></div>'; }).join("") +
+        "</section>"
+      : "";
     clipDetailsTitle.textContent = clip.title || "Clip details";
     clipDetailsList.innerHTML = [
       ["Status", status],
@@ -1569,7 +1581,7 @@ clipLibrary.addEventListener("click", async (event) => {
       ["AI reason", clip.aiReason || "Built from ClipForge's strongest-moment ranking."],
       ["AI score", Number.isFinite(Number(clip.highlightScore)) ? Math.round(Number(clip.highlightScore)) + "/100" : "Not scored"],
       ["Created", new Date(clip.createdAt).toLocaleString()]
-    ].map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+    ].map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("") + scoreBreakdown;
     if (clipContentPack) clipContentPack.hidden = true;
     if (clipContentPackList) clipContentPackList.innerHTML = "";
     if (generateContentPackButton) generateContentPackButton.disabled = false;
