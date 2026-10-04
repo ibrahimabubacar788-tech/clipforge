@@ -605,6 +605,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (!segments.length) throw Object.assign(new Error("Add or import a transcript before generating clips."), { status: 422 });
       const limit = Math.max(1, Math.min(50, Number(payload.limit) || 10));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
+      const requestedCaptionLanguage = String(payload.captionLanguage || "original").trim().toLowerCase();
+      const captionLanguage = requestedCaptionLanguage === "original" || /^[a-z]{2,3}$/.test(requestedCaptionLanguage) ? requestedCaptionLanguage : "original";
       const candidates = rankHighlights(segments, {
         limit: Math.min(50, limit),
         minDuration: 15,
