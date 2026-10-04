@@ -104,3 +104,12 @@
 .account-form .field-label { display: grid; gap: 8px; }
 .account-form input { width: 100%; box-sizing: border-box; }
 .account-form-note { display: block; color: var(--muted, #9aa3bb); line-height: 1.5; }
+
+.account-settings-dialog{width:min(760px,calc(100vw - 32px));max-height:min(86vh,760px)}
+.settings-menu{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0;padding:8px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.03)}
+.settings-menu-item{border:0;border-radius:11px;padding:11px 10px;background:transparent;color:inherit;font:inherit;cursor:pointer;text-align:left}
+.settings-menu-item:hover,.settings-menu-item.active{background:rgba(255,255,255,.09)}
+.settings-panel-section{padding:4px 0 10px}.settings-section-head{margin-bottom:18px}.settings-section-head h3{margin:4px 0 7px;font-size:1.15rem}.settings-section-head p:not(.eyebrow){margin:0;opacity:.7;line-height:1.5}
+.settings-workspace-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.settings-workspace-grid>div{padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.03)}.settings-workspace-grid strong,.settings-workspace-grid span{display:block}.settings-workspace-grid strong{font-size:1.2rem}.settings-workspace-grid span{margin-top:5px;opacity:.65;font-size:.82rem}
+.security-status{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:13px 15px;border-radius:13px;background:rgba(255,255,255,.04);font-size:.88rem;opacity:.82}
+@media(max-width:640px){.settings-menu{grid-template-columns:repeat(2,1fr)}.settings-workspace-grid{grid-template-columns:1fr}.account-settings-dialog{padding:18px}}
