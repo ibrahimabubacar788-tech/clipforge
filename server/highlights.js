@@ -72,7 +72,8 @@ function diversityPenalty(candidate, selected) {
   return selected.reduce((penalty, item) => {
     const similarity = transcriptSimilarity(candidate.transcript, item.transcript);
     const sameType = candidate.highlightType === item.highlightType ? 0.08 : 0;
-    return Math.max(penalty, similarity * 0.45 + sameType);
+    const temporalCloseness = Math.max(0, 1 - Math.abs(candidate.start - item.start) / 45) * 0.08;
+    return Math.max(penalty, similarity * 0.45 + sameType + temporalCloseness);
   }, 0);
 }
 
