@@ -909,7 +909,7 @@ const transcriptInput = document.querySelector("#transcript-input");
 const transcriptFile = document.querySelector("#transcript-file");
 const autoTranscribeButton = document.querySelector("#auto-transcribe");
 const transcriptionLanguage = document.querySelector("#transcription-language");
-const savedTranscriptionLanguage = safeStorageParse(transcriptionLanguageKey, "en");
+const savedTranscriptionLanguage = safeStorageParse(transcriptionLanguageKey, "auto");
 if (transcriptionLanguage && [...transcriptionLanguage.options].some((option) => option.value === savedTranscriptionLanguage)) {
   transcriptionLanguage.value = savedTranscriptionLanguage;
 }
