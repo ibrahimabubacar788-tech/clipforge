@@ -1959,49 +1959,98 @@ document.querySelector("#dashboard-new-project")?.addEventListener("click", () =
 const openAccountSettings = () => {
   const dialog = document.querySelector("#account-dialog");
   const emailField = document.querySelector("#account-email");
-  const passwordField = document.querySelector("#account-password");
-  if (emailField) emailField.value = apiSession?.user?.email || safeStorageParse(identityKey, null)?.email || "";
-  if (passwordField) passwordField.value = "";
+  if (emailField) emailField.value = apiSession?.user?.email || "";
+  document.querySelector("#login-email")?.setAttribute("value", apiSession?.user?.email || "");
+  const count = document.querySelector("#settings-project-count");
+  const current = document.querySelector("#settings-current-project");
+  if (count) count.textContent = String(document.querySelectorAll("#project-grid .project-card").length);
+  if (current) current.textContent = currentProject?.name || "—";
+  document.querySelector("#settings-language").value = safeStorageParse(transcriptionLanguageKey, "en");
+  document.querySelector("#settings-captions").checked = captionToggle?.checked ?? true;
+  showSettingsTab("account");
   dialog?.showModal();
 };
+const showSettingsTab = (tab) => {
+  document.querySelectorAll("[data-settings-tab]").forEach((button) => {
+    const active = button.dataset.settingsTab === tab;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.settingsPanel !== tab;
+  });
+};
+document.querySelectorAll("[data-settings-tab]").forEach((button) => button.addEventListener("click", () => showSettingsTab(button.dataset.settingsTab)));
 document.querySelector("#account-button")?.addEventListener("click", openAccountSettings);
 document.querySelector("#dashboard-settings")?.addEventListener("click", openAccountSettings);
+
 document.querySelector("#account-dialog-save")?.addEventListener("click", async () => {
   const saveButton = document.querySelector("#account-dialog-save");
   const email = document.querySelector("#account-email")?.value.trim().toLowerCase();
   const password = document.querySelector("#account-password")?.value || "";
-  if (!email || password.length < 8) {
-    showToast("Enter a valid email and a password with at least 8 characters.");
-    return;
-  }
-  saveButton.disabled = true;
-  saveButton.textContent = "Saving…";
+  if (!email || password.length < 8) { showToast("Enter a valid email and a password with at least 8 characters."); return; }
+  saveButton.disabled = true; saveButton.textContent = "Saving…";
   try {
     const result = await api("/api/auth/update", { method: "PATCH", body: JSON.stringify({ email, password }) });
     apiSession = { ...apiSession, user: result.user };
     window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
-    window.localStorage.setItem(identityKey, JSON.stringify({ email, password }));
-    const account = document.querySelector("#dashboard-account-email");
-    const dialogEmail = document.querySelector("#account-dialog-email");
-    if (account) account.textContent = email;
-    if (dialogEmail) dialogEmail.textContent = "Your ClipForge account is secured with this email.";
-    document.querySelector("#account-dialog")?.close();
-    showToast("Account saved. Your workspace is now tied to your account details.");
-  } catch (error) {
-    showToast("Could not save account: " + error.message);
-  } finally {
-    saveButton.disabled = false;
-    saveButton.textContent = "Save account";
-  }
+    window.localStorage.setItem(identityKey, JSON.stringify({ email }));
+    document.querySelector("#dashboard-account-email").textContent = email;
+    document.querySelector("#account-dialog-email").textContent = "Your ClipForge account is secured with this email.";
+    document.querySelector("#account-password").value = "";
+    showToast("Account settings saved.");
+  } catch (error) { showToast("Could not save account: " + error.message); }
+  finally { saveButton.disabled = false; saveButton.textContent = "Save account"; }
 });
-document.querySelector("#dashboard-logout")?.addEventListener("click", async () => {
+
+async function signInWithCredentials(email, password) {
+  if (!email || !password) throw new Error("Enter your email and password.");
+  const session = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+  apiSession = session;
+  window.localStorage.setItem(sessionKey, JSON.stringify(session));
+  window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email }));
+  window.location.reload();
+}
+document.querySelector("#account-login-button")?.addEventListener("click", async () => {
+  const button = document.querySelector("#account-login-button");
+  try { button.disabled = true; button.textContent = "Logging in…"; await signInWithCredentials(document.querySelector("#login-email").value.trim(), document.querySelector("#login-password").value); }
+  catch (error) { showToast("Could not log in: " + error.message); }
+  finally { button.disabled = false; button.textContent = "Log in"; }
+});
+document.querySelector("#account-signup-button")?.addEventListener("click", async () => {
+  const button = document.querySelector("#account-signup-button");
+  try {
+    button.disabled = true; button.textContent = "Creating…";
+    const email = document.querySelector("#signup-email").value.trim();
+    const password = document.querySelector("#signup-password").value;
+    const session = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
+    apiSession = session;
+    window.localStorage.setItem(sessionKey, JSON.stringify(session));
+    window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email }));
+    window.location.reload();
+  } catch (error) { showToast("Could not create account: " + error.message); }
+  finally { button.disabled = false; button.textContent = "Create account"; }
+});
+document.querySelector("#settings-save-preferences")?.addEventListener("click", () => {
+  const language = document.querySelector("#settings-language").value;
+  window.localStorage.setItem(transcriptionLanguageKey, JSON.stringify(language));
+  if (captionToggle) captionToggle.checked = document.querySelector("#settings-captions").checked;
+  window.localStorage.setItem("clipforge-auto-captions", JSON.stringify(Boolean(captionToggle?.checked)));
+  showToast("Preferences saved.");
+});
+document.querySelector("#settings-change-password")?.addEventListener("click", () => {
+  showSettingsTab("account");
+  document.querySelector("#account-password")?.focus();
+  showToast("Enter your new password, then save account.");
+});
+document.querySelector("#settings-signout")?.addEventListener("click", async () => {
   try { await api("/api/auth/logout", { method: "POST" }); } catch {}
   apiSession = null;
   window.localStorage.removeItem(sessionKey);
   window.localStorage.removeItem(identityKey);
   window.location.reload();
 });
-document.querySelector("#account-dialog-signout")?.addEventListener("click", async () => {
+document.querySelector("#dashboard-logout")?.addEventListener("click", async () => {
   try { await api("/api/auth/logout", { method: "POST" }); } catch {}
   apiSession = null;
   window.localStorage.removeItem(sessionKey);
