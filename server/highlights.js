@@ -93,8 +93,9 @@ export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDura
 }
 
 
-export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator" } = {}) {
+export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator", targetTypes = [] } = {}) {
   const contentProfile = getContentProfile(normalizeContentProfile(profile));
+  const safeTargetTypes = [...new Set((Array.isArray(targetTypes) ? targetTypes : String(targetTypes || "").split(",")).map((type) => String(type || "").trim().toLowerCase()).filter((type) => ["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"].includes(type)))].slice(0, 3);
   const apiKey = process.env.OPENAI_API_KEY;
   const safeLimit = Math.max(1, Math.min(40, Number(limit) || 12));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.min(300, Math.max(0, Number(minDuration))) : 15;
