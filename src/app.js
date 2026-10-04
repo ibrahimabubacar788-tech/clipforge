@@ -341,21 +341,11 @@ async function uploadSource(file) {
   uploadInFlight = true;
   let uploadCommitted = false;
   try {
-  const probe = document.createElement("video");
-  const probeUrl = URL.createObjectURL(file);
-  const duration = await new Promise((resolve, reject) => {
-    probe.onloadedmetadata = () => {
-      const detectedDuration = Number(probe.duration);
-      URL.revokeObjectURL(probeUrl);
-      if (!Number.isFinite(detectedDuration) || detectedDuration <= 0) {
-        reject(new Error("Could not determine a valid video duration."));
-        return;
-      }
-      resolve(detectedDuration);
-    };
-    probe.onerror = () => { URL.revokeObjectURL(probeUrl); reject(new Error("Could not read video duration.")); };
-    probe.src = probeUrl;
-  });
+  // Do not require the browser to decode the entire source before uploading.
+  // Long files and some codecs can make browser metadata probing fail even when
+  // FFmpeg on the server can read the video correctly. The server now probes
+  // duration after the upload is safely stored.
+  let duration = 0;
 
   if (sourcePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(sourcePreviewUrl);
   sourcePreviewUrl = URL.createObjectURL(file);
@@ -424,6 +414,8 @@ async function uploadSource(file) {
   });
   activeUploadRequest = null;
   const uploadedVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: uploadProjectId, name: file.name, duration, sourceUrl: upload.url }) })).video;
+  duration = Number(uploadedVideo?.duration);
+  if (!Number.isFinite(duration) || duration <= 0) throw new Error("ClipForge could not read the uploaded video's duration on the server.");
   if (currentProject?.id !== uploadProjectId) {
     showToast("Video uploaded to the original project. The current project was changed during upload.");
     return;
