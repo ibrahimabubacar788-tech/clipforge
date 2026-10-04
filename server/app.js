@@ -180,6 +180,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       }
     }
     if (req.method === "PATCH" && pathname === "/api/auth/update") {
+      const user = await requireUser(req, db);
       const updated = await updateAccount(db, user, payload.email, payload.password);
       return json(res, 200, { user: publicUser(updated) });
     }
