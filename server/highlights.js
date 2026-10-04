@@ -139,37 +139,48 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
   const clean = (Array.isArray(segments) ? segments.slice(0, 5000) : [])
     .map(normalize).filter(valid).sort((a, b) => a.start - b.start);
   const candidates = [];
+  // Sample a small set of useful duration checkpoints instead of scoring every
+  // possible transcript window. This keeps long videos fast while preserving
+  // the 15–75s range that short-form clips normally need.
+  const targetDurations = [...new Set([
+    safeMinDuration,
+    Math.min(safeMaxDuration, Math.max(safeMinDuration, 30)),
+    Math.min(safeMaxDuration, Math.max(safeMinDuration, 45)),
+    Math.min(safeMaxDuration, Math.max(safeMinDuration, 60)),
+    safeMaxDuration,
+  ].map((value) => Number(value.toFixed(3))))].sort((a, b) => a - b);
   for (let i = 0; i < clean.length; i += 1) {
-    let text = "";
     const start = clean[i].start;
     let end = start;
-    const speakers = new Set();
     const windowSegments = [];
+    let checkpointIndex = 0;
     for (let j = i; j < clean.length; j += 1) {
       const next = clean[j];
       if (next.start - start > safeMaxDuration) break;
       end = Math.max(end, next.end);
-      text = text ? `${text} ${next.text}` : next.text;
       windowSegments.push(next);
-      if (next.speaker) speakers.add(next.speaker);
       const duration = end - start;
       if (duration < safeMinDuration) continue;
       if (duration > safeMaxDuration) break;
+      if (checkpointIndex >= targetDurations.length || duration + 0.001 < targetDurations[checkpointIndex]) continue;
+
       const refinedSegments = refineBoundarySegments(windowSegments, safeMinDuration);
       const refinedStart = refinedSegments[0]?.start ?? start;
       const refinedEnd = refinedSegments[refinedSegments.length - 1]?.end ?? end;
       const refinedDuration = refinedEnd - refinedStart;
       const refinedText = refinedSegments.map((item) => item.text).join(" ").trim();
-      if (refinedDuration < safeMinDuration || !refinedText) continue;
-      candidates.push({
-        start: Number(refinedStart.toFixed(3)), end: Number(refinedEnd.toFixed(3)),
-        duration: Number(refinedDuration.toFixed(3)), score: scoreWindow(refinedText, refinedDuration),
-        highlightType: classifyHighlight(refinedText),
-        title: refinedText.replace(/\s+/g, " ").slice(0, 72) || "Untitled highlight",
-        transcript: refinedText,
-        speakers: [...new Set(refinedSegments.map((item) => item.speaker).filter(Boolean))],
-        captionSegments: refinedSegments,
-      });
+      if (refinedDuration >= safeMinDuration && refinedText) {
+        candidates.push({
+          start: Number(refinedStart.toFixed(3)), end: Number(refinedEnd.toFixed(3)),
+          duration: Number(refinedDuration.toFixed(3)), score: scoreWindow(refinedText, refinedDuration),
+          highlightType: classifyHighlight(refinedText),
+          title: refinedText.replace(/\s+/g, " ").slice(0, 72) || "Untitled highlight",
+          transcript: refinedText,
+          speakers: [...new Set(refinedSegments.map((item) => item.speaker).filter(Boolean))],
+          captionSegments: refinedSegments,
+        });
+      }
+      while (checkpointIndex < targetDurations.length && duration + 0.001 >= targetDurations[checkpointIndex]) checkpointIndex += 1;
     }
   }
   candidates.sort((a, b) => b.score - a.score || a.start - b.start);
