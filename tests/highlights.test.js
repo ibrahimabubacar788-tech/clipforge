@@ -249,3 +249,17 @@ test("AI highlight packs reject near-duplicate transcript windows", async () => 
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+
+test("highlight engine prefers natural sentence boundaries over dangling fragments", () => {
+  const candidates = rankHighlights([
+    { start: 0, end: 5, text: "And because" },
+    { start: 5, end: 10, text: "this is only the beginning of a useful explanation" },
+    { start: 10, end: 15, text: "the result is clear and memorable for creators." },
+    { start: 100, end: 105, text: "Here is a complete useful idea that creators can apply today." },
+    { start: 105, end: 110, text: "It ends cleanly with a result." },
+    { start: 110, end: 115, text: "Thanks for watching." },
+  ], { limit: 2, minDuration: 15, maxDuration: 15 });
+  assert.equal(candidates.length, 2);
+  assert.ok(candidates.every((item) => /[.!?][“”'"')]*$/.test(item.transcript)));
+});
