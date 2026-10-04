@@ -15,6 +15,19 @@ test("highlight engine assembles transcript windows without injected placeholder
 });
 
 
+test("highlight boundaries trim leading filler without losing the minimum duration", () => {
+  const clips = rankHighlights([
+    { start: 0, end: 2, text: "Um, okay, welcome back." },
+    { start: 2, end: 9, text: "The biggest mistake creators make is ignoring the audience." },
+    { start: 9, end: 17, text: "The result is much stronger when you fix that one thing." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  assert.equal(clips.length, 1);
+  assert.equal(clips[0].start, 2);
+  assert.equal(clips[0].transcript.includes("welcome back"), false);
+  assert.equal(clips[0].duration, 15);
+});
+
 test("highlight scoring rewards concrete lessons and contrast", () => {
   const clips = rankHighlights([
     { start: 0, end: 16, text: "The result was 10x better because we changed one simple step. However, the old approach failed for one important reason." },
