@@ -44,8 +44,8 @@ function scoreWindow(text, duration) {
   if (duration > 90) score -= 10;
   return score;
 }
-export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDuration = 75 } = {}) {
-  const safeLimit = Math.max(1, Math.min(40, Number(limit) || 40));
+export function rankHighlights(segments, { limit = 10, minDuration = 15, maxDuration = 75 } = {}) {
+  const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.min(300, Math.max(0, Number(minDuration))) : 15;
   const parsedMaxDuration = Number(maxDuration);
   const safeMaxDuration = Number.isFinite(parsedMaxDuration) && parsedMaxDuration > 0
@@ -97,7 +97,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   const contentProfile = getContentProfile(normalizeContentProfile(profile));
   const safeTargetTypes = [...new Set((Array.isArray(targetTypes) ? targetTypes : String(targetTypes || "").split(",")).map((type) => String(type || "").trim().toLowerCase()).filter((type) => ["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"].includes(type)))].slice(0, 3);
   const apiKey = process.env.OPENAI_API_KEY;
-  const safeLimit = Math.max(1, Math.min(40, Number(limit) || 12));
+  const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.min(300, Math.max(0, Number(minDuration))) : 15;
   const parsedMaxDuration = Number(maxDuration);
   const safeMaxDuration = Number.isFinite(parsedMaxDuration) && parsedMaxDuration > 0
@@ -107,7 +107,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   if (!apiKey) return { candidates: fallback(), engine: "heuristic-fallback" };
 
   const baseline = rankHighlights(segments, {
-    limit: Math.min(40, safeLimit * 3),
+    limit: Math.min(50, safeLimit),
     minDuration: safeMinDuration,
     maxDuration: safeMaxDuration,
   });
