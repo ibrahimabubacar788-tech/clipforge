@@ -127,3 +127,31 @@ test("highlight engine classifies clip intelligence types", () => {
   assert.equal(candidates.length, 1);
   assert.ok(["how-to", "reveal", "payoff", "hook", "insight"].includes(candidates[0].highlightType));
 });
+
+
+test("AI highlight selections use an allowed intelligence type and reject unknown values", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    output_text: JSON.stringify({
+      selections: [
+        { id: 0, score: 96, reason: "Strong reveal", title: "The hidden mistake", type: "reveal" },
+        { id: 1, score: 95, reason: "Unknown type", title: "Fallback type", type: "made-up-type" },
+      ],
+    }),
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 20, text: "The secret is that creators often make this biggest mistake." },
+      { start: 30, end: 50, text: "Here is useful context about how the process finally works." },
+    ], { limit: 2, minDuration: 15, maxDuration: 75 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates[0].highlightType, "reveal");
+    assert.notEqual(result.candidates[1].highlightType, "made-up-type");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
