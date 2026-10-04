@@ -999,7 +999,8 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
       throw new Error("The source video or project changed while generation was running. Please reopen the original project before generating clips.");
     }
     const format = document.querySelector(".format-option.selected").dataset.format;
-    const contentProfile = window.localStorage.getItem("clipforge-content-profile") || "creator";
+    const contentProfile = document.querySelector("#ai-content-profile")?.value || window.localStorage.getItem("clipforge-content-profile") || "creator";
+    window.localStorage.setItem("clipforge-content-profile", contentProfile);
     const endpoint = rawTranscript ? "generate-clips" : "auto-clip";
     const result = await api(`/api/videos/${encodeURIComponent(generationVideoId)}/${endpoint}`, {
       method: "POST",
