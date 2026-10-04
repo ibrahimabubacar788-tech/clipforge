@@ -175,11 +175,11 @@ function sentenceCompletenessScore(text) {
   const value = String(text || "").trim();
   if (!value) return 0;
   let score = 0;
-  const words = value.split(/\\s+/).filter(Boolean);
+  const words = value.split(/\s+/).filter(Boolean);
   if (words.length >= 12) score += 2;
   if (/[.!?]["'”’)]?$/.test(value)) score += 7;
   if (/[,:;]$/.test(value)) score -= 5;
-  if (/\\b(?:a|an|the|to|of|for|with|from|in|on|at|by|is|are|was|were|and|but|or|because|which|that)\\s*$/i.test(value.replace(/[.!?,;:]+$/, ""))) score -= 7;
+  if (/\b(?:a|an|the|to|of|for|with|from|in|on|at|by|is|are|was|were|and|but|or|because|which|that)\s*$/i.test(value.replace(/[.!?,;:]+$/, ""))) score -= 7;
   if (/\\b(?:I|we|you|they|he|she)\\s+(?:was|were|am|are|is|have|had|will|would|can|could)\\b/i.test(value)) score += 2;
   return score;
 }
