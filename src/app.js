@@ -594,6 +594,7 @@ async function loadProducerPlan() {
     const proven = (plan.provenTypes || []).join(", ");
     const learning = performance.trackedClips ? "Performance: " + performance.trackedClips + " tracked · " + performance.totals.views.toLocaleString() + " views · " + (performance.engagementRate ?? 0) + "% engagement" + (proven ? " · Proven: " + escapeHtml(proven) : "") : "No performance data yet — log published clip results to teach the Producer what your audience responds to.";
     const mix = (plan.mix || []).slice(0, 5).map((item) => escapeHtml(item.label) + ": " + item.count).join(" · ");
+    const nextPublish = plan.nextPublish?.label ? "<div class=\"producer-next-publish\"><b>Next publish:</b> " + escapeHtml(plan.nextPublish.label) + " <small>(" + escapeHtml(plan.nextPublish.confidence || "medium") + " confidence)</small><span>" + escapeHtml(plan.nextPublish.reason || "") + "</span></div>" : "";
     const targetTypes = (plan.priorities || []).map((item) => item.type).filter(Boolean).slice(0, 3);
     if (libraryProducerCreateButton) {
       libraryProducerCreateButton.disabled = !sourceVideo?.id || !targetTypes.length;
@@ -602,7 +603,7 @@ async function loadProducerPlan() {
     }
     libraryProducerPlan.innerHTML = "<div class=\"producer-plan-head\"><strong>AI Producer Plan</strong><span>" + escapeHtml(plan.strategy?.label || "Creator") + "</span></div>" +
       "<p>" + (plan.averageScore === null ? "No scored clips yet." : "Average AI score: <b>" + plan.averageScore + "/100</b>") + (mix ? " · " + mix : "") + "</p>" +
-      "<p>" + learning + "</p>" + (priorities ? "<ul>" + priorities + "</ul>" : "<p>Your current clip mix covers the main intelligence types. Keep rotating formats to avoid repetition.</p>");
+      "<p>" + learning + "</p>" + nextPublish + (priorities ? "<ul>" + priorities + "</ul>" : "<p>Your current clip mix covers the main intelligence types. Keep rotating formats to avoid repetition.</p>");
     libraryProducerPlan.hidden = false;
   } catch (error) {
     showToast("Producer plan unavailable: " + error.message);
