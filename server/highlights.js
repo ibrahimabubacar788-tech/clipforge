@@ -61,8 +61,28 @@ function boundaryQualityScore(text) {
   return score;
 }
 
+function standaloneContextScore(text) {
+  const value = String(text || "").trim();
+  if (!value) return 0;
+  let score = 0;
+  // Penalize transcript windows that depend heavily on an unseen previous sentence.
+  // Keep normal conversational openings safe when they immediately provide a subject.
+  if (/^(?:this|that|it|they|he|she|we|you)\b/i.test(value)
+      && !/^(?:this|that|it)\s+(?:is|was|means|shows|happens|happened|can|will|would|should|matters|works|does|doesn't|isn't)\b/i.test(value)) {
+    score -= 8;
+  }
+  if (/^(?:and|but|so|because|which|that|then|or)\b/i.test(value)) score -= 7;
+  if (/\b(?:as I said|like I said|as we discussed|earlier|before this|the previous)\b/i.test(value)) score -= 6;
+  if (/^(?:he|she|they)\b/i.test(value) && !/\b(?:named|called|is|was|are|were)\b/i.test(value.slice(0, 100))) score -= 4;
+  // Reward clips that establish a subject early and close with a complete thought.
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length >= 16 && /\b(?:I|we|you|they|he|she)\b/i.test(value.slice(0, 90))) score += 3;
+  if (/[.!?]["'”’)]?$/.test(value)) score += 3;
+  return score;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
