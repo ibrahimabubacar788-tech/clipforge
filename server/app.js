@@ -518,6 +518,15 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           && end - start <= maxClipDuration;
       });
       if (!candidates.length) throw Object.assign(new Error("The AI could not find enough valid moments inside this video."), { status: 422 });
+      const captionSegmentsByKey = new Map();
+      if (captionLanguage !== "original") {
+        const sourceCaptionSegments = candidates.flatMap((candidate) => Array.isArray(candidate.captionSegments) ? candidate.captionSegments : []);
+        const translatedCaptionSegments = await translateTranscriptSegments(sourceCaptionSegments, captionLanguage);
+        translatedCaptionSegments.forEach((segment, index) => {
+          const original = sourceCaptionSegments[index];
+          if (original) captionSegmentsByKey.set(String(original.start) + ":" + String(original.end) + ":" + original.text, segment.text);
+        });
+      }
 
       const created = [];
       for (const candidate of candidates) {
@@ -623,7 +632,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           end: candidate.end,
           format,
           captions: true,
-          captionSegments: normalizeCaptionSegments(candidate.captionSegments),
+          captionLanguage,
+          captionSegments: normalizeCaptionSegments((candidate.captionSegments || []).map((segment) => ({ ...segment, text: captionSegmentsByKey.get(String(segment.start) + ":" + String(segment.end) + ":" + segment.text) || segment.text }))),
           style: normalizeCaptionStyle(payload.style),
           status: "queued",
           highlightRank: candidate.rank,
