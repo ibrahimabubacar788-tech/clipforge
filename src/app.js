@@ -90,6 +90,7 @@ const identityKey = "clipforge-identity";
 const styleKey = "clipforge-caption-style";
 const favoriteKey = "clipforge-favorite-clips";
 const transcriptionLanguageKey = "clipforge-transcription-language";
+const captionLanguageKey = "clipforge-caption-language";
 const safeStorageParse = (key, fallback) => {
   try {
     const raw = window.localStorage.getItem(key);
@@ -913,8 +914,12 @@ if (transcriptionLanguage && [...transcriptionLanguage.options].some((option) =>
   transcriptionLanguage.value = savedTranscriptionLanguage;
 }
 transcriptionLanguage?.addEventListener("change", () => {
-  window.localStorage.setItem(transcriptionLanguageKey, transcriptionLanguage.value || "en");
+  window.localStorage.setItem(transcriptionLanguageKey, JSON.stringify(transcriptionLanguage.value || "auto"));
 });
+const savedCaptionLanguage = safeStorageParse(captionLanguageKey, "original");
+const captionLanguageSelect = document.querySelector("#caption-language");
+if (captionLanguageSelect && [...captionLanguageSelect.options].some((option) => option.value === savedCaptionLanguage)) captionLanguageSelect.value = savedCaptionLanguage;
+captionLanguageSelect?.addEventListener("change", () => window.localStorage.setItem(captionLanguageKey, JSON.stringify(captionLanguageSelect.value || "original")));
 
 function parseTranscript(rawText) {
   return rawText.split("\n").map((line) => {
@@ -995,7 +1000,7 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
     const endpoint = rawTranscript ? "generate-clips" : "auto-clip";
     const result = await api(`/api/videos/${encodeURIComponent(generationVideoId)}/${endpoint}`, {
       method: "POST",
-      body: JSON.stringify({ limit: selectedClipCount, format, style: captionStyle, language: transcriptionLanguage?.value || "en", profile: contentProfile })
+      body: JSON.stringify({ limit: selectedClipCount, format, style: captionStyle, language: transcriptionLanguage?.value || "auto", captionLanguage: document.querySelector("#caption-language")?.value || safeStorageParse(captionLanguageKey, "original"), profile: contentProfile })
     });
     if (currentProject?.id !== generationProjectId || sourceVideo?.id !== generationVideoId) {
       throw new Error("The source video or project changed while generation was running. The generated clips were kept on the original source.");
@@ -1965,8 +1970,9 @@ const openAccountSettings = () => {
   const current = document.querySelector("#settings-current-project");
   if (count) count.textContent = String(document.querySelectorAll("#project-grid .project-card").length);
   if (current) current.textContent = currentProject?.name || "—";
-  document.querySelector("#settings-language").value = safeStorageParse(transcriptionLanguageKey, "en");
-  document.querySelector("#settings-captions").checked = captionToggle?.checked ?? true;
+  document.querySelector("#settings-language").value = safeStorageParse(transcriptionLanguageKey, "auto");
+  document.querySelector("#settings-caption-language").value = safeStorageParse(captionLanguageKey, "original");
+  document.querySelector("#settings-captions").checked = safeStorageParse("clipforge-auto-captions", true);
   showSettingsTab("account");
   dialog?.showModal();
 };
@@ -2033,7 +2039,9 @@ document.querySelector("#account-signup-button")?.addEventListener("click", asyn
 });
 document.querySelector("#settings-save-preferences")?.addEventListener("click", () => {
   const language = document.querySelector("#settings-language").value;
-  window.localStorage.setItem(transcriptionLanguageKey, JSON.stringify(language));
+  window.localStorage.setItem(transcriptionLanguageKey, JSON.stringify(language || "auto"));
+  const captionLanguage = document.querySelector("#settings-caption-language").value || "original";
+  window.localStorage.setItem(captionLanguageKey, JSON.stringify(captionLanguage));
   if (captionToggle) captionToggle.checked = document.querySelector("#settings-captions").checked;
   window.localStorage.setItem("clipforge-auto-captions", JSON.stringify(Boolean(captionToggle?.checked)));
   showToast("Preferences saved.");
