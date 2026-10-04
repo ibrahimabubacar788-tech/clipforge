@@ -350,18 +350,29 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
       return true;
     };
 
-    // Build a more useful clip pack by giving distinct intelligence types
-    // a chance before filling the remaining slots with pure score order.
+    // Build a stronger clip pack with coverage-aware selection: reward a
+    // requested intelligence type or a new type, but never sacrifice a large
+    // quality gap just to force diversity.
     const seenTypes = new Set();
-    for (const candidate of ranked) {
-      if (selected.length >= safeLimit) break;
+    const selectionPool = [...ranked];
+    while (selected.length < safeLimit && selectionPool.length) {
+      let bestIndex = -1;
+      let bestUtility = Number.NEGATIVE_INFINITY;
+      for (let i = 0; i < selectionPool.length; i += 1) {
+        const candidate = selectionPool[i];
+        const type = String(candidate.highlightType || "").trim().toLowerCase();
+        const requestedBonus = safeTargetTypes.includes(type) && !seenTypes.has(type) ? 8 : 0;
+        const noveltyBonus = type && !seenTypes.has(type) ? 5 : 0;
+        const utility = Number(candidate.score || 0) + requestedBonus + noveltyBonus;
+        if (utility > bestUtility) {
+          bestUtility = utility;
+          bestIndex = i;
+        }
+      }
+      if (bestIndex < 0) break;
+      const candidate = selectionPool.splice(bestIndex, 1)[0];
       const type = String(candidate.highlightType || "").trim().toLowerCase();
-      if (type && seenTypes.has(type)) continue;
       if (addIfDistinct(candidate) && type) seenTypes.add(type);
-    }
-    for (const candidate of ranked) {
-      if (selected.length >= safeLimit) break;
-      addIfDistinct(candidate);
     }
 
     // If the model returns fewer clips than requested, fill the remaining slots
