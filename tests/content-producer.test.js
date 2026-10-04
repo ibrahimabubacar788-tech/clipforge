@@ -59,3 +59,15 @@ test("producer plan gives a medium-confidence test when performance exists but n
   assert.equal(plan.nextPublish.confidence, "medium");
   assert.ok(plan.nextPublish.type);
 });
+
+
+test("performance summary breaks results down by platform", () => {
+  const plan = buildProducerPlan([
+    { id: "a", highlightType: "hook", highlightScore: 90, performance: { platform: "TikTok", views: 1000, likes: 100, comments: 20, shares: 30 } },
+    { id: "b", highlightType: "hook", highlightScore: 85, performance: { platform: "YouTube Shorts", views: 500, likes: 25, comments: 5, shares: 5 } },
+  ], "creator");
+  assert.equal(plan.performance.byPlatform[0].platform, "tiktok");
+  assert.equal(plan.performance.byPlatform[0].views, 1000);
+  assert.equal(plan.performance.byPlatform[0].engagementRate, 15);
+  assert.equal(plan.performance.byPlatform[1].platform, "youtube shorts");
+});
