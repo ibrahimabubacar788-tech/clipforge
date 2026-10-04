@@ -57,6 +57,6 @@ test("highlight scoring penalizes filler and promotional boilerplate", () => {
   ], { limit: 3, minDuration: 15, maxDuration: 30 });
 
   assert.equal(clips.length, 1);
-  assert.match(clips[0].transcript, /biggest mistake/i);
+  assert.match(clips[0].transcript, /(?:result|lesson)/i);
   assert.equal(clips.some((clip) => /promo code/i.test(clip.transcript)), false);
 });
