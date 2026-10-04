@@ -63,19 +63,38 @@
 .producer-next-publish small{opacity:.7;text-transform:uppercase}
 .producer-next-publish span{opacity:.82}
 
-.dashboard { max-width: 1180px; margin: 0 auto; padding: 48px 32px 72px; }
-.dashboard-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:28px; }
-.dashboard-heading h1 { margin:6px 0 8px; font-size:clamp(36px,5vw,56px); letter-spacing:-.04em; }
-.dashboard-heading p:not(.eyebrow) { margin:0; max-width:620px; opacity:.72; }
-.dashboard-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
-.project-card { position:relative; min-height:170px; padding:22px; border:1px solid rgba(255,255,255,.09); border-radius:22px; background:rgba(255,255,255,.035); cursor:pointer; transition:transform .18s ease,border-color .18s ease,background .18s ease; display:flex; flex-direction:column; justify-content:space-between; }
-.project-card:hover { transform:translateY(-2px); border-color:rgba(255,255,255,.22); background:rgba(255,255,255,.055); }
-.project-card-mark { width:40px; height:40px; display:grid; place-items:center; border-radius:12px; background:rgba(255,255,255,.08); font-size:12px; font-weight:800; }
-.project-card-copy h3 { margin:18px 0 5px; font-size:20px; }
-.project-card-copy p { margin:0; opacity:.58; font-size:13px; }
-.project-card-arrow { position:absolute; right:20px; bottom:20px; font-size:20px; opacity:.6; }
-.account-card { margin-top:28px; padding:22px; border:1px solid rgba(255,255,255,.09); border-radius:22px; display:flex; align-items:center; justify-content:space-between; gap:20px; background:rgba(255,255,255,.025); }
-.account-card h2 { margin:5px 0; font-size:18px; }
-.account-card p:not(.eyebrow) { margin:0; opacity:.62; }
-.account-actions { display:flex; gap:10px; }
-@media (max-width:700px) { .dashboard { padding:32px 18px 50px; } .dashboard-heading,.account-card { align-items:stretch; flex-direction:column; } .account-actions { flex-wrap:wrap; } }
+.dashboard { max-width:1240px; margin:0 auto; padding:56px 42px 84px; }
+.dashboard:before { content:""; position:absolute; left:50%; top:76px; width:720px; height:360px; transform:translateX(-15%); background:radial-gradient(circle,rgba(166,140,255,.16),transparent 68%); pointer-events:none; filter:blur(8px); }
+.dashboard-hero { position:relative; display:flex; align-items:flex-end; justify-content:space-between; gap:36px; padding:18px 0 46px; }
+.dashboard-hero-copy { max-width:760px; }
+.dashboard-hero h1 { margin:8px 0 16px; font-size:clamp(42px,6vw,72px); line-height:.98; letter-spacing:-.065em; }
+.dashboard-hero h1 span { color:#a99aff; }
+.dashboard-subtitle { max-width:650px; margin:0; color:#9ba0b6; font-size:15px; line-height:1.7; }
+.dashboard-create-button { min-width:158px; padding:14px 18px; border-radius:12px; white-space:nowrap; }
+.dashboard-create-button .button-icon { display:inline-grid; place-items:center; width:22px; height:22px; margin-right:7px; border:1px solid rgba(255,255,255,.28); border-radius:7px; }
+.dashboard-toolbar { position:relative; display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding:0 0 17px; border-bottom:1px solid rgba(255,255,255,.08); }
+.dashboard-toolbar h2 { margin:3px 0 0; font-size:20px; letter-spacing:-.5px; }
+.dashboard-meta { display:flex; align-items:center; gap:12px; color:#858aa4; font:10px "DM Mono"; text-transform:uppercase; letter-spacing:.6px; }
+.dashboard-live-dot { display:flex; align-items:center; gap:6px; padding:7px 10px; border:1px solid rgba(255,255,255,.08); border-radius:999px; background:rgba(255,255,255,.025); }
+.dashboard-live-dot:before { content:""; width:6px; height:6px; border-radius:50%; background:#a9e58d; box-shadow:0 0 10px #a9e58d; }
+.dashboard-grid { position:relative; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; padding-top:20px; }
+.project-card { position:relative; min-height:190px; padding:22px; border:1px solid rgba(255,255,255,.08); border-radius:18px; background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018)); cursor:pointer; transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease,background .2s ease; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; }
+.project-card:before { content:""; position:absolute; right:-50px; top:-65px; width:180px; height:180px; border-radius:50%; background:radial-gradient(circle,rgba(166,140,255,.2),transparent 68%); pointer-events:none; }
+.project-card:hover { transform:translateY(-4px); border-color:rgba(166,140,255,.38); background:linear-gradient(145deg,rgba(166,140,255,.1),rgba(255,255,255,.025)); box-shadow:0 18px 45px rgba(0,0,0,.2),0 0 0 1px rgba(166,140,255,.05); }
+.project-card-mark { position:relative; width:44px; height:44px; display:grid; place-items:center; border-radius:13px; background:linear-gradient(145deg,#2c2942,#191c2c); border:1px solid rgba(255,255,255,.1); color:#d8d0ff; font:800 11px "DM Mono"; }
+.project-card-copy { position:relative; }
+.project-card-copy h3 { margin:18px 0 6px; font-size:19px; letter-spacing:-.5px; }
+.project-card-copy p { margin:0; color:#858aa4; font-size:12px; }
+.project-card-arrow { position:absolute; right:20px; bottom:20px; width:32px; height:32px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.08); border-radius:9px; color:#b9adff; font-size:16px; opacity:.9; }
+.dashboard-account { position:relative; display:flex; align-items:center; gap:15px; margin-top:34px; padding:18px 20px; border:1px solid rgba(255,255,255,.08); border-radius:16px; background:rgba(255,255,255,.025); }
+.dashboard-account-icon { width:40px; height:40px; flex:0 0 auto; display:grid; place-items:center; border-radius:12px; background:#e1d8bf; color:#584b35; font-size:11px; font-weight:800; }
+.dashboard-account-copy { min-width:0; flex:1; }
+.dashboard-account-copy .eyebrow { margin-bottom:4px; }
+.dashboard-account h2 { margin:0 0 3px; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dashboard-account p:not(.eyebrow) { margin:0; color:#858aa4; font-size:11px; }
+.dashboard-account .account-actions { margin-left:auto; display:flex; gap:8px; }
+.dashboard-account .account-actions .ghost-button { padding:9px 11px; border:1px solid rgba(255,255,255,.08); border-radius:9px; background:rgba(255,255,255,.025); }
+.dashboard-account .account-actions .ghost-button:hover { background:rgba(255,255,255,.07); }
+.dashboard-account .account-actions .ghost-button span { margin-left:7px; color:#b9adff; }
+@media (max-width:900px) { .dashboard { padding:42px 24px 70px; } .dashboard-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .dashboard-hero h1 { font-size:clamp(40px,8vw,62px); } }
+@media (max-width:700px) { .dashboard { padding:30px 16px 50px; } .dashboard-hero { align-items:stretch; flex-direction:column; padding-bottom:34px; } .dashboard-hero h1 { font-size:clamp(38px,12vw,54px); } .dashboard-subtitle { font-size:13px; } .dashboard-create-button { align-self:flex-start; } .dashboard-toolbar { align-items:flex-start; flex-direction:column; } .dashboard-meta { width:100%; justify-content:space-between; } .dashboard-grid { grid-template-columns:1fr; } .project-card { min-height:155px; } .dashboard-account { align-items:flex-start; flex-wrap:wrap; } .dashboard-account-copy { flex:1 1 calc(100% - 55px); } .dashboard-account .account-actions { width:100%; margin-left:55px; } }
