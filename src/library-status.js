@@ -20,3 +20,6 @@ if (library && summary) {
   new MutationObserver(refreshStatusSummary).observe(library, { childList: true, subtree: true });
   refreshStatusSummary();
 }
+
+
+import("./creator-intake.js").catch((error) => console.error("Creator intake failed to load:", error));
