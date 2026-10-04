@@ -188,3 +188,30 @@ test("AI highlight packs diversify intelligence types before filling by score", 
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+
+test("AI highlight wrapper sends producer target types to the model", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  let requestBody = "";
+  globalThis.fetch = async (_url, options) => {
+    requestBody = String(options?.body || "");
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({
+        selections: [{ id: 0, score: 91, reason: "Good payoff", title: "Result", type: "payoff" }],
+      }),
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 20, text: "The result finally shows why this works." },
+    ], { limit: 1, targetTypes: ["payoff", "payoff", "not-real"] });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.match(requestBody, /Prioritize these intelligence types for this batch: payoff/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
