@@ -20,6 +20,42 @@ const TYPE_NEEDS = {
   insight: "Extract a memorable lesson, opinion, or useful idea.",
 };
 
+export function summarizePerformance(clips = []) {
+  const safeClips = Array.isArray(clips) ? clips : [];
+  const tracked = safeClips.filter((clip) => clip?.performance && Number.isFinite(Number(clip.performance.views)));
+  const totals = tracked.reduce((sum, clip) => {
+    const metric = clip.performance || {};
+    sum.views += Math.max(0, Number(metric.views) || 0);
+    sum.likes += Math.max(0, Number(metric.likes) || 0);
+    sum.comments += Math.max(0, Number(metric.comments) || 0);
+    sum.shares += Math.max(0, Number(metric.shares) || 0);
+    sum.watchTime += Math.max(0, Number(metric.watchTimeSeconds) || 0);
+    return sum;
+  }, { views: 0, likes: 0, comments: 0, shares: 0, watchTime: 0 });
+  const engagementRate = totals.views
+    ? Number((((totals.likes + totals.comments + totals.shares) / totals.views) * 100).toFixed(2))
+    : null;
+  const byType = {};
+  for (const clip of tracked) {
+    const type = String(clip.highlightType || "insight").trim().toLowerCase();
+    const metric = clip.performance || {};
+    const entry = byType[type] || { type, clips: 0, views: 0, engagements: 0 };
+    entry.clips += 1;
+    entry.views += Math.max(0, Number(metric.views) || 0);
+    entry.engagements += Math.max(0, Number(metric.likes) || 0) + Math.max(0, Number(metric.comments) || 0) + Math.max(0, Number(metric.shares) || 0);
+    byType[type] = entry;
+  }
+  return {
+    trackedClips: tracked.length,
+    totals,
+    engagementRate,
+    byType: Object.values(byType).map((entry) => ({
+      ...entry,
+      engagementRate: entry.views ? Number(((entry.engagements / entry.views) * 100).toFixed(2)) : null,
+    })).sort((a, b) => b.views - a.views),
+  };
+}
+
 export function buildProducerPlan(clips = [], profile = "creator") {
   const safeClips = Array.isArray(clips) ? clips : [];
   const strategy = getContentProfile(profile);
@@ -33,7 +69,13 @@ export function buildProducerPlan(clips = [], profile = "creator") {
     ? Math.round(scored.reduce((sum, clip) => sum + Number(clip.highlightScore), 0) / scored.length)
     : null;
   const strongest = [...safeClips].sort((a, b) => Number(b.highlightScore || 0) - Number(a.highlightScore || 0))[0] || null;
+  const performance = summarizePerformance(safeClips);
   const missingTypes = Object.keys(TYPE_LABELS).filter((type) => !counts[type]);
+  const provenTypes = performance.byType
+    .filter((entry) => entry.views >= 100)
+    .sort((a, b) => (b.engagementRate || 0) - (a.engagementRate || 0))
+    .slice(0, 2)
+    .map((entry) => entry.type);
   const priorities = missingTypes.slice(0, 3).map((type) => ({
     type,
     label: TYPE_LABELS[type],
@@ -47,6 +89,8 @@ export function buildProducerPlan(clips = [], profile = "creator") {
   }
   return {
     strategy: { key: strategy.key, label: strategy.label, focus: strategy.focus },
+    performance,
+    provenTypes,
     totalClips: safeClips.length,
     averageScore,
     strongest: strongest ? {
