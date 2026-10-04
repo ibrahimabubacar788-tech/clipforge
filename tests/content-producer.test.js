@@ -71,3 +71,13 @@ test("performance summary breaks results down by platform", () => {
   assert.equal(plan.performance.byPlatform[0].engagementRate, 15);
   assert.equal(plan.performance.byPlatform[1].platform, "youtube shorts");
 });
+
+
+test("producer identifies the leading platform for the next publishing test", () => {
+  const plan = buildProducerPlan([
+    { id: "a", highlightType: "hook", highlightScore: 90, performance: { platform: "TikTok", views: 1500, likes: 100, comments: 20, shares: 30 } },
+    { id: "b", highlightType: "emotion", highlightScore: 88, performance: { platform: "YouTube Shorts", views: 500, likes: 25, comments: 5, shares: 5 } },
+  ], "creator");
+  assert.equal(plan.platformRecommendation.platform, "tiktok");
+  assert.match(plan.platformRecommendation.reason, /most tracked views/);
+});
