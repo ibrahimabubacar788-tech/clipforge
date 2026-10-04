@@ -99,3 +99,163 @@ export function rankHighlights(segments, options = {}) {
     .map((item, index) => ({ ...item, rank: index + 1 }));
 }
 
+
+export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator", targetTypes = [] } = {}) {
+  const contentProfile = getContentProfile(normalizeContentProfile(profile));
+  const safeTargetTypes = [...new Set((Array.isArray(targetTypes) ? targetTypes : String(targetTypes || "").split(",")).map((type) => String(type || "").trim().toLowerCase()).filter((type) => ["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"].includes(type)))].slice(0, 3);
+  const apiKey = process.env.OPENAI_API_KEY;
+  const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
+  const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.min(300, Math.max(0, Number(minDuration))) : 15;
+  const parsedMaxDuration = Number(maxDuration);
+  const safeMaxDuration = Number.isFinite(parsedMaxDuration) && parsedMaxDuration > 0
+    ? Math.max(safeMinDuration, Math.min(300, parsedMaxDuration))
+    : 75;
+  const fallback = () => rankHighlights(segments, { limit: safeLimit, minDuration: safeMinDuration, maxDuration: safeMaxDuration });
+  if (!apiKey) return { candidates: fallback(), engine: "heuristic-fallback" };
+
+  const baseline = rankHighlights(segments, {
+    limit: safeLimit,
+    candidateLimit: Math.min(150, safeLimit * 3),
+    minDuration: safeMinDuration,
+    maxDuration: safeMaxDuration,
+  });
+  if (!baseline.length) return { candidates: [], engine: "openai-highlights-v1" };
+
+  const candidates = baseline.map((item, id) => ({
+    id,
+    start: item.start,
+    end: item.end,
+    duration: item.duration,
+    transcript: item.transcript.slice(0, 1800),
+  }));
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90_000);
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: process.env.OPENAI_HIGHLIGHT_MODEL || "gpt-6-luna",
+        input: [
+          {
+            role: "system",
+            content: [{
+              type: "input_text",
+              text: `Select the strongest short-form video moments from these transcript windows.\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
+Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.
+Reject filler, contextless fragments, repetitive introductions, and sponsor boilerplate.
+${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
+Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"payoff":90,"emotion":78,"clarity":96,"reason":"brief reason","title":"short title","type":"hook"}]}.
+For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
+Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.`,
+            }],
+          },
+          {
+            role: "user",
+            content: [{ type: "input_text", text: JSON.stringify({ requested: safeLimit, candidates }) }],
+          },
+        ],
+        max_output_tokens: Math.max(800, safeLimit * 120),
+      }),
+    });
+
+    const raw = await response.text();
+    let data = {};
+    try { data = JSON.parse(raw); } catch {}
+    if (!response.ok) throw new Error(data?.error?.message || "Highlight analysis failed.");
+    const text = String(
+      data.output_text ||
+      data.output?.find((item) => item.type === "message")?.content?.find((item) => item.type === "output_text")?.text ||
+      ""
+    ).trim();
+    const cleaned = text.replace(/^\x60\x60\x60(?:json)?\s*/i, "").replace(/\x60\x60\x60$/i, "").trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace < 0 || lastBrace <= firstBrace) throw new Error("AI returned invalid highlight JSON.");
+      parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    }
+    const allowedHighlightTypes = new Set(["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"]);
+    const selections = Array.isArray(parsed.selections) ? parsed.selections.slice(0, safeLimit * 3) : [];
+    const byId = new Map(baseline.map((item, id) => [id, item]));
+    const ranked = selections.map((selection) => {
+      const base = byId.get(Number(selection.id));
+      if (!base) return null;
+      const score = Number(selection.score);
+      return {
+        ...base,
+        score: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : base.score,
+        aiScore: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null,
+        hookScore: Number.isFinite(Number(selection.hook)) ? Math.max(0, Math.min(100, Number(selection.hook))) : null,
+        standaloneScore: Number.isFinite(Number(selection.standalone)) ? Math.max(0, Math.min(100, Number(selection.standalone))) : null,
+        payoffScore: Number.isFinite(Number(selection.payoff)) ? Math.max(0, Math.min(100, Number(selection.payoff))) : null,
+        emotionScore: Number.isFinite(Number(selection.emotion)) ? Math.max(0, Math.min(100, Number(selection.emotion))) : null,
+        clarityScore: Number.isFinite(Number(selection.clarity)) ? Math.max(0, Math.min(100, Number(selection.clarity))) : null,
+        aiReason: String(selection.reason || "").trim().slice(0, 240),
+        highlightType: allowedHighlightTypes.has(String(selection.type || "").trim().toLowerCase())
+          ? String(selection.type).trim().toLowerCase()
+          : base.highlightType || "insight",
+        title: String(selection.title || base.title).replace(/\s+/g, " ").trim().slice(0, 100) || base.title,
+      };
+    }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
+
+    const selected = [];
+    const tokenize = (value) => new Set(String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((word) => word.length > 2));
+    const similarity = (left, right) => {
+      const a = tokenize(left);
+      const b = tokenize(right);
+      if (!a.size || !b.size) return 0;
+      let shared = 0;
+      for (const word of a) if (b.has(word)) shared += 1;
+      return shared / (a.size + b.size - shared);
+    };
+    const addIfDistinct = (candidate) => {
+      if (!candidate || selected.length >= safeLimit) return false;
+      const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
+      if (overlaps) return false;
+      const duplicate = selected.some((item) => similarity(item.transcript, candidate.transcript) >= 0.72);
+      if (duplicate) return false;
+      selected.push(candidate);
+      return true;
+    };
+
+    // Build a more useful clip pack by giving distinct intelligence types
+    // a chance before filling the remaining slots with pure score order.
+    const seenTypes = new Set();
+    for (const candidate of ranked) {
+      if (selected.length >= safeLimit) break;
+      const type = String(candidate.highlightType || "").trim().toLowerCase();
+      if (type && seenTypes.has(type)) continue;
+      if (addIfDistinct(candidate) && type) seenTypes.add(type);
+    }
+    for (const candidate of ranked) {
+      if (selected.length >= safeLimit) break;
+      addIfDistinct(candidate);
+    }
+
+    // If the model returns fewer clips than requested, fill the remaining slots
+    // with the strongest non-overlapping baseline candidates. This keeps the
+    // automatic pipeline productive when the model is conservative or truncates
+    // its JSON response, while preserving AI selections at the top.
+    for (const candidate of baseline) {
+      if (selected.length >= safeLimit) break;
+      addIfDistinct(candidate);
+    }
+
+    if (!selected.length) throw new Error("AI returned no usable highlight selections.");
+    return { candidates: selected.map((item, index) => ({ ...item, rank: index + 1 })), engine: "openai-highlights-v1" };
+  } catch (error) {
+    return {
+      candidates: fallback(),
+      engine: "heuristic-fallback",
+      aiError: error?.name === "AbortError" ? "Highlight analysis timed out." : String(error?.message || "Highlight analysis failed."),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
