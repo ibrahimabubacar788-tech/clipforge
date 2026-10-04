@@ -42,8 +42,17 @@ function run(command, args, { onProgress } = {}) {
     let stderr = "";
     let progressBuffer = "";
     child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+      const text = chunk.toString();
+      stderr += text;
       if (stderr.length > 12000) stderr = stderr.slice(-12000);
+      if (!onProgress) return;
+      progressBuffer += text;
+      const lines = progressBuffer.split(/\r?\n/);
+      progressBuffer = lines.pop() || "";
+      for (const line of lines) {
+        const match = line.match(/^out_time_us=(\d+)/);
+        if (match) void onProgress(Number(match[1]) / 1000000);
+      }
     });
     child.on("error", (error) => { clearTimeout(timeout); reject(error); });
     child.on("close", (code) => { clearTimeout(timeout); code === 0 ? resolve() : reject(new Error(`FFmpeg exited with code ${code}: ${stderr.slice(-1000)}`)); });
