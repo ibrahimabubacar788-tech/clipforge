@@ -35,6 +35,16 @@ export function summarizePerformance(clips = []) {
   const engagementRate = totals.views
     ? Number((((totals.likes + totals.comments + totals.shares) / totals.views) * 100).toFixed(2))
     : null;
+  const byPlatform = {};
+  for (const clip of tracked) {
+    const metric = clip.performance || {};
+    const platform = String(metric.platform || "unknown").trim().toLowerCase() || "unknown";
+    const entry = byPlatform[platform] || { platform, clips: 0, views: 0, engagements: 0 };
+    entry.clips += 1;
+    entry.views += Math.max(0, Number(metric.views) || 0);
+    entry.engagements += Math.max(0, Number(metric.likes) || 0) + Math.max(0, Number(metric.comments) || 0) + Math.max(0, Number(metric.shares) || 0);
+    byPlatform[platform] = entry;
+  }
   const byType = {};
   for (const clip of tracked) {
     const type = String(clip.highlightType || "insight").trim().toLowerCase();
@@ -50,6 +60,10 @@ export function summarizePerformance(clips = []) {
     totals,
     engagementRate,
     byType: Object.values(byType).map((entry) => ({
+      ...entry,
+      engagementRate: entry.views ? Number(((entry.engagements / entry.views) * 100).toFixed(2)) : null,
+    })).sort((a, b) => b.views - a.views),
+    byPlatform: Object.values(byPlatform).map((entry) => ({
       ...entry,
       engagementRate: entry.views ? Number(((entry.engagements / entry.views) * 100).toFixed(2)) : null,
     })).sort((a, b) => b.views - a.views),
