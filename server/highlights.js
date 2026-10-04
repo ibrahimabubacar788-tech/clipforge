@@ -44,7 +44,7 @@ function scoreWindow(text, duration) {
   if (duration > 90) score -= 10;
   return score;
 }
-export function rankHighlights(segments, { limit = 10, minDuration = 15, maxDuration = 75 } = {}) {
+export function rankHighlights(segments, { limit = 10, minDuration = 15, maxDuration = 75, candidateLimit } = {}) {
   const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.min(300, Math.max(0, Number(minDuration))) : 15;
   const parsedMaxDuration = Number(maxDuration);
@@ -83,13 +83,17 @@ export function rankHighlights(segments, { limit = 10, minDuration = 15, maxDura
   }
   candidates.sort((a, b) => b.score - a.score || a.start - b.start);
   const selected = [];
-  const max = safeLimit;
+  const parsedCandidateLimit = Number(candidateLimit);
+  const safeCandidateLimit = Number.isFinite(parsedCandidateLimit)
+    ? Math.max(safeLimit, Math.min(150, Math.floor(parsedCandidateLimit)))
+    : safeLimit;
+  const max = safeCandidateLimit;
   for (const candidate of candidates) {
     if (selected.length >= max) break;
     const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
     if (!overlaps) selected.push(candidate);
   }
-  return selected.map((item, index) => ({ ...item, rank: index + 1 }));
+  return selected.slice(0, safeLimit).map((item, index) => ({ ...item, rank: index + 1 }));
 }
 
 
@@ -107,7 +111,8 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   if (!apiKey) return { candidates: fallback(), engine: "heuristic-fallback" };
 
   const baseline = rankHighlights(segments, {
-    limit: Math.min(50, safeLimit * 3),
+    limit: safeLimit,
+    candidateLimit: Math.min(150, safeLimit * 3),
     minDuration: safeMinDuration,
     maxDuration: safeMaxDuration,
   });
