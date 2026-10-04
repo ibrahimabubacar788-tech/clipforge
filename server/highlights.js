@@ -9,6 +9,14 @@ const PAYOFFS = [
   /\bbut\b/i, /\bso\b/i, /\bbecause\b/i, /\bthat means\b/i,
   /\bturns out\b/i, /\bended up\b/i, /\bresult\b/i,
 ];
+const CURIOSITY_GAPS = [
+  /\b(?:what nobody tells you|the part people miss|here'?s what happened next|you'?d never guess|the surprising part|what I didn'?t expect|there'?s a reason)\b/i,
+  /\b(?:I thought|we thought|I assumed|we assumed)\b/i,
+];
+const STAKES = [
+  /\b(?:had to|couldn'?t|almost|nearly|risked|lost|won|failed|succeeded|changed everything|never forgot)\b/i,
+  /\b(?:million|thousand|hundred|%|times)\b/i,
+];
 const normalize = (segment) => ({
   start: Number(segment.start),
   end: Number(segment.end),
@@ -76,6 +84,12 @@ function scoreWindow(text, duration) {
   if (/\b(?:before|after|now|then|used to|went from|changed|learned|discovered|realized)\b/i.test(text)) score += 4;
   if (/\b(?:won|lost|failed|succeeded|saved|made|spent|earned|cost|grew|dropped|increased|decreased)\b/i.test(text) && /\b\d+(?:\.\d+)?(?:%|k|m|b)?\b/i.test(text)) score += 5;
   if (/\b(?:most people|nobody|everyone|no one|the problem|the biggest|the key|the secret)\b/i.test(text)) score += 4;
+  // High-value narrative signals: curiosity gaps + stakes + belief changes
+  // often make a clip compelling even when the original long-form context is removed.
+  if (CURIOSITY_GAPS.some((pattern) => pattern.test(text))) score += 9;
+  if (STAKES.some((pattern) => pattern.test(text))) score += 4;
+  if (/\b(?:I thought|we thought|I used to|we used to|then I|then we|until I|until we|but I|but we)\b/i.test(text)
+      && /\b(?:realized|learned|discovered|changed|wrong|right|actually|turns out)\b/i.test(text)) score += 8;
   if (/\b(um+|uh+|you know|like|basically|sort of|kind of)\b/i.test(text)) score -= 4;
   if (/\b(subscribe|sponsored by|promo code|link in the description)\b/i.test(text)) score -= 12;
   if (/\b(guys|hey guys|welcome back|today we're going to|in this video)\b/i.test(text)) score -= 3;
