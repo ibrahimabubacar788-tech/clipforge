@@ -144,6 +144,7 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
   // the 15–75s range that short-form clips normally need.
   const targetDurations = [...new Set([
     safeMinDuration,
+    Math.min(safeMaxDuration, Math.max(safeMinDuration, 20)),
     Math.min(safeMaxDuration, Math.max(safeMinDuration, 30)),
     Math.min(safeMaxDuration, Math.max(safeMinDuration, 45)),
     Math.min(safeMaxDuration, Math.max(safeMinDuration, 60)),
