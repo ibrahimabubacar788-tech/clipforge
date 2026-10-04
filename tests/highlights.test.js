@@ -164,7 +164,7 @@ test("AI highlight packs diversify intelligence types before filling by score", 
   globalThis.fetch = async () => new Response(JSON.stringify({
     output_text: JSON.stringify({
       selections: [
-        { id: 0, score: 99, reason: "Strong hook", title: "Hook", type: "hook" },
+        { id: 0, score: 99, hook: 97, standalone: 95, payoff: 88, emotion: 70, clarity: 96, reason: "Strong hook", title: "Hook", type: "hook" },
         { id: 1, score: 98, reason: "Another hook", title: "Hook two", type: "hook" },
         { id: 2, score: 90, reason: "Useful payoff", title: "Payoff", type: "payoff" },
       ],
@@ -179,6 +179,9 @@ test("AI highlight packs diversify intelligence types before filling by score", 
     assert.equal(result.candidates.length, 2);
     assert.equal(result.candidates[0].highlightType, "hook");
     assert.equal(result.candidates[1].highlightType, "payoff");
+    assert.equal(result.candidates[0].hookScore, 97);
+    assert.equal(result.candidates[0].standaloneScore, 95);
+    assert.equal(result.candidates[0].clarityScore, 96);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
