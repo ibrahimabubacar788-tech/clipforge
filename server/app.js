@@ -9,7 +9,7 @@ import { O_NOFOLLOW, O_RDONLY } from "node:constants";
 import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
-import { login, logout, publicUser, register, requireUser } from "./auth.js";
+import { login, logout, publicUser, register, requireUser, updateAccount } from "./auth.js";
 const execFileAsync = promisify(execFile);
 
 async function probeVideoDuration(source) {
@@ -148,7 +148,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       throw Object.assign(new Error("Method not allowed."), { status: 405 });
     }
     let payload = {};
-    if (["POST", "PATCH"].includes(req.method) && ["/api/auth/register", "/api/auth/login"].includes(pathname)) payload = await body(req);
+    if (["POST", "PATCH"].includes(req.method) && ["/api/auth/register", "/api/auth/login", "/api/auth/update"].includes(pathname)) payload = await body(req);
     if (req.method === "GET" && pathname === "/api/ready") {
       await db.load();
       const mediaPersistent = String(process.env.MEDIA_STORAGE_PERSISTENT || "").toLowerCase() === "true";
@@ -178,6 +178,10 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         recordAuthFailure(req);
         throw error;
       }
+    }
+    if (req.method === "PATCH" && pathname === "/api/auth/update") {
+      const updated = await updateAccount(db, user, payload.email, payload.password);
+      return json(res, 200, { user: publicUser(updated) });
     }
     if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); res.setHeader("set-cookie", sessionCookie("", 0)); res.writeHead(204); res.end(); return; }
     const user = await requireUser(req, db);
