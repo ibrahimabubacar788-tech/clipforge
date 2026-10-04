@@ -137,7 +137,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
               text: `Select the strongest short-form video moments from these transcript windows.\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.
 Reject filler, contextless fragments, repetitive introductions, and sponsor boilerplate.
-Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"reason":"brief reason","title":"short title","type":"hook"}]}.
+Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"payoff":90,"emotion":78,"clarity":96,"reason":"brief reason","title":"short title","type":"hook"}]}.
 For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
 Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.`,
             }],
@@ -181,6 +181,11 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         ...base,
         score: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : base.score,
         aiScore: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null,
+        hookScore: Number.isFinite(Number(selection.hook)) ? Math.max(0, Math.min(100, Number(selection.hook))) : null,
+        standaloneScore: Number.isFinite(Number(selection.standalone)) ? Math.max(0, Math.min(100, Number(selection.standalone))) : null,
+        payoffScore: Number.isFinite(Number(selection.payoff)) ? Math.max(0, Math.min(100, Number(selection.payoff))) : null,
+        emotionScore: Number.isFinite(Number(selection.emotion)) ? Math.max(0, Math.min(100, Number(selection.emotion))) : null,
+        clarityScore: Number.isFinite(Number(selection.clarity)) ? Math.max(0, Math.min(100, Number(selection.clarity))) : null,
         aiReason: String(selection.reason || "").trim().slice(0, 240),
         highlightType: allowedHighlightTypes.has(String(selection.type || "").trim().toLowerCase())
           ? String(selection.type).trim().toLowerCase()
