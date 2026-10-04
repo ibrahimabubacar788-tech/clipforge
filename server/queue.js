@@ -112,7 +112,7 @@ function videoFilter(clip, captions = []) {
 }
 
 export class ClipQueue {
-  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; this.subtitleSupport = null; }
+  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; this.subtitleSupport = null; this.concurrency = Math.max(1, Math.min(2, Number(process.env.CLIPFORGE_RENDER_CONCURRENCY) || 2)); }
   async checkSubtitleSupport() {
     return new Promise((resolve) => {
       const child = spawn(this.ffmpegPath, ["-hide_banner", "-filters"], { stdio: ["ignore", "pipe", "pipe"] });
@@ -209,22 +209,33 @@ export class ClipQueue {
   async work() {
     if (this.running) return;
     this.running = true;
-    try {
+    const worker = async () => {
       while (true) {
-      const job = await this.db.transaction((d) => { const next = d.jobs.find((j) => j.status === "queued"); if (next) { next.status = "processing"; next.progress = 15; next.startedAt = now(); } return next && { ...next }; });
-      if (!job) break;
-      try {
-        const clip = await this.db.read((d) => d.clips.find((c) => c.id === job.clipId));
-        if (!clip) throw new Error("Clip not found.");
-        await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); if (j) j.progress = 35; });
-        console.log(`ClipForge render started: ${job.id} clip=${clip.id} ffmpeg=${this.ffmpegPath}`);
-        const { filename } = await this.render(clip);
-        await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "completed", progress: 100, completedAt: now() }); if (c) Object.assign(c, { status: "ready", downloadUrl: `/storage/exports/${filename}`, updatedAt: now() }); });
-      } catch (error) {
-        console.error(`ClipForge render failed: job=${job.id} clip=${job.clipId} error=${error.message}`);
-        await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "failed", error: error.message, completedAt: now() }); if (c) Object.assign(c, { status: "failed", updatedAt: now() }); });
+        const job = await this.db.transaction((d) => {
+          const next = d.jobs.find((j) => j.status === "queued");
+          if (next) {
+            next.status = "processing";
+            next.progress = 15;
+            next.startedAt = now();
+          }
+          return next && { ...next };
+        });
+        if (!job) break;
+        try {
+          const clip = await this.db.read((d) => d.clips.find((c) => c.id === job.clipId));
+          if (!clip) throw new Error("Clip not found.");
+          await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); if (j) j.progress = 35; });
+          console.log(`ClipForge render started: ${job.id} clip=${clip.id} ffmpeg=${this.ffmpegPath}`);
+          const { filename } = await this.render(clip);
+          await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "completed", progress: 100, completedAt: now() }); if (c) Object.assign(c, { status: "ready", downloadUrl: `/storage/exports/${filename}`, updatedAt: now() }); });
+        } catch (error) {
+          console.error(`ClipForge render failed: job=${job.id} clip=${job.clipId} error=${error.message}`);
+          await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "failed", error: error.message, completedAt: now() }); if (c) Object.assign(c, { status: "failed", updatedAt: now() }); });
+        }
       }
-      }
+    };
+    try {
+      await Promise.all(Array.from({ length: this.concurrency }, () => worker()));
     } finally {
       this.running = false;
     }
