@@ -197,10 +197,21 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
     }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
 
     const selected = [];
+    const tokenize = (value) => new Set(String(value || "").toLowerCase().replace(/[^a-z0-9\\s]/g, " ").split(/\\s+/).filter((word) => word.length > 2));
+    const similarity = (left, right) => {
+      const a = tokenize(left);
+      const b = tokenize(right);
+      if (!a.size || !b.size) return 0;
+      let shared = 0;
+      for (const word of a) if (b.has(word)) shared += 1;
+      return shared / (a.size + b.size - shared);
+    };
     const addIfDistinct = (candidate) => {
       if (!candidate || selected.length >= safeLimit) return false;
       const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
       if (overlaps) return false;
+      const duplicate = selected.some((item) => similarity(item.transcript, candidate.transcript) >= 0.72);
+      if (duplicate) return false;
       selected.push(candidate);
       return true;
     };
