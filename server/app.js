@@ -528,13 +528,15 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           && end - start <= maxClipDuration;
       });
       if (!candidates.length) throw Object.assign(new Error("The AI could not find enough valid moments inside this video."), { status: 422 });
-      const captionSegmentsByKey = new Map();
+      const translatedCaptionSegmentsByCandidate = new Map();
       if (captionLanguage !== "original") {
+        let translationOffset = 0;
         const sourceCaptionSegments = candidates.flatMap((candidate) => Array.isArray(candidate.captionSegments) ? candidate.captionSegments : []);
         const translatedCaptionSegments = await translateTranscriptSegments(sourceCaptionSegments, captionLanguage);
-        translatedCaptionSegments.forEach((segment, index) => {
-          const original = sourceCaptionSegments[index];
-          if (original) captionSegmentsByKey.set(String(original.start) + ":" + String(original.end) + ":" + original.text, segment.text);
+        candidates.forEach((candidate, candidateIndex) => {
+          const sourceSegments = Array.isArray(candidate.captionSegments) ? candidate.captionSegments : [];
+          translatedCaptionSegmentsByCandidate.set(candidateIndex, translatedCaptionSegments.slice(translationOffset, translationOffset + sourceSegments.length));
+          translationOffset += sourceSegments.length;
         });
       }
 
@@ -555,7 +557,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           format,
           captions,
           captionLanguage,
-          captionSegments: normalizeCaptionSegments((candidate.captionSegments || []).map((segment) => ({ ...segment, text: captionSegmentsByKey.get(String(segment.start) + ":" + String(segment.end) + ":" + segment.text) || segment.text }))),
+          captionSegments: normalizeCaptionSegments((candidate.captionSegments || []).map((segment, segmentIndex) => ({ ...segment, text: translatedCaptionSegmentsByCandidate.get(candidates.indexOf(candidate))?.[segmentIndex]?.text || segment.text }))),
           style: normalizeCaptionStyle(payload.style),
           status: "queued",
           generation: "auto-ai",
