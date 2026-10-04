@@ -38,6 +38,7 @@ async function probeVideoDuration(source) {
 const sessionCookie = (token, maxAge = 60 * 60 * 24 * 14) => `clipforge_session=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 import { ClipQueue } from "./queue.js";
 import { rankHighlights, rankHighlightsWithAI } from "./highlights.js";
+import { getContentProfile, listContentProfiles, normalizeContentProfile } from "./content-strategy.js";
 import { parseTimestampedTranscript, normalizeTranscript } from "./transcript.js";
 import { transcribeVideo } from "./stt.js";
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v", ".ogv": "video/ogg" };
@@ -181,6 +182,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     const bearerToken = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
     if (!req.headers.cookie && bearerToken) res.setHeader("set-cookie", sessionCookie(bearerToken));
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
+    if (req.method === "GET" && pathname === "/api/content-profiles") return json(res, 200, { profiles: listContentProfiles() });
     const videoStreamMatch = pathname.match(/^\/api\/videos\/([^/]+)\/stream$/);
     if (videoStreamMatch && req.method === "GET") {
       const video = await db.read((d) => d.videos.find((item) => item.id === videoStreamMatch[1] && item.userId === user.id));
@@ -250,6 +252,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
       const requestedLanguage = String(payload.language || "").trim().toLowerCase();
       const language = /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "en";
+      const profile = normalizeContentProfile(payload.profile || payload.contentProfile || "creator");
+      const contentProfile = getContentProfile(profile);
       const transcript = await transcribeVideo({ source: resolvedSource, ffmpegPath: queue.ffmpegPath, language });
       if (!transcript.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
       await db.transaction((d) => {
@@ -438,6 +442,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         limit,
         minDuration: 15,
         maxDuration: maxClipDuration,
+        profile,
       });
       const candidates = analysis.candidates.filter((candidate) => {
         const start = Number(candidate.start);
@@ -460,6 +465,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           projectId: video.projectId,
           sourceUrl: video.sourceUrl,
           transcriptLanguage: language,
+          contentProfile: profile,
+          contentProfileLabel: contentProfile.label,
           title: candidate.title,
           start: candidate.start,
           end: candidate.end,
@@ -499,6 +506,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         transcribed,
         transcriptCount: segments.length,
         requested: limit,
+        profile,
+        profileLabel: contentProfile.label,
         generated: created.length,
         clips: created,
       });
