@@ -19,7 +19,8 @@ test("highlight scoring penalizes filler and promotional boilerplate", () => {
   const clips = rankHighlights([
     { start: 0, end: 8, text: "Um, you know, basically this is the thing." },
     { start: 8, end: 16, text: "The biggest mistake is ignoring your audience." },
-    { start: 16, end: 24, text: "Subscribe for more and use my promo code below." },
+    { start: 24, end: 32, text: "Subscribe for more and use my promo code below." },
+    { start: 32, end: 40, text: "This result is useful for creators." },
   ], { limit: 3, minDuration: 15, maxDuration: 30 });
 
   assert.equal(clips.length, 2);
