@@ -22,3 +22,18 @@ test("producer plan falls back safely for empty projects", () => {
   assert.equal(plan.strongest, null);
   assert.equal(plan.priorities.length, 3);
 });
+
+
+test("producer performance summary identifies proven intelligence types", () => {
+  const plan = buildProducerPlan([
+    { id: "a", highlightType: "hook", highlightScore: 90, performance: { views: 1000, likes: 100, comments: 20, shares: 30 } },
+    { id: "b", highlightType: "hook", highlightScore: 85, performance: { views: 500, likes: 20, comments: 5, shares: 5 } },
+    { id: "c", highlightType: "emotion", highlightScore: 88, performance: { views: 800, likes: 24, comments: 8, shares: 8 } },
+  ], "creator");
+  assert.equal(plan.performance.trackedClips, 3);
+  assert.equal(plan.performance.totals.views, 2300);
+  assert.equal(plan.performance.totals.likes, 144);
+  assert.equal(plan.performance.engagementRate, 9.13);
+  assert.equal(plan.provenTypes[0], "hook");
+  assert.ok(plan.performance.byType.some((item) => item.type === "hook" && item.views === 1500));
+});
