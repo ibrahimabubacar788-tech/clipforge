@@ -30,8 +30,23 @@ function classifyHighlight(text) {
   return "insight";
 }
 
-function scoreWindow(text, duration) {
+function boundaryQualityScore(text) {
+  const value = String(text || "").trim();
+  if (!value) return 0;
   let score = 0;
+  // Prefer windows that begin and end on natural linguistic boundaries.
+  // This keeps auto-clips from opening/ending on dangling fragments.
+  if (/^[A-Z0-9"“'‘]/.test(value)) score += 3;
+  if (/[.!?]["”'’)]?$/.test(value)) score += 6;
+  if (/[,:;]$/.test(value)) score -= 5;
+  if (/(?:^|\\s)(?:and|but|or|so|because|which|that|if|when|while|although|yet|then|than)$/i.test(value.replace(/[.!?,;:]+$/, ""))) score -= 7;
+  if (/^(?:and|but|or|so|because|which|that|if|when|while|although|yet|then|than)\\b/i.test(value)) score -= 7;
+  if (/(?:\\b(?:a|an|the|to|of|for|with|from|on|in|at|by|as|is|are|was|were|this|that)\\s*)$/i.test(value.replace(/[.!?,;:]+$/, ""))) score -= 4;
+  return score;
+}
+
+function scoreWindow(text, duration) {
+  let score = boundaryQualityScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
@@ -230,7 +245,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
               type: "input_text",
               text: `Select the strongest short-form video moments from these transcript windows.\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.
-Reject filler, contextless fragments, repetitive introductions, and sponsor boilerplate.
+Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
 ${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
 Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"payoff":90,"emotion":78,"clarity":96,"reason":"brief reason","title":"short title","type":"hook"}]}.
 For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
