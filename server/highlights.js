@@ -235,6 +235,8 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
     end: item.end,
     duration: item.duration,
     transcript: item.transcript.slice(0, 1800),
+    baselineScore: Math.round(Number(item.score) || 0),
+    highlightType: item.highlightType || "insight",
   }));
 
   const controller = new AbortController();
