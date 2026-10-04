@@ -116,9 +116,15 @@ export function buildProducerPlan(clips = [], profile = "creator") {
       : "Start with a strong hook and let performance data guide the next recommendation.";
   const recommendationConfidence = provenTypes[0] ? "high" : performance.trackedClips ? "medium" : "low";
   const platformLeader = performance.byPlatform[0] || null;
+  const platformEngagementLeader = [...performance.byPlatform]
+    .filter((entry) => entry.views >= 100)
+    .sort((a, b) => (b.engagementRate || 0) - (a.engagementRate || 0))[0] || null;
   const platformRecommendation = platformLeader
     ? "Prioritize " + platformLeader.platform + " for the next test because it has the most tracked views in this project."
     : "Log platform results after publishing so ClipForge can learn where your content performs best.";
+  const platformEngagementRecommendation = platformEngagementLeader
+    ? "For engagement, " + platformEngagementLeader.platform + " currently leads at " + platformEngagementLeader.engagementRate + "%."
+    : "More platform performance data is needed before comparing engagement.";
   const nextPublishPlan = {
     type: recommendedType,
     typeLabel: TYPE_LABELS[recommendedType] || recommendedType,
@@ -131,7 +137,7 @@ export function buildProducerPlan(clips = [], profile = "creator") {
     performance,
     provenTypes,
     nextPublish: { type: recommendedType, label: TYPE_LABELS[recommendedType] || recommendedType, reason: recommendedReason, confidence: recommendationConfidence },
-    platformRecommendation: { platform: platformLeader?.platform || null, reason: platformRecommendation },
+    platformRecommendation: { platform: platformLeader?.platform || null, reason: platformRecommendation, engagementLeader: platformEngagementLeader?.platform || null, engagementReason: platformEngagementRecommendation },
     nextPublishPlan,
     totalClips: safeClips.length,
     averageScore,
