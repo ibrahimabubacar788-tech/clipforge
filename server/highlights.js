@@ -59,6 +59,13 @@ function scoreWindow(text, duration) {
   if (/\b\d+(?:\.\d+)?(?:%|x|k|m|b)?\b/i.test(text)) score += 5;
   if (/\b(step|steps|tip|tips|lesson|rule|example|result|proof|mistake|reason)\b/i.test(text)) score += 5;
   if (/\b(but|however|instead|yet|although|until|even though)\b/i.test(text)) score += 5;
+  // Cheap semantic signals: reward question-to-answer moments and concrete
+  // framing that often survives context removal in short-form clips.
+  if (/\?/.test(text) && /\b(because|so|therefore|that means|the reason|it\s+(?:is|was))\b/i.test(text)) score += 7;
+  if (/\b(?:if you|when you|the reason|the key|the best|the worst|what happened|what I learned|what we found)\b/i.test(text)) score += 6;
+  const uniqueWords = new Set(text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((word) => word.length >= 4));
+  const totalWords = text.split(/\s+/).filter(Boolean).length;
+  if (totalWords >= 18 && uniqueWords.size / totalWords >= 0.62) score += 5;
   // Reward clips that can stand alone: a clear opening, enough substance,
   // and a complete thought are more useful than arbitrary transcript windows.
   if (/^[^.!?]{8,}[.!?]/.test(text.trim())) score += 4;
