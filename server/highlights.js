@@ -137,7 +137,8 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
               text: `Select the strongest short-form video moments from these transcript windows.\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.
 Reject filler, contextless fragments, repetitive introductions, and sponsor boilerplate.
-Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"reason":"brief reason","title":"short title"}]}.
+Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"reason":"brief reason","title":"short title","type":"hook"}]}.
+For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
 Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.`,
             }],
           },
@@ -169,6 +170,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
       if (firstBrace < 0 || lastBrace <= firstBrace) throw new Error("AI returned invalid highlight JSON.");
       parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
     }
+    const allowedHighlightTypes = new Set(["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"]);
     const selections = Array.isArray(parsed.selections) ? parsed.selections.slice(0, safeLimit * 3) : [];
     const byId = new Map(baseline.map((item, id) => [id, item]));
     const ranked = selections.map((selection) => {
@@ -180,7 +182,9 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         score: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : base.score,
         aiScore: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null,
         aiReason: String(selection.reason || "").trim().slice(0, 240),
-        highlightType: String(selection.type || base.highlightType || "insight").trim().slice(0, 40) || "insight",
+        highlightType: allowedHighlightTypes.has(String(selection.type || "").trim().toLowerCase())
+          ? String(selection.type).trim().toLowerCase()
+          : base.highlightType || "insight",
         title: String(selection.title || base.title).replace(/\s+/g, " ").trim().slice(0, 100) || base.title,
       };
     }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
