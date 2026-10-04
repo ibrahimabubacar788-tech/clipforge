@@ -130,20 +130,22 @@ function renderDashboard(projects = []) {
   const grid = document.querySelector("#project-grid");
   if (!grid) return;
   const count = document.querySelector("#dashboard-project-count");
-  if (count) count.textContent = `${projects.length} project${projects.length === 1 ? "" : "s"}`;
-  grid.replaceChildren(...projects.map((project) => {
+  if (count) count.textContent = String(projects.length);
+  grid.replaceChildren(...projects.map((project, index) => {
     const card = document.createElement("article");
     card.className = "project-card";
     card.tabIndex = 0;
     card.setAttribute("role", "button");
     card.setAttribute("aria-label", `Open ${project.name}`);
-    card.innerHTML = '<div class="project-card-mark">CF</div><div class="project-card-copy"><h3></h3><p>Open project workspace</p></div><span class="project-card-arrow" aria-hidden="true">→</span>';
+    card.innerHTML = '<div><div class="project-card-mark"></div><div class="project-card-copy"><h3></h3><p>AI clipping workspace</p></div></div><span class="project-card-arrow" aria-hidden="true">→</span>';
+    card.querySelector(".project-card-mark").textContent = String(index + 1).padStart(2, "0");
     card.querySelector("h3").textContent = project.name;
     card.addEventListener("click", () => openProject(project.id));
     card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProject(project.id); } });
     return card;
   }));
 }
+
 async function openProject(projectId) {
   await loadProject(projectId);
   switchView("editor");
@@ -193,7 +195,7 @@ async function ensureWorkspace() {
         const email = `creator-${crypto.randomUUID().slice(0, 8)}@clipforge.local`;
         const password = crypto.randomUUID();
         apiSession = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
-        window.localStorage.setItem(identityKey, JSON.stringify({ email, password }));
+        window.localStorage.setItem(identityKey, JSON.stringify({ email }));
         window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
       }
     }
@@ -1989,6 +1991,9 @@ const showSettingsTab = (tab) => {
 document.querySelectorAll("[data-settings-tab]").forEach((button) => button.addEventListener("click", () => showSettingsTab(button.dataset.settingsTab)));
 document.querySelector("#account-button")?.addEventListener("click", openAccountSettings);
 document.querySelector("#dashboard-settings")?.addEventListener("click", openAccountSettings);
+document.querySelector("#dashboard-open-editor")?.addEventListener("click", () => { if (currentProject) openProject(currentProject.id); });
+document.querySelector("#dashboard-open-library")?.addEventListener("click", () => { if (currentProject) { switchView("clips"); history.replaceState(null, "", "#clips"); } });
+document.querySelector("#dashboard-open-settings")?.addEventListener("click", openAccountSettings);
 
 document.querySelector("#account-dialog-save")?.addEventListener("click", async () => {
   const saveButton = document.querySelector("#account-dialog-save");
