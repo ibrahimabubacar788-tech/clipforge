@@ -1910,7 +1910,10 @@ async function pollAutoClipStatus(videoId) {
     for (let attempt = 0; attempt < 450; attempt += 1) {
       if (automaticClipFailures.has(videoId) || currentProject?.id !== pollingProjectId) return;
       try {
-        const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status`);
+        const statusLanguage = transcriptionLanguage?.value || safeStorageParse(transcriptionLanguageKey, "auto");
+        const statusCaptionLanguage = captionLanguageSelect?.value || safeStorageParse(captionLanguageKey, "original");
+        const statusQuery = new URLSearchParams({ language: statusLanguage, captionLanguage: statusCaptionLanguage });
+        const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status?${statusQuery.toString()}`);
         if (currentProject?.id !== pollingProjectId) return;
         const scopedAutomaticClips = status.clips.filter((clip) => clip.projectId === pollingProjectId);
         clips = [...scopedAutomaticClips, ...clips.filter((clip) => clip.projectId === currentProject?.id && (clip.videoId !== videoId || clip.generation !== "auto-ai"))];
