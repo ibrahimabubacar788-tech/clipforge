@@ -209,7 +209,7 @@ export class ClipQueue {
       await writeFile(watermarkPath, watermarkPpm(), { encoding: "utf8", flag: "wx" });
       if (captions.length && this.subtitleSupport) {
         const stamp = (seconds) => { const total = Math.max(0, Number(seconds) || 0); const ms = Math.round((total % 1) * 1000); const whole = Math.floor(total); const h = Math.floor(whole / 3600); const m = Math.floor((whole % 3600) / 60); const sec = whole % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")},${String(ms).padStart(3, "0")}`; };
-        const srt = captions.map((caption, index) => `${index + 1}\\n${stamp(caption.start)} --> ${stamp(caption.end)}\\n${caption.text}\\n`).join("\\n");\n        await writeFile(captionSrtPath, srt, { encoding: "utf8", flag: "wx" });
+        const srt = captions.map((caption, index) => `${index + 1}\n${stamp(caption.start)} --> ${stamp(caption.end)}\n${caption.text}\n`).join("\n");\n        await writeFile(captionSrtPath, srt, { encoding: "utf8", flag: "wx" });
       }
       for(let i=0;i<captions.length;i++) await writeFile(captionPaths[i],captionPpm(captions[i].text,clip.style?.color==="pink"?"ff8fbe":clip.style?.color==="sky"?"8be1ff":"d3e964"),{ encoding: "utf8", flag: "wx" });
       const args=["-y","-i",resolvedSource,"-loop","1","-i",watermarkPath];
