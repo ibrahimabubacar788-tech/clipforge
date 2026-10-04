@@ -128,12 +128,18 @@ const api = async (path, options = {}) => {
 function renderDashboard(projects = []) {
   const grid = document.querySelector("#project-grid");
   if (!grid) return;
+  const count = document.querySelector("#dashboard-project-count");
+  if (count) count.textContent = `${projects.length} project${projects.length === 1 ? "" : "s"}`;
   grid.replaceChildren(...projects.map((project) => {
     const card = document.createElement("article");
     card.className = "project-card";
-    card.innerHTML = '<div class="project-card-mark">CF</div><div class="project-card-copy"><h3></h3><p>Open project workspace</p></div><span class="project-card-arrow">→</span>';
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", `Open ${project.name}`);
+    card.innerHTML = '<div class="project-card-mark">CF</div><div class="project-card-copy"><h3></h3><p>Open project workspace</p></div><span class="project-card-arrow" aria-hidden="true">→</span>';
     card.querySelector("h3").textContent = project.name;
     card.addEventListener("click", () => openProject(project.id));
+    card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProject(project.id); } });
     return card;
   }));
 }
