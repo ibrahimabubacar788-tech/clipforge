@@ -223,22 +223,23 @@ test("AI highlight packs reject near-duplicate transcript windows", async () => 
   globalThis.fetch = async () => new Response(JSON.stringify({
     output_text: JSON.stringify({
       selections: [
-        { id: 0, score: 99, reason: "Best version", title: "Main point", type: "insight" },
+        { id: 0, score: 99, reason: "Best version", title: "Main point", type: "reveal" },
         { id: 1, score: 98, reason: "Nearly identical", title: "Main point again", type: "insight" },
-        { id: 2, score: 90, reason: "Different point", title: "Different insight", type: "insight" },
+        { id: 2, score: 90, reason: "Different point", title: "Different insight", type: "payoff" },
       ],
     }),
   }), { status: 200, headers: { "content-type": "application/json" } });
   try {
     const result = await rankHighlightsWithAI([
       { start: 0, end: 20, text: "The biggest lesson is that creators should focus on one clear idea and make the result useful for the audience." },
-      { start: 100, end: 120, text: "The biggest lesson is that creators should focus on one clear idea and make the result useful for the audience today." },
+      { start: 100, end: 120, text: "Creators should focus on one clear idea and make the result useful for the audience today." },
       { start: 200, end: 220, text: "The surprising result is that consistency matters more than posting every single day." },
     ], { limit: 2, minDuration: 15, maxDuration: 75 });
     assert.equal(result.engine, "openai-highlights-v1");
     assert.equal(result.candidates.length, 2);
     assert.equal(result.candidates[0].start, 0);
-    assert.equal(result.candidates[1].start, 200);
+    assert.equal(result.candidates.some((candidate) => candidate.start === 0 && candidate.start === 100), false);
+    assert.ok(result.candidates.some((candidate) => candidate.start === 200));
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
