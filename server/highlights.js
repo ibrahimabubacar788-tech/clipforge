@@ -1,3 +1,4 @@
+import { getContentProfile, normalizeContentProfile } from "./content-strategy.js";
 const HOOKS = [
   /\bhere'?s the thing\b/i, /\byou need to know\b/i, /\bthe truth is\b/i,
   /\bthe biggest\b/i, /\bsecret\b/i, /\bmistake\b/i, /\bnever\b/i,
@@ -80,7 +81,8 @@ export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDura
 }
 
 
-export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75 } = {}) {
+export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator" } = {}) {
+  const contentProfile = getContentProfile(normalizeContentProfile(profile));
   const apiKey = process.env.OPENAI_API_KEY;
   const safeLimit = Math.max(1, Math.min(40, Number(limit) || 12));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.min(300, Math.max(0, Number(minDuration))) : 15;
@@ -120,7 +122,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
             role: "system",
             content: [{
               type: "input_text",
-              text: `Select the strongest short-form video moments from these transcript windows.
+              text: `Select the strongest short-form video moments from these transcript windows.\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.
 Reject filler, contextless fragments, repetitive introductions, and sponsor boilerplate.
 Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"reason":"brief reason","title":"short title"}]}.
