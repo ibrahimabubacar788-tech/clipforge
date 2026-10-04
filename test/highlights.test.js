@@ -25,6 +25,15 @@ test("highlight scoring rewards concrete lessons and contrast", () => {
   assert.ok(clips[0].score >= 50);
 });
 
+test("highlight classification recognizes practical tips and payoff language", () => {
+  const clips = rankHighlights([
+    { start: 0, end: 16, text: "Here are three tips because this simple lesson gets better results." },
+  ], { limit: 1, minDuration: 15, maxDuration: 30 });
+
+  assert.equal(clips.length, 1);
+  assert.equal(clips[0].highlightType, "how-to");
+});
+
 test("highlight scoring penalizes filler and promotional boilerplate", () => {
   const clips = rankHighlights([
     { start: 0, end: 8, text: "Um, you know, basically this is the thing." },
