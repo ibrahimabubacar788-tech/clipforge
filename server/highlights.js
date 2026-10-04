@@ -56,7 +56,7 @@ function scoreWindow(text, duration) {
   return score;
 }
 function transcriptTokenSet(text) {
-  return new Set(normalizeText(text).split(/\\s+/).filter((token) => token.length >= 4));
+  return new Set(String(text || "").toLowerCase().replace(/[^a-z0-9\\s]/g, " ").split(/\\s+/).filter((token) => token.length >= 4));
 }
 
 function transcriptSimilarity(left, right) {
