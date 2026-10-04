@@ -413,7 +413,7 @@ async function uploadSource(file) {
     send();
   });
   activeUploadRequest = null;
-  const uploadedVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: uploadProjectId, name: file.name, duration, sourceUrl: upload.url }) })).video;
+  const uploadedVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: uploadProjectId, name: file.name, sourceUrl: upload.url }) })).video;
   duration = Number(uploadedVideo?.duration);
   if (!Number.isFinite(duration) || duration <= 0) throw new Error("ClipForge could not read the uploaded video's duration on the server.");
   if (currentProject?.id !== uploadProjectId) {
@@ -433,13 +433,13 @@ async function uploadSource(file) {
   if (uploadProgressBar) uploadProgressBar.value = 100;
   if (uploadProgressPercent) uploadProgressPercent.textContent = "100%";
   if (uploadProgressLabel) uploadProgressLabel.textContent = "Upload complete";
-  showToast("Video uploaded. ClipForge is preparing the strongest moments…");
+  showToast("Video uploaded. ClipForge is analyzing it automatically…");
   try {
     const autoClipProjectId = currentProject?.id;
     const autoClipVideoId = sourceVideo?.id;
     if (!autoClipProjectId || !autoClipVideoId) throw new Error("The source video is no longer available.");
     const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
-    const autoClipPayload = JSON.stringify({ limit: 40, format, style: captionStyle, language: transcriptionLanguage?.value || "en" });
+    const autoClipPayload = JSON.stringify({ limit: 12, format, style: captionStyle, language: transcriptionLanguage?.value || "en" });
     const requestAutomaticClipping = () => api(`/api/videos/${encodeURIComponent(autoClipVideoId)}/auto-clip`, {
       method: "POST",
       body: autoClipPayload
