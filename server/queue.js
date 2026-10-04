@@ -112,7 +112,7 @@ function videoFilter(clip, captions = []) {
 }
 
 export class ClipQueue {
-  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; }
+  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; this.subtitleSupport = null; }
   async checkSubtitleSupport() {
     return new Promise((resolve) => {
       const child = spawn(this.ffmpegPath, ["-hide_banner", "-filters"], { stdio: ["ignore", "pipe", "pipe"] });
@@ -122,7 +122,7 @@ export class ClipQueue {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve(supported);
+        this.subtitleSupport = supported;\n        resolve(supported);
       };
       const timer = setTimeout(() => {
         child.kill("SIGKILL");
