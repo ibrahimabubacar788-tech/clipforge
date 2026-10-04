@@ -382,8 +382,10 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
       const profile = normalizeContentProfile(payload.profile || payload.contentProfile || "creator");
       const contentProfile = getContentProfile(profile);
-      const requestedLanguage = String(payload.language || "").trim().toLowerCase();
-      const language = /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "en";
+      const requestedLanguage = String(payload.language || payload.sourceLanguage || "").trim().toLowerCase();
+      const language = requestedLanguage === "auto" || /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "auto";
+      const requestedCaptionLanguage = String(payload.captionLanguage || "original").trim().toLowerCase();
+      const captionLanguage = requestedCaptionLanguage === "original" || /^[a-z]{2,3}$/.test(requestedCaptionLanguage) ? requestedCaptionLanguage : "original";
       if (autoClipInFlight.has(video.id)) {
         throw Object.assign(new Error("Automatic clipping is already running for this video."), { status: 409 });
       }
@@ -533,7 +535,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           end: candidate.end,
           format,
           captions: true,
-          captionSegments: normalizeCaptionSegments(candidate.captionSegments),
+          captionLanguage,
+          captionSegments: normalizeCaptionSegments((candidate.captionSegments || []).map((segment) => ({ ...segment, text: captionSegmentsByKey.get(String(segment.start) + ":" + String(segment.end) + ":" + segment.text) || segment.text }))),
           style: normalizeCaptionStyle(payload.style),
           status: "queued",
           generation: "auto-ai",
@@ -591,13 +594,22 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (!video.sourceUrl) throw Object.assign(new Error("Video has no uploaded source file."), { status: 422 });
       const segments = normalizeTranscript(Array.isArray(payload.segments) && payload.segments.length ? payload.segments : video.transcript || []);
       if (!segments.length) throw Object.assign(new Error("Add or import a transcript before generating clips."), { status: 422 });
-      const limit = Math.max(1, Math.min(40, Number(payload.limit) || 40));
+      const limit = Math.max(1, Math.min(50, Number(payload.limit) || 10));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
       const candidates = rankHighlights(segments, {
-        limit,
+        limit: Math.min(50, limit),
         minDuration: 15,
         maxDuration: Math.min(75, Math.max(20, Number(video.duration) || 75)),
       });
+      const captionSegmentsByKey = new Map();
+      if (captionLanguage !== "original") {
+        const sourceCaptionSegments = candidates.flatMap((candidate) => Array.isArray(candidate.captionSegments) ? candidate.captionSegments : []);
+        const translatedCaptionSegments = await translateTranscriptSegments(sourceCaptionSegments, captionLanguage);
+        translatedCaptionSegments.forEach((segment, index) => {
+          const original = sourceCaptionSegments[index];
+          if (original) captionSegmentsByKey.set(String(original.start) + ":" + String(original.end) + ":" + original.text, segment.text);
+        });
+      }
       const created = [];
       for (const candidate of candidates) {
         const clip = {
