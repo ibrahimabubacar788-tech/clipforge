@@ -76,6 +76,36 @@ function diversityPenalty(candidate, selected) {
   }, 0);
 }
 
+function isTrimWorthyBoundary(text, side) {
+  const value = String(text || "").trim();
+  if (!value) return false;
+  if (side === "start") {
+    return /^(?:um+|uh+|well|okay|ok|so|you know|basically|like|hey guys|welcome back)[,.:;!\s]/i.test(value)
+      || /^(?:today we're going to|in this video|in today's video)\b/i.test(value);
+  }
+  return /(?:subscribe|sponsored by|promo code|link in the description)\b/i.test(value)
+    || /^(?:thanks for watching|see you next time|that's it)[.!\s]*$/i.test(value);
+}
+
+function refineBoundarySegments(items, minDuration) {
+  let start = 0;
+  let end = items.length;
+  while (end - start > 1) {
+    const duration = Number(items[end - 1].end) - Number(items[start].start);
+    if (duration < minDuration) break;
+    if (isTrimWorthyBoundary(items[start].text, "start")) {
+      start += 1;
+      continue;
+    }
+    if (isTrimWorthyBoundary(items[end - 1].text, "end")) {
+      end -= 1;
+      continue;
+    }
+    break;
+  }
+  return items.slice(start, end);
+}
+
 function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDuration = 75, candidateLimit } = {}) {
   const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.min(300, Math.max(0, Number(minDuration))) : 15;
@@ -100,13 +130,21 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
       const duration = end - start;
       if (duration < safeMinDuration) continue;
       if (duration > safeMaxDuration) break;
+      const rawCaptionSegments = clean.slice(i, j + 1).filter((item) => item.end > start && item.start < end);
+      const refinedSegments = refineBoundarySegments(rawCaptionSegments, safeMinDuration);
+      const refinedStart = refinedSegments[0]?.start ?? start;
+      const refinedEnd = refinedSegments[refinedSegments.length - 1]?.end ?? end;
+      const refinedDuration = refinedEnd - refinedStart;
+      const refinedText = refinedSegments.map((item) => item.text).join(" ").trim();
+      if (refinedDuration < safeMinDuration || !refinedText) continue;
       candidates.push({
-        start: Number(start.toFixed(3)), end: Number(end.toFixed(3)),
-        duration: Number(duration.toFixed(3)), score: scoreWindow(text, duration),
-        highlightType: classifyHighlight(text),
-        title: text.replace(/\s+/g, " ").slice(0, 72) || "Untitled highlight",
-        transcript: text, speakers: [...speakers],
-        captionSegments: clean.slice(i, j + 1).filter((item) => item.end > start && item.start < end),
+        start: Number(refinedStart.toFixed(3)), end: Number(refinedEnd.toFixed(3)),
+        duration: Number(refinedDuration.toFixed(3)), score: scoreWindow(refinedText, refinedDuration),
+        highlightType: classifyHighlight(refinedText),
+        title: refinedText.replace(/\s+/g, " ").slice(0, 72) || "Untitled highlight",
+        transcript: refinedText,
+        speakers: [...new Set(refinedSegments.map((item) => item.speaker).filter(Boolean))],
+        captionSegments: refinedSegments,
       });
     }
   }
