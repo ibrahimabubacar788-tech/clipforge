@@ -113,12 +113,12 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   const fallback = () => rankHighlights(segments, { limit: safeLimit, minDuration: safeMinDuration, maxDuration: safeMaxDuration });
   if (!apiKey) return { candidates: fallback(), engine: "heuristic-fallback" };
 
-  const baseline = rankHighlights(segments, {
+  const baseline = collectRankedHighlights(segments, {
     limit: safeLimit,
     candidateLimit: Math.min(150, safeLimit * 3),
     minDuration: safeMinDuration,
     maxDuration: safeMaxDuration,
-  });
+  }).map((item, index) => ({ ...item, rank: index + 1 }));
   if (!baseline.length) return { candidates: [], engine: "openai-highlights-v1" };
 
   const candidates = baseline.map((item, id) => ({
