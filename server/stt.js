@@ -47,29 +47,35 @@ export const INTERNATIONAL_LANGUAGES = [
 ];
 
 export async function translateTranscriptSegments(segments, targetLanguage) {
-  const apiKey = process.env.OPENAI_API_KEY;
   const target = String(targetLanguage || "").trim().toLowerCase();
-  if (!apiKey) throw Object.assign(new Error("AI translation is not configured. Add OPENAI_API_KEY to the server environment."), { status: 503 });
   if (!target || target === "original" || target === "auto") return segments;
   if (!Array.isArray(segments) || !segments.length) return [];
-  const compact = segments.slice(0, 2000).map((segment, index) => ({ index, start: segment.start, end: segment.end, text: segment.text }));
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + apiKey, "content-type": "application/json" },
-    body: JSON.stringify({
-      model: process.env.CLIPFORGE_TRANSLATION_MODEL || "gpt-4o-mini",
-      input: "Translate every transcript segment into " + target + ". Preserve each index, start, and end exactly. Return JSON only as an array of objects with index and text. Do not summarize, omit, merge, or reorder segments. Preserve names and meaning.\n\n" + JSON.stringify(compact)
-    })
-  });
-  const raw = await response.text();
-  let result = {};
-  try { result = JSON.parse(raw); } catch { result = { error: { message: raw } }; }
-  if (!response.ok) throw Object.assign(new Error(result?.error?.message || "AI translation failed."), { status: response.status >= 500 ? 502 : 422 });
-  const output = String(result.output_text || "").trim().replace("```json", "").replace("```", "").trim();
-  let translated;
-  try { translated = JSON.parse(output); } catch { throw Object.assign(new Error("AI translation returned an invalid result."), { status: 502 }); }
-  const byIndex = new Map((Array.isArray(translated) ? translated : []).map(item => [Number(item.index), String(item.text || "").trim()]));
-  return segments.map((segment, index) => ({ ...segment, text: byIndex.get(index) || segment.text }));
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw Object.assign(new Error("AI translation is not configured. Add OPENAI_API_KEY to the server environment."), { status: 503 });
+  const batchSize = 500;
+  const translatedSegments = [];
+  for (let offset = 0; offset < segments.length; offset += batchSize) {
+    const batch = segments.slice(offset, offset + batchSize);
+    const compact = batch.map((segment, index) => ({ index, start: segment.start, end: segment.end, text: segment.text }));
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + apiKey, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.CLIPFORGE_TRANSLATION_MODEL || "gpt-4o-mini",
+        input: "Translate every transcript segment into " + target + ". Preserve each index, start, and end exactly. Return JSON only as an array of objects with index and text. Do not summarize, omit, merge, or reorder segments. Preserve names and meaning.\n\n" + JSON.stringify(compact)
+      })
+    });
+    const raw = await response.text();
+    let result = {};
+    try { result = JSON.parse(raw); } catch { result = { error: { message: raw } }; }
+    if (!response.ok) throw Object.assign(new Error(result?.error?.message || "AI translation failed."), { status: response.status >= 500 ? 502 : 422 });
+    const output = String(result.output_text || "").trim().replace("```json", "").replace("```", "").trim();
+    let translated;
+    try { translated = JSON.parse(output); } catch { throw Object.assign(new Error("AI translation returned an invalid result."), { status: 502 }); }
+    const byIndex = new Map((Array.isArray(translated) ? translated : []).map(item => [Number(item.index), String(item.text || "").trim()]));
+    batch.forEach((segment, index) => translatedSegments.push({ ...segment, text: byIndex.get(index) || segment.text }));
+  }
+  return translatedSegments;
 }
 export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
   const apiKey = process.env.OPENAI_API_KEY;
