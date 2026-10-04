@@ -21,10 +21,10 @@ function valid(segment) {
 }
 function classifyHighlight(text) {
   const value = String(text || "");
-  if (/\b(how|steps?|do this|here'?s how|tutorial|learn)\b/i.test(value)) return "how-to";
-  if (/\b(secret|truth|biggest|mistake|never|nobody|surprising|didn'?t expect)\b/i.test(value)) return "reveal";
+  if (/\b(how|steps?|do this|here'?s how|tutorial|learn|tip|tips|lesson)\b/i.test(value)) return "how-to";
+  if (/\b(secret|truth|biggest|mistake|never|nobody|surprising|didn'?t expect|turns out)\b/i.test(value)) return "reveal";
   if (/[!?]/.test(value) && /\b(you|your|we|I|my)\b/i.test(value)) return "hook";
-  if (/\b(because|that means|result|ended up|finally|then|after)\b/i.test(value)) return "payoff";
+  if (/\b(because|that means|result|ended up|finally|then|after|therefore|which is why)\b/i.test(value)) return "payoff";
   if (/\b(laugh|funny|joke|hilarious|crazy)\b/i.test(value)) return "humor";
   if (/\b(feel|felt|love|hate|scared|happy|sad|angry|emotional)\b/i.test(value)) return "emotion";
   return "insight";
