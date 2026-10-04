@@ -70,6 +70,12 @@ function scoreWindow(text, duration) {
   // and a complete thought are more useful than arbitrary transcript windows.
   if (/^[^.!?]{8,}[.!?]/.test(text.trim())) score += 4;
   if (/\b(because|therefore|that means|which is why|so)\b/i.test(text)) score += 4;
+  // Reward stronger short-form narrative signals: contrast, stakes, outcomes,
+  // and concrete before/after or numeric claims tend to survive context removal.
+  if (/\b(?:but|however|instead|yet|although|except|until|then)\b/i.test(text) && /\b(?:because|so|therefore|why|reason|result|ended up|turned out)\b/i.test(text)) score += 6;
+  if (/\b(?:before|after|now|then|used to|went from|changed|learned|discovered|realized)\b/i.test(text)) score += 4;
+  if (/\b(?:won|lost|failed|succeeded|saved|made|spent|earned|cost|grew|dropped|increased|decreased)\b/i.test(text) && /\b\d+(?:\.\d+)?(?:%|k|m|b)?\b/i.test(text)) score += 5;
+  if (/\b(?:most people|nobody|everyone|no one|the problem|the biggest|the key|the secret)\b/i.test(text)) score += 4;
   if (/\b(um+|uh+|you know|like|basically|sort of|kind of)\b/i.test(text)) score -= 4;
   if (/\b(subscribe|sponsored by|promo code|link in the description)\b/i.test(text)) score -= 12;
   if (/\b(guys|hey guys|welcome back|today we're going to|in this video)\b/i.test(text)) score -= 3;
