@@ -998,13 +998,14 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
     if (currentProject?.id !== generationProjectId || sourceVideo?.id !== generationVideoId) {
       throw new Error("The source video or project changed while generation was running. Please reopen the original project before generating clips.");
     }
-    const format = document.querySelector(".format-option.selected").dataset.format;
+    const format = document.querySelector("#ai-output-format")?.value || document.querySelector(".format-option.selected")?.dataset.format || "9:16";
+    const captions = document.querySelector("#ai-caption-enabled")?.value !== "false";
     const contentProfile = document.querySelector("#ai-content-profile")?.value || window.localStorage.getItem("clipforge-content-profile") || "creator";
     window.localStorage.setItem("clipforge-content-profile", contentProfile);
     const endpoint = rawTranscript ? "generate-clips" : "auto-clip";
     const result = await api(`/api/videos/${encodeURIComponent(generationVideoId)}/${endpoint}`, {
       method: "POST",
-      body: JSON.stringify({ limit: selectedClipCount, format, style: captionStyle, language: transcriptionLanguage?.value || "auto", captionLanguage: document.querySelector("#caption-language")?.value || safeStorageParse(captionLanguageKey, "original"), profile: contentProfile })
+      body: JSON.stringify({ limit: selectedClipCount, format, captions, style: captionStyle, language: transcriptionLanguage?.value || "auto", captionLanguage: document.querySelector("#caption-language")?.value || safeStorageParse(captionLanguageKey, "original"), profile: contentProfile })
     });
     if (currentProject?.id !== generationProjectId || sourceVideo?.id !== generationVideoId) {
       throw new Error("The source video or project changed while generation was running. The generated clips were kept on the original source.");
