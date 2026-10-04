@@ -596,6 +596,7 @@ async function loadProducerPlan() {
     const mix = (plan.mix || []).slice(0, 5).map((item) => escapeHtml(item.label) + ": " + item.count).join(" · ");
     const nextPublish = plan.nextPublish?.label ? "<div class=\"producer-next-publish\"><b>Next publish:</b> " + escapeHtml(plan.nextPublish.label) + " <small>(" + escapeHtml(plan.nextPublish.confidence || "medium") + " confidence)</small><span>" + escapeHtml(plan.nextPublish.reason || "") + "</span></div>" : "";
     const platformSummary = (performance.byPlatform || []).slice(0, 3).map((item) => escapeHtml(item.platform) + ": " + item.views.toLocaleString() + " views").join(" · ");
+    const platformRecommendation = plan.platformRecommendation?.reason ? "<p><b>Platform focus:</b> " + escapeHtml(plan.platformRecommendation.reason) + "</p>" : "";
 
     const targetTypes = (plan.priorities || []).map((item) => item.type).filter(Boolean).slice(0, 3);
     if (libraryProducerCreateButton) {
@@ -605,7 +606,7 @@ async function loadProducerPlan() {
     }
     libraryProducerPlan.innerHTML = "<div class=\"producer-plan-head\"><strong>AI Producer Plan</strong><span>" + escapeHtml(plan.strategy?.label || "Creator") + "</span></div>" +
       "<p>" + (plan.averageScore === null ? "No scored clips yet." : "Average AI score: <b>" + plan.averageScore + "/100</b>") + (mix ? " · " + mix : "") + "</p>" +
-      "<p>" + learning + "</p>" + (platformSummary ? "<p>Platforms: " + platformSummary + "</p>" : "") + nextPublish + (priorities ? "<ul>" + priorities + "</ul>" : "<p>Your current clip mix covers the main intelligence types. Keep rotating formats to avoid repetition.</p>");
+      "<p>" + learning + "</p>" + (platformSummary ? "<p>Platforms: " + platformSummary + "</p>" : "") + platformRecommendation + nextPublish + (priorities ? "<ul>" + priorities + "</ul>" : "<p>Your current clip mix covers the main intelligence types. Keep rotating formats to avoid repetition.</p>");
     libraryProducerPlan.hidden = false;
   } catch (error) {
     showToast("Producer plan unavailable: " + error.message);
