@@ -260,7 +260,8 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
       const refinedEnd = refinedSegments[refinedSegments.length - 1]?.end ?? end;
       const refinedDuration = refinedEnd - refinedStart;
       const refinedText = refinedSegments.map((item) => item.text).join(" ").trim();
-      const completeness = sentenceCompletenessScore(refinedText);\n      const continuity = transcriptContinuityScore(refinedSegments);
+      const completeness = sentenceCompletenessScore(refinedText);
+      const continuity = transcriptContinuityScore(refinedSegments);
       if (refinedDuration >= safeMinDuration && refinedText && completeness >= -1) {
         candidates.push({
           start: Number(refinedStart.toFixed(3)), end: Number(refinedEnd.toFixed(3)),
