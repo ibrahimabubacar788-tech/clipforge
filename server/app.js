@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import ffmpegPath from "ffmpeg-static";
 import { createServer } from "node:http";
 import { createReadStream, createWriteStream } from "node:fs";
 import { access, lstat, mkdir, open, realpath, stat, unlink } from "node:fs/promises";
@@ -7,6 +10,31 @@ import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
 import { login, logout, publicUser, register, requireUser } from "./auth.js";
+const execFileAsync = promisify(execFile);
+
+async function probeVideoDuration(source) {
+  try {
+    const { stderr = "" } = await execFileAsync(ffmpegPath, ["-hide_banner", "-i", source], {
+      timeout: 120_000,
+      maxBuffer: 2_000_000,
+    });
+    const text = String(stderr);
+    const match = text.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/i);
+    if (!match) throw new Error("FFmpeg could not determine the video duration.");
+    const duration = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error("FFmpeg returned an invalid video duration.");
+    return duration;
+  } catch (error) {
+    const text = String(error?.stderr || error?.message || "");
+    const match = text.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/i);
+    if (match) {
+      const duration = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+      if (Number.isFinite(duration) && duration > 0) return duration;
+    }
+    throw Object.assign(new Error("ClipForge could not read the uploaded video's duration. The file may use an unsupported or damaged video format."), { status: 422 });
+  }
+}
+
 const sessionCookie = (token, maxAge = 60 * 60 * 24 * 14) => `clipforge_session=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 import { ClipQueue } from "./queue.js";
 import { rankHighlights, rankHighlightsWithAI } from "./highlights.js";
@@ -586,7 +614,12 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       res.writeHead(204); res.end(); return;
     }
 
-    if (req.method === "POST" && pathname === "/api/videos") { const project = await db.read((d) => d.projects.find((p) => p.id === payload.projectId && p.userId === user.id)); if (!project) throw Object.assign(new Error("Project not found."), { status: 404 }); const sourceUrl = payload.sourceUrl || null; let source; if (sourceUrl && (typeof sourceUrl !== "string" || !sourceUrl.startsWith("/storage/uploads/"))) throw Object.assign(new Error("Source video must reference an uploaded file."), { status: 422 }); if (sourceUrl) { const uploadName = sourceUrl.slice("/storage/uploads/".length); source = normalize(join(storageDir, "uploads", uploadName)); const uploadsRoot = normalize(join(storageDir, "uploads")).replace(/[\\/]$/, ""); if (!source.startsWith(uploadsRoot + "/") && !source.startsWith(uploadsRoot + "\\")) throw Object.assign(new Error("Invalid uploaded video path."), { status: 403 }); const info = await stat(source).catch(() => null); if (info && !info.isFile()) throw Object.assign(new Error("Uploaded video source must be a regular file."), { status: 422 }); if (info?.isFile()) { const resolvedSource = await realpath(source).catch(() => null); const resolvedUploadsRoot = await realpath(join(storageDir, "uploads")).catch(() => null); if (!resolvedSource || !resolvedUploadsRoot) throw Object.assign(new Error("Invalid uploaded video path."), { status: 403 }); const relativeResolved = requireRelative(resolvedUploadsRoot, resolvedSource); if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid uploaded video path."), { status: 403 }); if (!uploadName.startsWith(user.id + "-")) throw Object.assign(new Error("You can only attach your own uploaded video."), { status: 403 }); } } const duration = Number(payload.duration); if (!Number.isFinite(duration) || duration <= 0) throw Object.assign(new Error("A valid video duration is required."), { status: 422 }); const videoName = String(payload.name || "Untitled video").trim(); if (videoName.length > 160) throw Object.assign(new Error("Video name must be 160 characters or fewer."), { status: 422 }); const video = { id: id("vid"), userId: user.id, projectId: project.id, name: videoName || "Untitled video", duration, sourceUrl, createdAt: now() }; try { await db.transaction((d) => d.videos.push(video)); } catch (error) { if (source) { const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === sourceUrl)); if (!stillReferenced) await safeUnlinkStorageFile(storageDir, sourceUrl); } throw error; } return json(res, 201, { video }); }
+    if (req.method === "POST" && pathname === "/api/videos") { const project = await db.read((d) => d.projects.find((p) => p.id === payload.projectId && p.userId === user.id)); if (!project) throw Object.assign(new Error("Project not found."), { status: 404 }); const sourceUrl = payload.sourceUrl || null; let source; if (sourceUrl && (typeof sourceUrl !== "string" || !sourceUrl.startsWith("/storage/uploads/"))) throw Object.assign(new Error("Source video must reference an uploaded file."), { status: 422 }); if (sourceUrl) { const uploadName = sourceUrl.slice("/storage/uploads/".length); source = normalize(join(storageDir, "uploads", uploadName)); const uploadsRoot = normalize(join(storageDir, "uploads")).replace(/[\\/]$/, ""); if (!source.startsWith(uploadsRoot + "/") && !source.startsWith(uploadsRoot + "\\")) throw Object.assign(new Error("Invalid uploaded video path."), { status: 403 }); const info = await stat(source).catch(() => null); if (info && !info.isFile()) throw Object.assign(new Error("Uploaded video source must be a regular file."), { status: 422 }); if (info?.isFile()) { const resolvedSource = await realpath(source).catch(() => null); const resolvedUploadsRoot = await realpath(join(storageDir, "uploads")).catch(() => null); if (!resolvedSource || !resolvedUploadsRoot) throw Object.assign(new Error("Invalid uploaded video path."), { status: 403 }); const relativeResolved = requireRelative(resolvedUploadsRoot, resolvedSource); if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid uploaded video path."), { status: 403 }); if (!uploadName.startsWith(user.id + "-")) throw Object.assign(new Error("You can only attach your own uploaded video."), { status: 403 }); } } let duration = Number(payload.duration);
+      if (!Number.isFinite(duration) || duration <= 0) {
+        if (!source) throw Object.assign(new Error("A valid video duration is required when no uploaded source is attached."), { status: 422 });
+        duration = await probeVideoDuration(source);
+      }
+      const video = { id: id("vid"), userId: user.id, projectId: project.id, name: videoName || "Untitled video", duration, sourceUrl, createdAt: now() }; try { await db.transaction((d) => d.videos.push(video)); } catch (error) { if (source) { const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === sourceUrl)); if (!stillReferenced) await safeUnlinkStorageFile(storageDir, sourceUrl); } throw error; } return json(res, 201, { video }); }
 if (req.method === "POST" && pathname === "/api/uploads") {
       const user = await requireUser(req, db);
       const filename = String(req.headers["x-filename"] || "video.mp4").slice(0, 120).replace(/[^a-zA-Z0-9._-]/g, "_");
