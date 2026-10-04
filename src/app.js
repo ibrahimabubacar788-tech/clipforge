@@ -45,6 +45,7 @@ const libraryProjectProgress = document.querySelector("#library-project-progress
 const libraryProjectProgressBar = document.querySelector("#library-project-progress-bar");
 const libraryProjectProgressLabel = document.querySelector("#library-project-progress-label");
 const libraryProducerPlanButton = document.querySelector("#library-producer-plan");
+const libraryProducerCreateButton = document.querySelector("#library-producer-create");
 const libraryProducerPlan = document.querySelector("#library-producer-plan-result");
 
 const selectAllClipsButton = document.querySelector("#select-all-clips");
@@ -588,6 +589,12 @@ async function loadProducerPlan() {
     const plan = result.plan || {};
     const priorities = (plan.priorities || []).map((item) => "<li><b>" + escapeHtml(item.label) + "</b><span>" + escapeHtml(item.recommendation) + "</span></li>").join("");
     const mix = (plan.mix || []).slice(0, 5).map((item) => escapeHtml(item.label) + ": " + item.count).join(" · ");
+    const targetTypes = (plan.priorities || []).map((item) => item.type).filter(Boolean).slice(0, 3);
+    if (libraryProducerCreateButton) {
+      libraryProducerCreateButton.disabled = !sourceVideo?.id || !targetTypes.length;
+      libraryProducerCreateButton.dataset.targetTypes = targetTypes.join(",");
+      libraryProducerCreateButton.textContent = targetTypes.length ? "Create priority clips" : "Priority mix complete";
+    }
     libraryProducerPlan.innerHTML = "<div class=\"producer-plan-head\"><strong>AI Producer Plan</strong><span>" + escapeHtml(plan.strategy?.label || "Creator") + "</span></div>" +
       "<p>" + (plan.averageScore === null ? "No scored clips yet." : "Average AI score: <b>" + plan.averageScore + "/100</b>") + (mix ? " · " + mix : "") + "</p>" +
       (priorities ? "<ul>" + priorities + "</ul>" : "<p>Your current clip mix covers the main intelligence types. Keep rotating formats to avoid repetition.</p>");
@@ -597,6 +604,42 @@ async function loadProducerPlan() {
   } finally {
     libraryProducerPlanButton.disabled = false;
     libraryProducerPlanButton.textContent = "AI Producer Plan";
+  }
+}
+
+async function createProducerPriorityClips() {
+  const videoId = sourceVideo?.id;
+  const projectId = currentProject?.id;
+  const targetTypes = String(libraryProducerCreateButton?.dataset.targetTypes || "").split(",").map((type) => type.trim()).filter(Boolean).slice(0, 3);
+  if (!videoId || !projectId || !targetTypes.length) {
+    showToast("Upload a source video first, then load the AI Producer Plan.");
+    return;
+  }
+  libraryProducerCreateButton.disabled = true;
+  libraryProducerCreateButton.textContent = "Creating…";
+  try {
+    const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
+    const profile = window.localStorage.getItem("clipforge-content-profile") || "creator";
+    const result = await api("/api/videos/" + encodeURIComponent(videoId) + "/auto-clip", {
+      method: "POST",
+      body: JSON.stringify({
+        limit: 12,
+        format,
+        style: captionStyle,
+        language: transcriptionLanguage?.value || "en",
+        profile,
+        targetTypes,
+      }),
+    });
+    clips = [...(result.clips || []).map((item) => item.clip), ...clips.filter((clip) => !(result.clips || []).some((item) => item.clip.id === clip.id))];
+    renderClipLibrary();
+    void pollAutoClipStatus(videoId);
+    showToast("Producer is creating a priority mix: " + targetTypes.join(", ") + ".");
+  } catch (error) {
+    showToast("Priority clip creation failed: " + error.message);
+  } finally {
+    libraryProducerCreateButton.disabled = false;
+    libraryProducerCreateButton.textContent = "Create priority clips";
   }
 }
 
@@ -1186,6 +1229,7 @@ clearClipFiltersButton?.addEventListener("click", () => {
 clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });
 
 libraryProducerPlanButton?.addEventListener("click", loadProducerPlan);
+libraryProducerCreateButton?.addEventListener("click", () => { void createProducerPriorityClips(); });
 copyClipLinksButton?.addEventListener("click", () => { void copySelectedClipLinks(); });
 exportClipListButton?.addEventListener("click", exportSelectedClipList);
 copyClipTitlesButton?.addEventListener("click", () => { void copySelectedClipTitles(); });
