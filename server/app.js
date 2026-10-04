@@ -39,6 +39,7 @@ const sessionCookie = (token, maxAge = 60 * 60 * 24 * 14) => `clipforge_session=
 import { ClipQueue } from "./queue.js";
 import { rankHighlights, rankHighlightsWithAI } from "./highlights.js";
 import { getContentProfile, listContentProfiles, normalizeContentProfile } from "./content-strategy.js";
+import { buildContentPack } from "./content-packaging.js";
 import { parseTimestampedTranscript, normalizeTranscript } from "./transcript.js";
 import { transcribeVideo } from "./stt.js";
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v", ".ogv": "video/ogg" };
@@ -183,6 +184,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (!req.headers.cookie && bearerToken) res.setHeader("set-cookie", sessionCookie(bearerToken));
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
     if (req.method === "GET" && pathname === "/api/content-profiles") return json(res, 200, { profiles: listContentProfiles() });
+    const clipPackagingMatch = pathname.match(/^\/api\/clips\/([^/]+)\/content-packaging$/);\n    if (req.method === "GET" && clipPackagingMatch) {\n      const clip = await db.read((d) => d.clips.find((item) => item.id === clipPackagingMatch[1] && item.userId === user.id));\n      if (!clip) throw Object.assign(new Error("Clip not found."), { status: 404 });\n      return json(res, 200, { clipId: clip.id, packaging: buildContentPack(clip) });\n    }
     const videoStreamMatch = pathname.match(/^\/api\/videos\/([^/]+)\/stream$/);
     if (videoStreamMatch && req.method === "GET") {
       const video = await db.read((d) => d.videos.find((item) => item.id === videoStreamMatch[1] && item.userId === user.id));
