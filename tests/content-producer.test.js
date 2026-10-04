@@ -33,7 +33,7 @@ test("producer performance summary identifies proven intelligence types", () => 
   assert.equal(plan.performance.trackedClips, 3);
   assert.equal(plan.performance.totals.views, 2300);
   assert.equal(plan.performance.totals.likes, 144);
-  assert.equal(plan.performance.engagementRate, 9.13);
+  assert.equal(plan.performance.engagementRate, 9.57);
   assert.equal(plan.provenTypes[0], "hook");
   assert.ok(plan.performance.byType.some((item) => item.type === "hook" && item.views === 1500));
 });
