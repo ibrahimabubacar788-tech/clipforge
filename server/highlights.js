@@ -39,9 +39,9 @@ function boundaryQualityScore(text) {
   if (/^[A-Z0-9"“'‘]/.test(value)) score += 3;
   if (/[.!?]["”'’)]?$/.test(value)) score += 6;
   if (/[,:;]$/.test(value)) score -= 5;
-  if (/(?:^|\\s)(?:and|but|or|so|because|which|that|if|when|while|although|yet|then|than)$/i.test(value.replace(/[.!?,;:]+$/, ""))) score -= 7;
-  if (/^(?:and|but|or|so|because|which|that|if|when|while|although|yet|then|than)\\b/i.test(value)) score -= 7;
-  if (/(?:\\b(?:a|an|the|to|of|for|with|from|on|in|at|by|as|is|are|was|were|this|that)\\s*)$/i.test(value.replace(/[.!?,;:]+$/, ""))) score -= 4;
+  if (/(?:^|\s)(?:and|but|or|so|because|which|that|if|when|while|although|yet|then|than)$/i.test(value.replace(/[.!?,;:]+$/, ""))) score -= 7;
+  if (/^(?:and|but|or|so|because|which|that|if|when|while|although|yet|then|than)\b/i.test(value)) score -= 7;
+  if (/(?:\b(?:a|an|the|to|of|for|with|from|on|in|at|by|as|is|are|was|were|this|that)\s*)$/i.test(value.replace(/[.!?,;:]+$/, ""))) score -= 4;
   return score;
 }
 
@@ -71,7 +71,7 @@ function scoreWindow(text, duration) {
   return score;
 }
 function transcriptTokenSet(text) {
-  return new Set(String(text || "").toLowerCase().replace(/[^a-z0-9\\s]/g, " ").split(/\\s+/).filter((token) => token.length >= 4));
+  return new Set(String(text || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((token) => token.length >= 4));
 }
 
 function transcriptSimilarity(left, right) {
@@ -96,7 +96,7 @@ function isTrimWorthyBoundary(text, side) {
   const value = String(text || "").trim();
   if (!value) return false;
   if (side === "start") {
-    return /^(?:um+|uh+|well|okay|ok|so|you know|basically|like|hey guys|welcome back)[,.:;!\s]/i.test(value)
+    return /^(?:um+|uh+|well|okay|ok|so|and|but|or|because|which|that|if|when|while|although|yet|then|you know|basically|like|hey guys|welcome back)[,.:;!\s]/i.test(value)
       || /^(?:today we're going to|in this video|in today's video)\b/i.test(value);
   }
   return /(?:subscribe|sponsored by|promo code|link in the description)\b/i.test(value)
