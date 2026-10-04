@@ -144,7 +144,7 @@ test("AI highlight selections use an allowed intelligence type and reject unknow
   try {
     const result = await rankHighlightsWithAI([
       { start: 0, end: 20, text: "The secret is that creators often make this biggest mistake." },
-      { start: 30, end: 50, text: "Here is useful context about how the process finally works." },
+      { start: 100, end: 120, text: "Here is useful context about how the process finally works." },
     ], { limit: 2, minDuration: 15, maxDuration: 75 });
     assert.equal(result.engine, "openai-highlights-v1");
     assert.equal(result.candidates[0].highlightType, "reveal");
