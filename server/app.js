@@ -339,14 +339,23 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
 
     const autoClipStatusMatch = pathname.match(/^\/api\/videos\/([^/]+)\/auto-clip-status$/);
     if (req.method === "GET" && autoClipStatusMatch) {
+      const statusUrl = new URL(req.url, "http://clipforge.local");
+      const requestedLanguage = String(statusUrl.searchParams.get("language") || "auto").trim().toLowerCase();
+      const statusLanguage = requestedLanguage === "auto" || /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "auto";
+      const requestedCaptionLanguage = String(statusUrl.searchParams.get("captionLanguage") || "original").trim().toLowerCase();
+      const statusCaptionLanguage = requestedCaptionLanguage === "original" || /^[a-z]{2,3}$/.test(requestedCaptionLanguage) ? requestedCaptionLanguage : "original";
       const video = await db.read((d) => d.videos.find((item) => item.id === autoClipStatusMatch[1] && item.userId === user.id));
       if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
+      const effectiveStatusLanguage = statusLanguage === "auto"
+        ? String(video.transcriptLanguage || "en").trim().toLowerCase()
+        : statusLanguage;
       const result = await db.read((d) => {
         const clips = d.clips.filter((item) =>
           item.videoId === video.id &&
           item.userId === user.id &&
           item.generation === "auto-ai" &&
-          (item.transcriptLanguage || video.transcriptLanguage || "en") === String(video.transcriptLanguage || "en").trim().toLowerCase()
+          (item.transcriptLanguage || video.transcriptLanguage || "en") === effectiveStatusLanguage &&
+          (item.captionLanguage || "original") === statusCaptionLanguage
         );
         const jobs = d.jobs.filter((job) => clips.some((clip) => clip.id === job.clipId));
         return { clips, jobs };
