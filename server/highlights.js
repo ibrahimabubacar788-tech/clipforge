@@ -17,6 +17,14 @@ const STAKES = [
   /\b(?:had to|couldn'?t|almost|nearly|risked|lost|won|failed|succeeded|changed everything|never forgot)\b/i,
   /\b(?:million|thousand|hundred|%|times)\b/i,
 ];
+const STORY_ARCS = [
+  /\b(?:before|after|then|until|finally|eventually|at first|in the end)\b/i,
+  /\b(?:went from|used to|now I|now we|ended up|turned into|changed from)\b/i,
+];
+const EMOTIONAL_SHIFTS = [
+  /\b(?:I was|we were|I felt|we felt|I got|we got)\b/i,
+  /\b(?:relieved|excited|terrified|shocked|angry|proud|embarrassed|surprised|grateful|disappointed)\b/i,
+];
 const normalize = (segment) => ({
   start: Number(segment.start),
   end: Number(segment.end),
@@ -88,6 +96,9 @@ function scoreWindow(text, duration) {
   // often make a clip compelling even when the original long-form context is removed.
   if (CURIOSITY_GAPS.some((pattern) => pattern.test(text))) score += 9;
   if (STAKES.some((pattern) => pattern.test(text))) score += 4;
+  if (STORY_ARCS.filter((pattern) => pattern.test(text)).length >= 2) score += 6;
+  if (EMOTIONAL_SHIFTS.some((pattern) => pattern.test(text))
+      && /\b(?:but|then|until|after|before|finally|actually|realized|learned|changed|turns out)\b/i.test(text)) score += 7;
   if (/\b(?:I thought|we thought|I used to|we used to|then I|then we|until I|until we|but I|but we)\b/i.test(text)
       && /\b(?:realized|learned|discovered|changed|wrong|right|actually|turns out)\b/i.test(text)) score += 8;
   if (/\b(um+|uh+|you know|like|basically|sort of|kind of)\b/i.test(text)) score -= 4;
