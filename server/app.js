@@ -389,11 +389,12 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
 
       const limit = Math.max(1, Math.min(50, Number(payload.limit) || 10));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
+      const captions = payload.captions !== false;
       const profile = normalizeContentProfile(payload.profile || payload.contentProfile || "creator");
       const contentProfile = getContentProfile(profile);
       const requestedLanguage = String(payload.language || payload.sourceLanguage || "").trim().toLowerCase();
       const language = requestedLanguage === "auto" || /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "auto";
-      const requestedCaptionLanguage = String(payload.captionLanguage || "original").trim().toLowerCase();
+      const requestedCaptionLanguage = captions ? String(payload.captionLanguage || "original").trim().toLowerCase() : "original";
       const captionLanguage = requestedCaptionLanguage === "original" || /^[a-z]{2,3}$/.test(requestedCaptionLanguage) ? requestedCaptionLanguage : "original";
       if (autoClipInFlight.has(video.id)) {
         throw Object.assign(new Error("Automatic clipping is already running for this video."), { status: 409 });
@@ -552,7 +553,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           start: candidate.start,
           end: candidate.end,
           format,
-          captions: true,
+          captions,
           captionLanguage,
           captionSegments: normalizeCaptionSegments((candidate.captionSegments || []).map((segment) => ({ ...segment, text: captionSegmentsByKey.get(String(segment.start) + ":" + String(segment.end) + ":" + segment.text) || segment.text }))),
           style: normalizeCaptionStyle(payload.style),
