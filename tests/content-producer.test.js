@@ -81,3 +81,15 @@ test("producer identifies the leading platform for the next publishing test", ()
   assert.equal(plan.platformRecommendation.platform, "tiktok");
   assert.match(plan.platformRecommendation.reason, /most tracked views/);
 });
+
+test("producer combines the best format and platform into one next publish plan", () => {
+  const plan = buildProducerPlan([
+    { id: "a", highlightType: "hook", highlightScore: 94, performance: { platform: "TikTok", views: 1500, likes: 150, comments: 20, shares: 30 } },
+    { id: "b", highlightType: "emotion", highlightScore: 88, performance: { platform: "YouTube Shorts", views: 500, likes: 25, comments: 5, shares: 5 } },
+  ], "creator");
+  assert.equal(plan.nextPublishPlan.type, "hook");
+  assert.equal(plan.nextPublishPlan.typeLabel, "Hooks");
+  assert.equal(plan.nextPublishPlan.platform, "tiktok");
+  assert.equal(plan.nextPublishPlan.confidence, "high");
+  assert.match(plan.nextPublishPlan.reason, /tiktok/);
+});
