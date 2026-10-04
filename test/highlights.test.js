@@ -15,6 +15,18 @@ test("highlight engine assembles transcript windows without injected placeholder
 });
 
 
+test("highlight selection reduces near-time duplicates", () => {
+  const clips = rankHighlights([
+    { start: 0, end: 8, text: "The big lesson is to focus on your audience." },
+    { start: 8, end: 16, text: "The big lesson is to focus on your audience and improve the hook." },
+    { start: 70, end: 78, text: "The result was 10x better after changing the opening." },
+    { start: 78, end: 86, text: "The result was 10x better after changing the opening and payoff." },
+  ], { limit: 2, minDuration: 15, maxDuration: 30 });
+
+  assert.equal(clips.length, 2);
+  assert.ok(clips[1].start - clips[0].start >= 40);
+});
+
 test("highlight boundaries trim leading filler without losing the minimum duration", () => {
   const clips = rankHighlights([
     { start: 0, end: 2, text: "Um, okay, welcome back." },
