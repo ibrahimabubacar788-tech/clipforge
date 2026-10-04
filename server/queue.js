@@ -204,7 +204,7 @@ export class ClipQueue {
       for(let i=0;i<captions.length;i++) await writeFile(captionPaths[i],captionPpm(captions[i].text,clip.style?.color==="pink"?"ff8fbe":clip.style?.color==="sky"?"8be1ff":"d3e964"),{ encoding: "utf8", flag: "wx" });
       const args=["-y","-i",resolvedSource,"-loop","1","-i",watermarkPath];
       for(const p of captionPaths) args.push("-loop","1","-i",p);
-      args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart",tempOutput);
+      args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart","-progress","pipe:2","-nostats",tempOutput);
       await run(this.ffmpegPath,args);
       await rename(tempOutput, output);
     } catch (error) {
