@@ -190,6 +190,7 @@ async function ensureWorkspace() {
       const savedIdentity = safeStorageParse(identityKey, null);
       if (savedIdentity?.email && savedIdentity?.password) {
         apiSession = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: savedIdentity.email, password: savedIdentity.password }) });
+        window.localStorage.setItem(identityKey, JSON.stringify({ email: savedIdentity.email }));
         window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
       } else {
         const email = `creator-${crypto.randomUUID().slice(0, 8)}@clipforge.local`;
