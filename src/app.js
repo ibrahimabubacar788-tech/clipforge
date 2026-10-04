@@ -759,7 +759,7 @@ function renderClipLibrary() {
 
 async function refreshClipLibraryWhileRendering() {
   const pollingProjectId = currentProject?.id;
-  for (let attempt = 0; attempt < 450; attempt += 1) {
+  for (let attempt = 0; attempt < 1800; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     if (currentProject?.id !== pollingProjectId) return;
     try {
