@@ -1210,7 +1210,7 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     renderClipLibrary();
     if (exportStatus) exportStatus.textContent = "Rendering clip…";
     showToast("Export queued. Your rendered clip will be ready shortly.");
-    for (let attempt = 0; attempt < 450; attempt += 1) {
+    for (let attempt = 0; attempt < 1800; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       if (currentProject?.id !== exportProjectId || sourceVideo?.id !== exportVideoId) return;
       const jobResult = await api(`/api/jobs/${result.job.id}`);
