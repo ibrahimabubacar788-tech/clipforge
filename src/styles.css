@@ -98,3 +98,9 @@
 .dashboard-account .account-actions .ghost-button span { margin-left:7px; color:#b9adff; }
 @media (max-width:900px) { .dashboard { padding:42px 24px 70px; } .dashboard-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .dashboard-hero h1 { font-size:clamp(40px,8vw,62px); } }
 @media (max-width:700px) { .dashboard { padding:30px 16px 50px; } .dashboard-hero { align-items:stretch; flex-direction:column; padding-bottom:34px; } .dashboard-hero h1 { font-size:clamp(38px,12vw,54px); } .dashboard-subtitle { font-size:13px; } .dashboard-create-button { align-self:flex-start; } .dashboard-toolbar { align-items:flex-start; flex-direction:column; } .dashboard-meta { width:100%; justify-content:space-between; } .dashboard-grid { grid-template-columns:1fr; } .project-card { min-height:155px; } .dashboard-account { align-items:flex-start; flex-wrap:wrap; } .dashboard-account-copy { flex:1 1 calc(100% - 55px); } .dashboard-account .account-actions { width:100%; margin-left:55px; } }
+
+
+.account-form { display: grid; gap: 14px; margin: 18px 0 8px; }
+.account-form .field-label { display: grid; gap: 8px; }
+.account-form input { width: 100%; box-sizing: border-box; }
+.account-form-note { display: block; color: var(--muted, #9aa3bb); line-height: 1.5; }
