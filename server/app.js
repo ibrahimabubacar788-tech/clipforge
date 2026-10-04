@@ -40,7 +40,7 @@ import { ClipQueue } from "./queue.js";
 import { rankHighlights, rankHighlightsWithAI } from "./highlights.js";
 import { getContentProfile, listContentProfiles, normalizeContentProfile } from "./content-strategy.js";
 import { buildContentPack } from "./content-packaging.js";
-import { buildProducerPlan } from "./content-producer.js";
+import { buildProducerPlan, summarizePerformance } from "./content-producer.js";
 
 import { parseTimestampedTranscript, normalizeTranscript } from "./transcript.js";
 import { transcribeVideo } from "./stt.js";
@@ -186,6 +186,36 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (!req.headers.cookie && bearerToken) res.setHeader("set-cookie", sessionCookie(bearerToken));
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
     if (req.method === "GET" && pathname === "/api/content-profiles") return json(res, 200, { profiles: listContentProfiles() });
+    const performanceSummaryMatch = pathname.match(/^\/api\/projects\/([^/]+)\/performance$/);
+    if (req.method === "GET" && performanceSummaryMatch) {
+      const projectId = performanceSummaryMatch[1];
+      const project = await db.read((d) => d.projects.find((item) => item.id === projectId && item.userId === user.id));
+      if (!project) throw Object.assign(new Error("Project not found."), { status: 404 });
+      const projectClips = await db.read((d) => d.clips.filter((item) => item.projectId === projectId && item.userId === user.id));
+      return json(res, 200, { projectId, performance: summarizePerformance(projectClips) });
+    }
+    const clipPerformanceMatch = pathname.match(/^\/api\/clips\/([^/]+)\/performance$/);
+    if (req.method === "POST" && clipPerformanceMatch) {
+      const clip = await db.transaction((d) => {
+        const item = d.clips.find((entry) => entry.id === clipPerformanceMatch[1] && entry.userId === user.id);
+        if (!item) throw Object.assign(new Error("Clip not found."), { status: 404 });
+        const metric = {
+          views: Math.max(0, Math.min(2_000_000_000, Number(payload.views) || 0)),
+          likes: Math.max(0, Math.min(2_000_000_000, Number(payload.likes) || 0)),
+          comments: Math.max(0, Math.min(2_000_000_000, Number(payload.comments) || 0)),
+          shares: Math.max(0, Math.min(2_000_000_000, Number(payload.shares) || 0)),
+          watchTimeSeconds: Math.max(0, Math.min(2_000_000_000, Number(payload.watchTimeSeconds) || 0)),
+          completionRate: Number.isFinite(Number(payload.completionRate)) ? Math.max(0, Math.min(100, Number(payload.completionRate))) : null,
+          platform: String(payload.platform || "unknown").trim().slice(0, 40) || "unknown",
+          updatedAt: now(),
+        };
+        item.performance = metric;
+        item.updatedAt = metric.updatedAt;
+        return item;
+      });
+      return json(res, 200, { clipId: clip.id, performance: clip.performance });
+    }
+
     const producerPlanMatch = pathname.match(/^\/api\/projects\/([^/]+)\/producer-plan$/);
     if (req.method === "GET" && producerPlanMatch) {
       const projectId = producerPlanMatch[1];
