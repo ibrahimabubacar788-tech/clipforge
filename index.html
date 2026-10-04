@@ -23,14 +23,21 @@
           </div>
           <button class="primary-button dashboard-create-button" id="dashboard-new-project" type="button"><span class="button-icon">+</span> New project</button>
         </div>
+        <div class="dashboard-stats" aria-label="Workspace overview">
+          <div class="dashboard-stat"><span class="dashboard-stat-icon">◈</span><div><strong id="dashboard-project-count">0</strong><span>Projects</span></div></div>
+          <div class="dashboard-stat"><span class="dashboard-stat-icon">✦</span><div><strong>50</strong><span>AI clips / batch</span></div></div>
+          <div class="dashboard-stat dashboard-stat-wide"><span class="dashboard-live-dot">Workspace ready</span><div><strong>Ready to create</strong><span>Upload a video and let ClipForge find the moments.</span></div></div>
+        </div>
         <div class="dashboard-toolbar">
-          <div>
-            <p class="eyebrow">PROJECTS</p>
-            <h2>Recent projects</h2>
-          </div>
-          <div class="dashboard-meta"><span id="dashboard-project-count">0 projects</span><span class="dashboard-live-dot">Workspace ready</span></div>
+          <div><p class="eyebrow">YOUR WORK</p><h2>Recent projects</h2></div>
+          <div class="dashboard-meta"><span>Private workspace</span></div>
         </div>
         <div class="dashboard-grid" id="project-grid"></div>
+        <div class="dashboard-quick-actions">
+          <button class="dashboard-quick-card" id="dashboard-open-editor" type="button"><span class="quick-icon">✦</span><span><strong>Jump into editor</strong><small>Open your current project and start shaping clips.</small></span><b>→</b></button>
+          <button class="dashboard-quick-card" id="dashboard-open-library" type="button"><span class="quick-icon">▤</span><span><strong>Open clip library</strong><small>Review exports, favorites, and render progress.</small></span><b>→</b></button>
+          <button class="dashboard-quick-card" id="dashboard-open-settings" type="button"><span class="quick-icon">⚙</span><span><strong>Workspace settings</strong><small>Account, captions, languages, security, and preferences.</small></span><b>→</b></button>
+        </div>
         <section class="dashboard-account">
           <div class="dashboard-account-icon">IA</div>
           <div class="dashboard-account-copy"><p class="eyebrow">ACCOUNT</p><h2 id="dashboard-account-email">Your ClipForge account</h2><p>Manage your account, preferences, and session.</p></div>
