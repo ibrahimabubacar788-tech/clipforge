@@ -203,9 +203,12 @@ export class ClipQueue {
     const duration = clip.end - clip.start;
     const watermarkPath = join(exportDir, `.${clip.id}.${renderId}.watermark.ppm`);
     const captions = captionSegmentsForClip(clip);
-    const captionSrtPath = join(exportDir, `.${clip.id}.${renderId}.captions.srt`);\n    const captionPaths = captions.map((_,i)=>join(exportDir,`.${clip.id}.${renderId}.caption-${i}.ppm`));
+    const captionSrtPath = join(exportDir, `.${clip.id}.${renderId}.captions.srt`);
+    const captionPaths = captions.map((_,i)=>join(exportDir,`.${clip.id}.${renderId}.caption-${i}.ppm`));
     try {
-      await writeFile(watermarkPath, watermarkPpm(), { encoding: "utf8", flag: "wx" });\n      if (captions.length && this.subtitleSupport) {\n        const stamp = (seconds) => { const total = Math.max(0, Number(seconds) || 0); const ms = Math.round((total % 1) * 1000); const whole = Math.floor(total); const h = Math.floor(whole / 3600); const m = Math.floor((whole % 3600) / 60); const sec = whole % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")},${String(ms).padStart(3, "0")}`; };\n        const srt = captions.map((caption, index) => `${index + 1}\\n${stamp(caption.start)} --> ${stamp(caption.end)}\\n${caption.text}\\n`).join("\\n");\n        await writeFile(captionSrtPath, srt, { encoding: "utf8", flag: "wx" });\n      }
+      await writeFile(watermarkPath, watermarkPpm(), { encoding: "utf8", flag: "wx" });
+      if (captions.length && this.subtitleSupport) {\n        const stamp = (seconds) => { const total = Math.max(0, Number(seconds) || 0); const ms = Math.round((total % 1) * 1000); const whole = Math.floor(total); const h = Math.floor(whole / 3600); const m = Math.floor((whole % 3600) / 60); const sec = whole % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")},${String(ms).padStart(3, "0")}`; };\n        const srt = captions.map((caption, index) => `${index + 1}\\n${stamp(caption.start)} --> ${stamp(caption.end)}\\n${caption.text}\\n`).join("\\n");\n        await writeFile(captionSrtPath, srt, { encoding: "utf8", flag: "wx" });
+      }
       for(let i=0;i<captions.length;i++) await writeFile(captionPaths[i],captionPpm(captions[i].text,clip.style?.color==="pink"?"ff8fbe":clip.style?.color==="sky"?"8be1ff":"d3e964"),{ encoding: "utf8", flag: "wx" });
       const args=["-y","-i",resolvedSource,"-loop","1","-i",watermarkPath];
       for(const p of captionPaths) args.push("-loop","1","-i",p);
@@ -233,7 +236,8 @@ export class ClipQueue {
       throw error;
     } finally {
       await safeUnlinkExportFile(exportDir, watermarkPath);
-      for(const p of captionPaths) await safeUnlinkExportFile(exportDir, p);\n      await safeUnlinkExportFile(exportDir, captionSrtPath);
+      for(const p of captionPaths) await safeUnlinkExportFile(exportDir, p);
+      await safeUnlinkExportFile(exportDir, captionSrtPath);
     }
     return { filename, output };
   }
