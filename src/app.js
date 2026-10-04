@@ -607,7 +607,16 @@ function renderClipLibrary() {
     if (libraryProjectProgress) libraryProjectProgress.hidden = clips.length === 0;
     const intelligenceCounts = clips.reduce((counts, clip) => { const type = String(clip.highlightType || "").trim(); if (type) counts[type] = (counts[type] || 0) + 1; return counts; }, {});
     const intelligenceSummary = Object.entries(intelligenceCounts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([type, count]) => `${type}: ${count}`).join(" · ");
-    libraryProjectOverview.innerHTML = "<strong>" + projectName.replace(/[&<>]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[char])) + "</strong><span>" + sourceCount + " source video" + (sourceCount === 1 ? "" : "s") + "</span><span>" + (sourceDuration ? formatTimestamp(sourceDuration) + " source length" : "Source not loaded") + "</span><span>" + clips.length + " clips</span><span>" + readyCount + " ready</span><span>" + favoriteCount + " favorite" + (favoriteCount === 1 ? "" : "s") + "</span><span>" + formatTimestamp(readyDuration) + " rendered</span>" + (intelligenceSummary ? "<span>Intelligence: " + escapeHtml(intelligenceSummary) + "</span>" : "");
+    const strongestClip = [...clips].sort((a, b) => Number(b.aiScore || 0) - Number(a.aiScore || 0))[0];
+    const strategyLabel = String(clips.find((clip) => clip.contentProfileLabel)?.contentProfileLabel || "").trim();
+    const scoredClips = clips.filter((clip) => Number.isFinite(Number(clip.aiScore)));
+    const averageScore = scoredClips.length ? Math.round(scoredClips.reduce((sum, clip) => sum + Number(clip.aiScore), 0) / scoredClips.length) : 0;
+    const contentDna = strongestClip && Number(strongestClip.aiScore) > 0
+      ? "Content DNA: " + (strategyLabel ? escapeHtml(strategyLabel) + " · " : "") + escapeHtml(String(strongestClip.highlightType || "insight")) + " lead · " + averageScore + "/100 avg AI score"
+      : strategyLabel
+        ? "Content DNA: " + escapeHtml(strategyLabel) + (intelligenceSummary ? " · " + escapeHtml(intelligenceSummary) : "")
+        : "";
+    libraryProjectOverview.innerHTML = "<strong>" + projectName.replace(/[&<>]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[char])) + "</strong><span>" + sourceCount + " source video" + (sourceCount === 1 ? "" : "s") + "</span><span>" + (sourceDuration ? formatTimestamp(sourceDuration) + " source length" : "Source not loaded") + "</span><span>" + clips.length + " clips</span><span>" + readyCount + " ready</span><span>" + favoriteCount + " favorite" + (favoriteCount === 1 ? "" : "s") + "</span><span>" + formatTimestamp(readyDuration) + " rendered</span>" + (intelligenceSummary ? "<span>Intelligence: " + escapeHtml(intelligenceSummary) + "</span>" : "") + (contentDna ? "<span>" + contentDna + "</span>" : "");
   }
   const totalDuration = clips.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
   if (librarySummary) librarySummary.textContent = `${clips.length} total · ${readyCount} ready · ${renderingCount} rendering · ${failedCount} failed · ${favoriteCount} favorite${favoriteCount === 1 ? "" : "s"} · ${formatTimestamp(totalDuration)} of content`;
