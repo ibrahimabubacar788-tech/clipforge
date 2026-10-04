@@ -173,8 +173,8 @@ test("AI highlight packs diversify intelligence types before filling by score", 
   try {
     const result = await rankHighlightsWithAI([
       { start: 0, end: 20, text: "Here is the first strong question for you." },
-      { start: 25, end: 45, text: "Here is another strong question for you." },
-      { start: 50, end: 70, text: "The result finally shows why this works." },
+      { start: 100, end: 120, text: "Here is another strong question for you." },
+      { start: 200, end: 220, text: "The result finally shows why this works." },
     ], { limit: 2, minDuration: 15, maxDuration: 75 });
     assert.equal(result.candidates.length, 2);
     assert.equal(result.candidates[0].highlightType, "hook");
