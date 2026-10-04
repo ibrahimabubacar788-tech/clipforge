@@ -185,7 +185,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     }
     if (req.method === "POST" && pathname === "/api/auth/logout") { await logout(req, db); res.setHeader("set-cookie", sessionCookie("", 0)); res.writeHead(204); res.end(); return; }
     const user = await requireUser(req, db);
-    if (["POST", "PATCH"].includes(req.method) && pathname !== "/api/uploads") payload = await body(req);
+    if (["POST", "PATCH"].includes(req.method) && pathname !== "/api/uploads" && pathname !== "/api/auth/update") payload = await body(req);
     const bearerToken = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
     if (!req.headers.cookie && bearerToken) res.setHeader("set-cookie", sessionCookie(bearerToken));
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
