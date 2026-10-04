@@ -20,6 +20,9 @@ const clipDetailsDialog = document.querySelector("#clip-details-dialog");
 const clipDetailsTitle = document.querySelector("#clip-details-title");
 const clipDetailsList = document.querySelector("#clip-details-list");
 const detailsDownloadClipButton = document.querySelector("#details-download-clip");
+const generateContentPackButton = document.querySelector("#generate-content-pack");
+const clipContentPack = document.querySelector("#clip-content-pack");
+const clipContentPackList = document.querySelector("#clip-content-pack-list");
 const clipsEmpty = document.querySelector("#clips-empty");
 const styleDialog = document.querySelector("#style-dialog");
 const sourceUpload = document.querySelector("#source-upload");
@@ -1567,9 +1570,37 @@ clipLibrary.addEventListener("click", async (event) => {
       ["AI score", Number.isFinite(Number(clip.highlightScore)) ? Math.round(Number(clip.highlightScore)) + "/100" : "Not scored"],
       ["Created", new Date(clip.createdAt).toLocaleString()]
     ].map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+    if (clipContentPack) clipContentPack.hidden = true;
+    if (clipContentPackList) clipContentPackList.innerHTML = "";
+    if (generateContentPackButton) generateContentPackButton.disabled = false;
     detailsDownloadClipButton.disabled = clip.status !== "ready";
     detailsDownloadClipButton.dataset.downloadClip = clip.id;
     clipDetailsDialog.showModal();
+    return;
+  }
+  if (event.target.closest("#generate-content-pack")) {
+    const clipId = detailsDownloadClipButton?.dataset.downloadClip;
+    if (!clipId || !generateContentPackButton || !clipContentPack || !clipContentPackList) return;
+    generateContentPackButton.disabled = true;
+    generateContentPackButton.textContent = "Building…";
+    try {
+      const result = await api("/api/clips/" + encodeURIComponent(clipId) + "/content-packaging");
+      const platformNames = { tiktok: "TikTok", instagram: "Instagram Reels", youtube: "YouTube Shorts", linkedin: "LinkedIn", x: "X" };
+      clipContentPackList.innerHTML = Object.entries(result.packaging.platforms || {}).map(([key, item]) =>
+        "<article class=\"content-pack-card\"><strong>" + escapeHtml(platformNames[key] || item.platform) + "</strong>" +
+        "<p><b>Hook:</b> " + escapeHtml(item.hook) + "</p>" +
+        "<p><b>Title:</b> " + escapeHtml(item.title) + "</p>" +
+        "<p><b>Caption:</b> " + escapeHtml(item.caption) + "</p>" +
+        "<small>" + item.hashtags.map((tag) => escapeHtml(tag)).join(" ") + "</small></article>"
+      ).join("");
+      clipContentPack.hidden = false;
+      generateContentPackButton.textContent = "Refresh content pack";
+    } catch (error) {
+      showToast("Content pack could not be built: " + error.message);
+      generateContentPackButton.textContent = "Build content pack";
+    } finally {
+      generateContentPackButton.disabled = false;
+    }
     return;
   }
   const retryButton = event.target.closest("[data-retry-clip]");
