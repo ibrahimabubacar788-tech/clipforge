@@ -150,6 +150,27 @@ function diversityPenalty(candidate, selected) {
   }, 0);
 }
 
+function transcriptContinuityScore(items) {
+  if (!Array.isArray(items) || items.length < 2) return 0;
+  let score = 0;
+  let largeGaps = 0;
+  let totalGap = 0;
+  for (let i = 1; i < items.length; i += 1) {
+    const previousEnd = Number(items[i - 1].end);
+    const currentStart = Number(items[i].start);
+    if (!Number.isFinite(previousEnd) || !Number.isFinite(currentStart)) continue;
+    const gap = Math.max(0, currentStart - previousEnd);
+    totalGap += gap;
+    if (gap > 2.5) largeGaps += 1;
+    if (gap <= 0.7) score += 1;
+    else if (gap <= 1.5) score += 0.5;
+    else if (gap > 3.5) score -= 2;
+  }
+  if (largeGaps >= 2) score -= 3;
+  if (totalGap > 8) score -= 3;
+  return score;
+}
+
 function sentenceCompletenessScore(text) {
   const value = String(text || "").trim();
   if (!value) return 0;
@@ -239,11 +260,11 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
       const refinedEnd = refinedSegments[refinedSegments.length - 1]?.end ?? end;
       const refinedDuration = refinedEnd - refinedStart;
       const refinedText = refinedSegments.map((item) => item.text).join(" ").trim();
-      const completeness = sentenceCompletenessScore(refinedText);
+      const completeness = sentenceCompletenessScore(refinedText);\n      const continuity = transcriptContinuityScore(refinedSegments);
       if (refinedDuration >= safeMinDuration && refinedText && completeness >= -1) {
         candidates.push({
           start: Number(refinedStart.toFixed(3)), end: Number(refinedEnd.toFixed(3)),
-          duration: Number(refinedDuration.toFixed(3)), score: scoreWindow(refinedText, refinedDuration) + completeness,
+          duration: Number(refinedDuration.toFixed(3)), score: scoreWindow(refinedText, refinedDuration) + completeness + continuity,
           highlightType: classifyHighlight(refinedText),
           title: refinedText.replace(/\s+/g, " ").slice(0, 72) || "Untitled highlight",
           transcript: refinedText,
