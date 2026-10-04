@@ -1736,7 +1736,7 @@ clipLibrary.addEventListener("click", async (event) => {
       clips = clips.map((clip) => clip.id === result.clip.id ? result.clip : clip);
       renderClipLibrary();
       showToast("Render retry queued.");
-      for (let attempt = 0; attempt < 450; attempt += 1) {
+      for (let attempt = 0; attempt < 1800; attempt += 1) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         if (currentProject?.id !== retryProjectId) return;
         const jobResult = await api(`/api/jobs/${result.job.id}`);
