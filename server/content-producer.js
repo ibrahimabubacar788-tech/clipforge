@@ -115,11 +115,16 @@ export function buildProducerPlan(clips = [], profile = "creator") {
       ? "Test a " + (TYPE_LABELS[recommendedType] || recommendedType) + " next to strengthen your content mix."
       : "Start with a strong hook and let performance data guide the next recommendation.";
   const recommendationConfidence = provenTypes[0] ? "high" : performance.trackedClips ? "medium" : "low";
+  const platformLeader = performance.byPlatform[0] || null;
+  const platformRecommendation = platformLeader
+    ? "Prioritize " + platformLeader.platform + " for the next test because it has the most tracked views in this project."
+    : "Log platform results after publishing so ClipForge can learn where your content performs best.";
   return {
     strategy: { key: strategy.key, label: strategy.label, focus: strategy.focus },
     performance,
     provenTypes,
     nextPublish: { type: recommendedType, label: TYPE_LABELS[recommendedType] || recommendedType, reason: recommendedReason, confidence: recommendationConfidence },
+    platformRecommendation: { platform: platformLeader?.platform || null, reason: platformRecommendation },
     totalClips: safeClips.length,
     averageScore,
     strongest: strongest ? {
