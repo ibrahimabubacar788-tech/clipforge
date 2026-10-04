@@ -125,6 +125,23 @@ const api = async (path, options = {}) => {
   return result;
 };
 
+function renderDashboard(projects = []) {
+  const grid = document.querySelector("#project-grid");
+  if (!grid) return;
+  grid.replaceChildren(...projects.map((project) => {
+    const card = document.createElement("article");
+    card.className = "project-card";
+    card.innerHTML = '<div class="project-card-mark">CF</div><div class="project-card-copy"><h3></h3><p>Open project workspace</p></div><span class="project-card-arrow">→</span>';
+    card.querySelector("h3").textContent = project.name;
+    card.addEventListener("click", () => openProject(project.id));
+    return card;
+  }));
+}
+async function openProject(projectId) {
+  await loadProject(projectId);
+  switchView("editor");
+  history.replaceState(null, "", "#editor");
+}
 function renderProjectSelector(projects = []) {
   if (!projectSelect) return;
   projectSelect.replaceChildren(...projects.map((project) => {
@@ -185,6 +202,9 @@ async function ensureWorkspace() {
     }
     document.querySelector("#workspace-title").textContent = currentProject.name;
     renderProjectSelector(projects);
+    renderDashboard(projects);
+    const account = document.querySelector("#dashboard-account-email");
+    if (account) account.textContent = apiSession?.user?.email || "ClipForge account";
     const videos = (await api(`/api/videos?projectId=${encodeURIComponent(currentProject.id)}`)).videos;
     if (loadVersion !== workspaceLoadVersion) return false;
     sourceVideo = videos[0];
@@ -351,7 +371,7 @@ async function uploadSource(file) {
   const maxUploadBytes = 250 * 1024 * 1024;
   if (file.size > maxUploadBytes) throw new Error("This video is too large. ClipForge currently accepts videos up to 250 MB.");
   if (!apiSession || !currentProject) {
-    await ensureWorkspace();
+    await ensureWorkspace().then(() => switchView("dashboard"));
     if (!apiSession || !currentProject) throw new Error("ClipForge could not connect your workspace. Refresh and try again.");
   }
   const uploadProjectId = currentProject.id;
@@ -748,7 +768,7 @@ function updateFromPointer(event) {
 
 function switchView(view) {
   document.querySelectorAll(".nav-link").forEach((link) => link.classList.toggle("active", link.dataset.view === view));
-  document.querySelectorAll(".editor, .secondary-view").forEach((section) => { section.hidden = section.id !== view; });
+  document.querySelectorAll(".dashboard, .editor, .secondary-view").forEach((section) => { section.hidden = section.id !== view; });
   if (view === "clips") renderClipLibrary();
 }
 
@@ -1927,4 +1947,22 @@ savePerformanceButton?.addEventListener("click", async () => {
     savePerformanceButton.disabled = false;
     savePerformanceButton.textContent = "Save performance";
   }
+});
+
+document.querySelector("#dashboard-new-project")?.addEventListener("click", () => newProjectButton?.click());
+document.querySelector("#account-button")?.addEventListener("click", () => document.querySelector("#account-dialog")?.showModal());
+document.querySelector("#dashboard-settings")?.addEventListener("click", () => document.querySelector("#account-dialog")?.showModal());
+document.querySelector("#dashboard-logout")?.addEventListener("click", async () => {
+  try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+  apiSession = null;
+  window.localStorage.removeItem(sessionKey);
+  window.localStorage.removeItem(identityKey);
+  window.location.reload();
+});
+document.querySelector("#account-dialog-signout")?.addEventListener("click", async () => {
+  try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+  apiSession = null;
+  window.localStorage.removeItem(sessionKey);
+  window.localStorage.removeItem(identityKey);
+  window.location.reload();
 });
