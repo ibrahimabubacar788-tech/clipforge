@@ -32,7 +32,7 @@ async function safeUnlinkExportFile(exportDir, candidate) {
   await unlink(resolvedCandidate).catch(() => {});
 }
 
-function run(command, args) {
+function run(command, args, { onProgress } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
     const timeout = setTimeout(() => {
@@ -40,6 +40,7 @@ function run(command, args) {
       reject(new Error("FFmpeg render timed out."));
     }, 15 * 60 * 1000);
     let stderr = "";
+    let progressBuffer = "";
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
       if (stderr.length > 12000) stderr = stderr.slice(-12000);
@@ -223,11 +224,12 @@ export class ClipQueue {
         if (!job) break;
         try {
           const clip = await this.db.read((d) => d.clips.find((c) => c.id === job.clipId));
+          if (clip) clip.jobId = job.id;
           if (!clip) throw new Error("Clip not found.");
-          await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); if (j) j.progress = 35; });
+          await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) j.progress = 35; if (c) c.renderProgress = 35; });
           console.log(`ClipForge render started: ${job.id} clip=${clip.id} ffmpeg=${this.ffmpegPath}`);
           const { filename } = await this.render(clip);
-          await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "completed", progress: 100, completedAt: now() }); if (c) Object.assign(c, { status: "ready", downloadUrl: `/storage/exports/${filename}`, updatedAt: now() }); });
+          await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "completed", progress: 100, completedAt: now() }); if (c) Object.assign(c, { status: "ready", renderProgress: 100, downloadUrl: `/storage/exports/${filename}`, updatedAt: now() }); });
         } catch (error) {
           console.error(`ClipForge render failed: job=${job.id} clip=${job.clipId} error=${error.message}`);
           await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "failed", error: error.message, completedAt: now() }); if (c) Object.assign(c, { status: "failed", updatedAt: now() }); });
