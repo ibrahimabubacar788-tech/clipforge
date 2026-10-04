@@ -1551,6 +1551,7 @@ clipLibrary.addEventListener("click", async (event) => {
       ["End", formatTimestamp(clip.end)],
       ["Captions", clip.captions ? "On" : "Off"],
       ["Strategy", clip.contentProfileLabel || "Creator"],
+      ["Intelligence", clip.highlightType || "Insight"],
       ["AI reason", clip.aiReason || "Built from ClipForge's strongest-moment ranking."],
       ["AI score", Number.isFinite(Number(clip.highlightScore)) ? Math.round(Number(clip.highlightScore)) + "/100" : "Not scored"],
       ["Created", new Date(clip.createdAt).toLocaleString()]
