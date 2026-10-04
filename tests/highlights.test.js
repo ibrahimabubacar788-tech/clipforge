@@ -260,6 +260,7 @@ test("highlight engine prefers natural sentence boundaries over dangling fragmen
     { start: 105, end: 110, text: "It ends cleanly with a result." },
     { start: 110, end: 115, text: "Thanks for watching." },
   ], { limit: 2, minDuration: 15, maxDuration: 15 });
-  assert.equal(candidates.length, 2);
+  assert.equal(candidates.length, 1);
   assert.ok(candidates.every((item) => /[.!?][“”'"')]*$/.test(item.transcript)));
+  assert.equal(/^(?:and|but|or|because|which|that|if|when|while|although|yet|then)\b/i.test(candidates[0].transcript), false);
 });
