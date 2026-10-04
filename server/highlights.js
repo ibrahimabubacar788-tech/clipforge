@@ -19,6 +19,17 @@ function valid(segment) {
   return Number.isFinite(segment.start) && Number.isFinite(segment.end)
     && segment.start >= 0 && segment.end > segment.start && segment.text;
 }
+function classifyHighlight(text) {
+  const value = String(text || "");
+  if (/\b(how|steps?|do this|here'?s how|tutorial|learn)\b/i.test(value)) return "how-to";
+  if (/\b(secret|truth|biggest|mistake|never|nobody|surprising|didn'?t expect)\b/i.test(value)) return "reveal";
+  if (/[!?]/.test(value) && /\b(you|your|we|I|my)\b/i.test(value)) return "hook";
+  if (/\b(because|that means|result|ended up|finally|then|after)\b/i.test(value)) return "payoff";
+  if (/\b(laugh|funny|joke|hilarious|crazy)\b/i.test(value)) return "humor";
+  if (/\b(feel|felt|love|hate|scared|happy|sad|angry|emotional)\b/i.test(value)) return "emotion";
+  return "insight";
+}
+
 function scoreWindow(text, duration) {
   let score = 0;
   const words = text.split(/\s+/).filter(Boolean).length;
@@ -62,6 +73,7 @@ export function rankHighlights(segments, { limit = 40, minDuration = 15, maxDura
         end: Number(end.toFixed(3)),
         duration: Number(duration.toFixed(3)),
         score: scoreWindow(text, duration),
+        highlightType: classifyHighlight(text),
         title: text.replace(/\s+/g, " ").slice(0, 72) || "Untitled highlight",
         transcript: text,
         speakers: [...speakers],
@@ -168,6 +180,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         score: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : base.score,
         aiScore: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null,
         aiReason: String(selection.reason || "").trim().slice(0, 240),
+        highlightType: String(selection.type || base.highlightType || "insight").trim().slice(0, 40) || "insight",
         title: String(selection.title || base.title).replace(/\s+/g, " ").trim().slice(0, 100) || base.title,
       };
     }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
