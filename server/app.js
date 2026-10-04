@@ -184,7 +184,12 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (!req.headers.cookie && bearerToken) res.setHeader("set-cookie", sessionCookie(bearerToken));
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
     if (req.method === "GET" && pathname === "/api/content-profiles") return json(res, 200, { profiles: listContentProfiles() });
-    const clipPackagingMatch = pathname.match(/^\/api\/clips\/([^/]+)\/content-packaging$/);\n    if (req.method === "GET" && clipPackagingMatch) {\n      const clip = await db.read((d) => d.clips.find((item) => item.id === clipPackagingMatch[1] && item.userId === user.id));\n      if (!clip) throw Object.assign(new Error("Clip not found."), { status: 404 });\n      return json(res, 200, { clipId: clip.id, packaging: buildContentPack(clip) });\n    }
+    const clipPackagingMatch = pathname.match(/^\/api\/clips\/([^/]+)\/content-packaging$/);
+    if (req.method === "GET" && clipPackagingMatch) {
+      const clip = await db.read((d) => d.clips.find((item) => item.id === clipPackagingMatch[1] && item.userId === user.id));
+      if (!clip) throw Object.assign(new Error("Clip not found."), { status: 404 });
+      return json(res, 200, { clipId: clip.id, packaging: buildContentPack(clip) });
+    }
     const videoStreamMatch = pathname.match(/^\/api\/videos\/([^/]+)\/stream$/);
     if (videoStreamMatch && req.method === "GET") {
       const video = await db.read((d) => d.videos.find((item) => item.id === videoStreamMatch[1] && item.userId === user.id));
