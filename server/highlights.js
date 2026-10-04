@@ -138,6 +138,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
               text: `Select the strongest short-form video moments from these transcript windows.\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.
 Reject filler, contextless fragments, repetitive introductions, and sponsor boilerplate.
+${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
 Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"payoff":90,"emotion":78,"clarity":96,"reason":"brief reason","title":"short title","type":"hook"}]}.
 For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
 Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.`,
