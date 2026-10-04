@@ -1956,8 +1956,44 @@ savePerformanceButton?.addEventListener("click", async () => {
 });
 
 document.querySelector("#dashboard-new-project")?.addEventListener("click", () => newProjectButton?.click());
-document.querySelector("#account-button")?.addEventListener("click", () => document.querySelector("#account-dialog")?.showModal());
-document.querySelector("#dashboard-settings")?.addEventListener("click", () => document.querySelector("#account-dialog")?.showModal());
+const openAccountSettings = () => {
+  const dialog = document.querySelector("#account-dialog");
+  const emailField = document.querySelector("#account-email");
+  const passwordField = document.querySelector("#account-password");
+  if (emailField) emailField.value = apiSession?.user?.email || safeStorageParse(identityKey, null)?.email || "";
+  if (passwordField) passwordField.value = "";
+  dialog?.showModal();
+};
+document.querySelector("#account-button")?.addEventListener("click", openAccountSettings);
+document.querySelector("#dashboard-settings")?.addEventListener("click", openAccountSettings);
+document.querySelector("#account-dialog-save")?.addEventListener("click", async () => {
+  const saveButton = document.querySelector("#account-dialog-save");
+  const email = document.querySelector("#account-email")?.value.trim().toLowerCase();
+  const password = document.querySelector("#account-password")?.value || "";
+  if (!email || password.length < 8) {
+    showToast("Enter a valid email and a password with at least 8 characters.");
+    return;
+  }
+  saveButton.disabled = true;
+  saveButton.textContent = "Saving…";
+  try {
+    const result = await api("/api/auth/update", { method: "PATCH", body: JSON.stringify({ email, password }) });
+    apiSession = { ...apiSession, user: result.user };
+    window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+    window.localStorage.setItem(identityKey, JSON.stringify({ email, password }));
+    const account = document.querySelector("#dashboard-account-email");
+    const dialogEmail = document.querySelector("#account-dialog-email");
+    if (account) account.textContent = email;
+    if (dialogEmail) dialogEmail.textContent = "Your ClipForge account is secured with this email.";
+    document.querySelector("#account-dialog")?.close();
+    showToast("Account saved. Your workspace is now tied to your account details.");
+  } catch (error) {
+    showToast("Could not save account: " + error.message);
+  } finally {
+    saveButton.disabled = false;
+    saveButton.textContent = "Save account";
+  }
+});
 document.querySelector("#dashboard-logout")?.addEventListener("click", async () => {
   try { await api("/api/auth/logout", { method: "POST" }); } catch {}
   apiSession = null;
