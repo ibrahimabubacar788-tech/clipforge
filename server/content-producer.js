@@ -94,10 +94,18 @@ export function buildProducerPlan(clips = [], profile = "creator") {
       if (TYPE_NEEDS[type]) priorities.push({ type, label: TYPE_LABELS[type] || type, recommendation: TYPE_NEEDS[type] });
     }
   }
+  const recommendedType = provenTypes[0] || priorities[0]?.type || Object.keys(TYPE_LABELS)[0];
+  const recommendedReason = provenTypes[0]
+    ? "Publish another " + (TYPE_LABELS[recommendedType] || recommendedType) + " next because this format currently leads your tracked engagement."
+    : priorities[0]
+      ? "Test a " + (TYPE_LABELS[recommendedType] || recommendedType) + " next to strengthen your content mix."
+      : "Start with a strong hook and let performance data guide the next recommendation.";
+  const recommendationConfidence = provenTypes[0] ? "high" : performance.trackedClips ? "medium" : "low";
   return {
     strategy: { key: strategy.key, label: strategy.label, focus: strategy.focus },
     performance,
     provenTypes,
+    nextPublish: { type: recommendedType, label: TYPE_LABELS[recommendedType] || recommendedType, reason: recommendedReason, confidence: recommendationConfidence },
     totalClips: safeClips.length,
     averageScore,
     strongest: strongest ? {
