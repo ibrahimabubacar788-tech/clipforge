@@ -119,3 +119,11 @@ test("AI highlight wrapper caps oversized selection arrays", async () => {
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+test("highlight engine classifies clip intelligence types", () => {
+  const candidates = rankHighlights([
+    { start: 0, end: 20, text: "Here is how you can avoid the biggest mistake and finally get the result." },
+  ], { limit: 1, minDuration: 15, maxDuration: 75 });
+  assert.equal(candidates.length, 1);
+  assert.ok(["how-to", "reveal", "payoff", "hook", "insight"].includes(candidates[0].highlightType));
+});
