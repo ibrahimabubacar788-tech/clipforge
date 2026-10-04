@@ -40,3 +40,22 @@ test("producer performance summary identifies proven intelligence types", () => 
   assert.equal(plan.priorities[0].type, "hook");
   assert.match(plan.priorities[0].recommendation, /Double down/);
 });
+
+
+test("producer plan recommends the strongest proven format next", () => {
+  const plan = buildProducerPlan([
+    { id: "a", highlightType: "hook", highlightScore: 90, performance: { views: 1000, likes: 100, comments: 20, shares: 30 } },
+    { id: "b", highlightType: "emotion", highlightScore: 88, performance: { views: 800, likes: 24, comments: 8, shares: 8 } },
+  ], "creator");
+  assert.equal(plan.nextPublish.type, "hook");
+  assert.equal(plan.nextPublish.confidence, "high");
+  assert.match(plan.nextPublish.reason, /leads your tracked engagement/);
+});
+
+test("producer plan gives a medium-confidence test when performance exists but no proven type", () => {
+  const plan = buildProducerPlan([
+    { id: "a", highlightType: "insight", highlightScore: 80, performance: { views: 50, likes: 2, comments: 1, shares: 1 } },
+  ], "creator");
+  assert.equal(plan.nextPublish.confidence, "medium");
+  assert.ok(plan.nextPublish.type);
+});
