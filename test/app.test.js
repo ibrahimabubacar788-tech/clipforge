@@ -334,6 +334,105 @@ test("transcription normalization keeps valid diarized segments and drops invali
 
 
 
+test("automatic clip status isolates spoken and caption language batches", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "language-status@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Language Status Project" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ projectId: project.id, name: "Language Status Video", duration: 60 }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const makeClip = (id, transcriptLanguage, captionLanguage, status) => ({
+      id,
+      userId: auth.user.id,
+      videoId: video.id,
+      projectId: project.id,
+      sourceUrl: null,
+      title: id,
+      start: 0,
+      end: 20,
+      format: "9:16",
+      captions: true,
+      captionSegments: [{ start: 0, end: 2, text: "Test" }],
+      transcriptLanguage,
+      captionLanguage,
+      generation: "auto-ai",
+      status,
+      createdAt: new Date().toISOString(),
+    });
+
+    await ctx.app.database.transaction((d) => {
+      d.clips.push(
+        makeClip("clip-en-original", "en", "original", "ready"),
+        makeClip("clip-en-spanish", "en", "es", "processing"),
+        makeClip("clip-fr-spanish", "fr", "es", "ready"),
+        makeClip("clip-manual-spanish", "en", "es", "ready"),
+      );
+      d.clips.find((clip) => clip.id === "clip-en-spanish").generation = "auto-ai";
+      d.clips.find((clip) => clip.id === "clip-fr-spanish").generation = "auto-ai";
+      d.clips.find((clip) => clip.id === "clip-manual-spanish").generation = "manual";
+      d.jobs.push({
+        id: "job-en-spanish",
+        clipId: "clip-en-spanish",
+        status: "processing",
+        progress: 42,
+        createdAt: new Date().toISOString(),
+      });
+    });
+
+    const spanish = await fetch(
+      `${ctx.base}/api/videos/${video.id}/auto-clip-status?language=en&captionLanguage=es`,
+      { headers: { authorization: `Bearer ${auth.token}` } },
+    );
+    assert.equal(spanish.status, 200);
+    const spanishBody = await spanish.json();
+    assert.equal(spanishBody.total, 1);
+    assert.equal(spanishBody.processing, 1);
+    assert.equal(spanishBody.clips[0].id, "clip-en-spanish");
+    assert.equal(spanishBody.clips[0].renderProgress, 42);
+
+    const original = await fetch(
+      `${ctx.base}/api/videos/${video.id}/auto-clip-status?language=en&captionLanguage=original`,
+      { headers: { authorization: `Bearer ${auth.token}` } },
+    );
+    assert.equal(original.status, 200);
+    const originalBody = await original.json();
+    assert.equal(originalBody.total, 1);
+    assert.equal(originalBody.ready, 1);
+    assert.equal(originalBody.clips[0].id, "clip-en-original");
+
+    const french = await fetch(
+      `${ctx.base}/api/videos/${video.id}/auto-clip-status?language=fr&captionLanguage=es`,
+      { headers: { authorization: `Bearer ${auth.token}` } },
+    );
+    assert.equal(french.status, 200);
+    const frenchBody = await french.json();
+    assert.equal(frenchBody.total, 1);
+    assert.equal(frenchBody.clips[0].id, "clip-fr-spanish");
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
 test("failed clip retry rejects an active queued render job", async () => {
   const ctx = await startTestApp();
   try {
