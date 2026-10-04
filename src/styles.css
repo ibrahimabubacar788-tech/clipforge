@@ -57,3 +57,8 @@
 .performance-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
 .performance-fields input,.performance-fields select{width:100%}
 @media (max-width:700px){.performance-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+.producer-next-publish{margin:12px 0;padding:12px;border:1px solid var(--line,#2a2a2a);border-radius:10px;display:grid;gap:4px}
+.producer-next-publish small{opacity:.7;text-transform:uppercase}
+.producer-next-publish span{opacity:.82}
