@@ -692,7 +692,23 @@ function renderClipLibrary() {
       : strategyLabel
         ? "Content DNA: " + escapeHtml(strategyLabel) + (intelligenceSummary ? " · " + escapeHtml(intelligenceSummary) : "")
         : "";
-    libraryProjectOverview.innerHTML = "<strong>" + projectName.replace(/[&<>]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[char])) + "</strong><span>" + sourceCount + " source video" + (sourceCount === 1 ? "" : "s") + "</span><span>" + (sourceDuration ? formatTimestamp(sourceDuration) + " source length" : "Source not loaded") + "</span><span>" + clips.length + " clips</span><span>" + readyCount + " ready</span><span>" + favoriteCount + " favorite" + (favoriteCount === 1 ? "" : "s") + "</span><span>" + formatTimestamp(readyDuration) + " rendered</span>" + (intelligenceSummary ? "<span>Intelligence: " + escapeHtml(intelligenceSummary) + "</span>" : "") + (contentDna ? "<span>" + contentDna + "</span>" : "");
+    const trackedPerformance = clips.filter((clip) => clip?.performance && Number.isFinite(Number(clip.performance.views)));
+    const performanceViews = trackedPerformance.reduce((sum, clip) => sum + Math.max(0, Number(clip.performance.views) || 0), 0);
+    const performanceEngagements = trackedPerformance.reduce((sum, clip) => sum + Math.max(0, Number(clip.performance.likes) || 0) + Math.max(0, Number(clip.performance.comments) || 0) + Math.max(0, Number(clip.performance.shares) || 0), 0);
+    const performanceRate = performanceViews ? ((performanceEngagements / performanceViews) * 100).toFixed(2) : null;
+    const performanceTypes = {};
+    trackedPerformance.forEach((clip) => {
+      const type = String(clip.highlightType || "insight").trim() || "insight";
+      const entry = performanceTypes[type] || { views: 0, engagements: 0 };
+      entry.views += Math.max(0, Number(clip.performance.views) || 0);
+      entry.engagements += Math.max(0, Number(clip.performance.likes) || 0) + Math.max(0, Number(clip.performance.comments) || 0) + Math.max(0, Number(clip.performance.shares) || 0);
+      performanceTypes[type] = entry;
+    });
+    const bestPerformance = Object.entries(performanceTypes).sort((a, b) => (b[1].engagements / Math.max(1, b[1].views)) - (a[1].engagements / Math.max(1, a[1].views)))[0];
+    const performanceDna = trackedPerformance.length
+      ? "Performance DNA: " + trackedPerformance.length + " tracked · " + performanceViews.toLocaleString() + " views" + (performanceRate !== null ? " · " + performanceRate + "% engagement" : "") + (bestPerformance ? " · " + escapeHtml(bestPerformance[0]) + " leads engagement" : "")
+      : "";
+    libraryProjectOverview.innerHTML = "<strong>" + projectName.replace(/[&<>]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[char])) + "</strong><span>" + sourceCount + " source video" + (sourceCount === 1 ? "" : "s") + "</span><span>" + (sourceDuration ? formatTimestamp(sourceDuration) + " source length" : "Source not loaded") + "</span><span>" + clips.length + " clips</span><span>" + readyCount + " ready</span><span>" + favoriteCount + " favorite" + (favoriteCount === 1 ? "" : "s") + "</span><span>" + formatTimestamp(readyDuration) + " rendered</span>" + (intelligenceSummary ? "<span>Intelligence: " + escapeHtml(intelligenceSummary) + "</span>" : "") + (contentDna ? "<span>" + contentDna + "</span>" : "") + (performanceDna ? "<span>" + performanceDna + "</span>" : "");
   }
   const totalDuration = clips.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
   if (librarySummary) librarySummary.textContent = `${clips.length} total · ${readyCount} ready · ${renderingCount} rendering · ${failedCount} failed · ${favoriteCount} favorite${favoriteCount === 1 ? "" : "s"} · ${formatTimestamp(totalDuration)} of content`;
