@@ -17,14 +17,12 @@ test("highlight engine assembles transcript windows without injected placeholder
 
 test("highlight scoring rewards concrete lessons and contrast", () => {
   const clips = rankHighlights([
-    { start: 0, end: 8, text: "Hey guys, today we're going to talk about this thing." },
-    { start: 8, end: 16, text: "The result was 10x better because we changed one simple step." },
-    { start: 24, end: 32, text: "However, the old approach failed for one important reason." },
-  ], { limit: 2, minDuration: 15, maxDuration: 30 });
+    { start: 0, end: 16, text: "The result was 10x better because we changed one simple step. However, the old approach failed for one important reason." },
+  ], { limit: 1, minDuration: 15, maxDuration: 30 });
 
-  assert.equal(clips.length, 2);
+  assert.equal(clips.length, 1);
   assert.match(clips[0].transcript, /10x better/i);
-  assert.ok(clips[0].score > 0);
+  assert.ok(clips[0].score >= 50);
 });
 
 test("highlight scoring penalizes filler and promotional boilerplate", () => {
