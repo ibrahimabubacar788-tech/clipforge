@@ -4,7 +4,7 @@ intakeStyle.textContent = `
   .cf-intake-kicker{margin:0 0 8px;color:#a99aff;font:10px "DM Mono";letter-spacing:1.5px}
   .cf-intake h3{margin:0;font-size:27px;letter-spacing:-1.4px}
   .cf-intake-copy{max-width:690px;margin:9px 0 20px;color:#aeb4c9;font-size:13px;line-height:1.7}
-  .cf-intake-row{display:grid;grid-template-columns:1fr auto;gap:9px}
+  .cf-intake-row{display:grid;grid-template-columns:1fr 245px auto;gap:9px}
   .cf-intake-input{min-width:0;border:1px solid #343a58;border-radius:10px;background:#090d18;color:#f3f4ff;padding:13px 14px;font:600 13px Manrope;outline:none}
   .cf-intake-input:focus{border-color:#a68cff;box-shadow:0 0 0 3px rgba(166,140,255,.12)}
   .cf-intake-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
@@ -18,7 +18,7 @@ intakeStyle.textContent = `
   .cf-intake-status strong{color:#fff}
   .cf-intake-divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:#646b84;font:9px "DM Mono";letter-spacing:1px}
   .cf-intake-divider:before,.cf-intake-divider:after{content:"";height:1px;background:#252b42;flex:1}
-  @media(max-width:650px){.cf-intake{padding:20px}.cf-intake h3{font-size:23px}.cf-intake-row{grid-template-columns:1fr}.cf-intake-row .cf-intake-action{width:100%}}
+  @media(max-width:900px){.cf-intake{padding:20px}.cf-intake h3{font-size:23px}.cf-intake-row{grid-template-columns:1fr}.cf-intake-row .cf-intake-action{width:100%}}
 `;
 document.head.appendChild(intakeStyle);
 
@@ -35,6 +35,7 @@ function createCreatorIntake() {
     <p class="cf-intake-copy">Give ClipForge a long-form video and let the engine find the moments worth publishing — hooks, stories, insights, reactions and payoffs — then turn them into captioned short-form clips.</p>
     <div class="cf-intake-row">
       <input id="cf-source-url" class="cf-intake-input" type="url" inputmode="url" autocomplete="off" placeholder="Paste a YouTube or supported creator source link…" aria-label="Source video URL" />
+      <select id="cf-content-profile" class="cf-intake-input" aria-label="Content strategy"><option value="creator">Creator — broad viral moments</option><option value="podcast">Podcast — opinions & stories</option><option value="streamer">Streamer — reactions & highlights</option><option value="marketer">Marketer — hooks & persuasion</option><option value="ecommerce">E-commerce — product moments</option><option value="real_estate">Real estate — property & leads</option><option value="agency">Agency — expertise & results</option><option value="church">Church — teaching & encouragement</option><option value="media">Media — stories & reactions</option><option value="advertiser">Advertiser — high-impact creatives</option></select>
       <button id="cf-source-submit" class="cf-intake-action primary" type="button">Analyze source →</button>
     </div>
     <div class="cf-intake-divider">OR USE A VIDEO YOU CONTROL</div>
@@ -56,6 +57,7 @@ function createCreatorIntake() {
   document.querySelector("#cf-open-library")?.addEventListener("click", () => document.querySelector('[data-view="clips"]')?.click());
 
   const input = document.querySelector("#cf-source-url");
+  const profile = document.querySelector("#cf-content-profile");
   const submit = document.querySelector("#cf-source-submit");
   const status = document.querySelector("#cf-source-status");
 
@@ -84,6 +86,8 @@ function createCreatorIntake() {
       return;
     }
 
+    const selectedProfile = profile?.value || "creator";
+    window.localStorage.setItem("clipforge-content-profile", selectedProfile);
     const youtubeId = extractYouTubeId(value);
     if (youtubeId) {
       setStatus("<strong>Source recognized.</strong> ClipForge identified a YouTube video. Processing will use an authorized creator/source connection or a video you control — ClipForge will not silently bypass YouTube access restrictions. Your source is ready for the next ingestion step.");
