@@ -122,7 +122,8 @@ export class ClipQueue {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        this.subtitleSupport = supported;\n        resolve(supported);
+        this.subtitleSupport = supported;
+        resolve(supported);
       };
       const timer = setTimeout(() => {
         child.kill("SIGKILL");
