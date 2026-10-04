@@ -44,6 +44,9 @@ const libraryProjectOverview = document.querySelector("#library-project-overview
 const libraryProjectProgress = document.querySelector("#library-project-progress");
 const libraryProjectProgressBar = document.querySelector("#library-project-progress-bar");
 const libraryProjectProgressLabel = document.querySelector("#library-project-progress-label");
+const libraryProducerPlanButton = document.querySelector("#library-producer-plan");
+const libraryProducerPlan = document.querySelector("#library-producer-plan-result");
+
 const selectAllClipsButton = document.querySelector("#select-all-clips");
 const downloadSelectedClipsButton = document.querySelector("#download-selected-clips");
 const deleteSelectedClipsButton = document.querySelector("#delete-selected-clips");
@@ -573,6 +576,28 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#39;"
   }[character]));
+}
+
+
+async function loadProducerPlan() {
+  if (!currentProject?.id || !libraryProducerPlanButton || !libraryProducerPlan) return;
+  libraryProducerPlanButton.disabled = true;
+  libraryProducerPlanButton.textContent = "Planning…";
+  try {
+    const result = await api("/api/projects/" + encodeURIComponent(currentProject.id) + "/producer-plan");
+    const plan = result.plan || {};
+    const priorities = (plan.priorities || []).map((item) => "<li><b>" + escapeHtml(item.label) + "</b><span>" + escapeHtml(item.recommendation) + "</span></li>").join("");
+    const mix = (plan.mix || []).slice(0, 5).map((item) => escapeHtml(item.label) + ": " + item.count).join(" · ");
+    libraryProducerPlan.innerHTML = "<div class=\"producer-plan-head\"><strong>AI Producer Plan</strong><span>" + escapeHtml(plan.strategy?.label || "Creator") + "</span></div>" +
+      "<p>" + (plan.averageScore === null ? "No scored clips yet." : "Average AI score: <b>" + plan.averageScore + "/100</b>") + (mix ? " · " + mix : "") + "</p>" +
+      (priorities ? "<ul>" + priorities + "</ul>" : "<p>Your current clip mix covers the main intelligence types. Keep rotating formats to avoid repetition.</p>");
+    libraryProducerPlan.hidden = false;
+  } catch (error) {
+    showToast("Producer plan unavailable: " + error.message);
+  } finally {
+    libraryProducerPlanButton.disabled = false;
+    libraryProducerPlanButton.textContent = "AI Producer Plan";
+  }
 }
 
 function renderClipLibrary() {
@@ -1160,6 +1185,7 @@ clearClipFiltersButton?.addEventListener("click", () => {
 });
 clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });
 
+libraryProducerPlanButton?.addEventListener("click", loadProducerPlan);
 copyClipLinksButton?.addEventListener("click", () => { void copySelectedClipLinks(); });
 exportClipListButton?.addEventListener("click", exportSelectedClipList);
 copyClipTitlesButton?.addEventListener("click", () => { void copySelectedClipTitles(); });
