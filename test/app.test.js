@@ -303,8 +303,8 @@ test("video streaming supports byte ranges and rejects invalid ranges", async ()
 });
 test("highlight engine ranks strong moments and caps output at 50", () => {
   const segments = Array.from({ length: 80 }, (_, index) => ({
-    start: index * 20,
-    end: index * 20 + 20,
+    start: index * 100,
+    end: index * 100 + 20,
     text: index % 3 === 0
       ? "Here's the thing: this is the biggest mistake, and the result changes everything!"
       : "This is a useful discussion about what happened next and why it matters.",
