@@ -120,7 +120,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "GET" && pathname === "/api/ready") {
       await db.load();
       const mediaPersistent = String(process.env.MEDIA_STORAGE_PERSISTENT || "").toLowerCase() === "true";
-      return json(res, 200, { ok: true, service: "clipforge", mediaStorage: { mode: "local", persistent: mediaPersistent }, ffmpeg: { subtitles: queue.subtitleSupport === true } });
+      return json(res, 200, { ok: true, service: "clipforge", mediaStorage: { mode: "local", persistent: mediaPersistent } });
     }
     if (req.method === "POST" && pathname === "/api/auth/register") {
       checkAuthLimit(req);
