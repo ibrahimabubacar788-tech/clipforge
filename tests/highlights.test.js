@@ -253,14 +253,17 @@ test("AI highlight packs reject near-duplicate transcript windows", async () => 
 
 test("highlight engine prefers natural sentence boundaries over dangling fragments", () => {
   const candidates = rankHighlights([
-    { start: 0, end: 5, text: "And because" },
+    { start: 0, end: 5, text: "And because," },
     { start: 5, end: 10, text: "this is only the beginning of a useful explanation" },
     { start: 10, end: 15, text: "the result is clear and memorable for creators." },
+    { start: 15, end: 20, text: "It gives creators a useful result." },
     { start: 100, end: 105, text: "Here is a complete useful idea that creators can apply today." },
     { start: 105, end: 110, text: "It ends cleanly with a result." },
-    { start: 110, end: 115, text: "Thanks for watching." },
-  ], { limit: 2, minDuration: 15, maxDuration: 15 });
-  assert.equal(candidates.length, 1);
+    { start: 110, end: 115, text: "This is another useful sentence for creators." },
+    { start: 115, end: 120, text: "Thanks for watching." },
+  ], { limit: 2, minDuration: 15, maxDuration: 20 });
+  assert.equal(candidates.length, 2);
   assert.ok(candidates.every((item) => /[.!?][“”'"')]*$/.test(item.transcript)));
   assert.equal(/^(?:and|but|or|because|which|that|if|when|while|although|yet|then)\b/i.test(candidates[0].transcript), false);
+  assert.equal(candidates.some((item) => item.start === 0), false);
 });
