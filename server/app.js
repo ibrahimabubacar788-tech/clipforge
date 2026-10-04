@@ -289,7 +289,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
       if (!video.sourceUrl) throw Object.assign(new Error("Video has no uploaded source file."), { status: 422 });
 
-      const limit = Math.max(1, Math.min(20, Number(payload.limit) || 12));
+      const limit = Math.max(1, Math.min(40, Number(payload.limit) || 12));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
       const requestedLanguage = String(payload.language || "").trim().toLowerCase();
       const language = /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "en";
