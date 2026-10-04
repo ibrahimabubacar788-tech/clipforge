@@ -459,7 +459,7 @@ async function uploadSource(file) {
     if (!autoClipProjectId || !autoClipVideoId) throw new Error("The source video is no longer available.");
     const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
     const contentProfile = window.localStorage.getItem("clipforge-content-profile") || "creator";
-    const autoClipPayload = JSON.stringify({ limit: 12, format, style: captionStyle, language: transcriptionLanguage?.value || "en", profile: contentProfile });
+    const autoClipPayload = JSON.stringify({ limit: 40, format, style: captionStyle, language: transcriptionLanguage?.value || "en", profile: contentProfile });
     const requestAutomaticClipping = () => api(`/api/videos/${encodeURIComponent(autoClipVideoId)}/auto-clip`, {
       method: "POST",
       body: autoClipPayload
