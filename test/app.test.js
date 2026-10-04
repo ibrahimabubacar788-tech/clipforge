@@ -301,7 +301,7 @@ test("video streaming supports byte ranges and rejects invalid ranges", async ()
     await stopTestApp(ctx);
   }
 });
-test("highlight engine ranks strong moments and caps output at 40", () => {
+test("highlight engine ranks strong moments and caps output at 50", () => {
   const segments = Array.from({ length: 80 }, (_, index) => ({
     start: index * 20,
     end: index * 20 + 20,
@@ -310,8 +310,8 @@ test("highlight engine ranks strong moments and caps output at 40", () => {
       : "This is a useful discussion about what happened next and why it matters.",
     speaker: index % 2 ? "A" : "B",
   }));
-  const clips = rankHighlights(segments, { limit: 40 });
-  assert.ok(clips.length > 0 && clips.length <= 40);
+  const clips = rankHighlights(segments, { limit: 50 });
+  assert.equal(clips.length, 50);
   assert.equal(clips[0].rank, 1);
   assert.ok(clips.every((clip) => clip.duration >= 15 && clip.duration <= 75));
   assert.ok(clips.every((clip, index) => clip.rank === index + 1));
