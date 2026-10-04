@@ -619,7 +619,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         if (!source) throw Object.assign(new Error("A valid video duration is required when no uploaded source is attached."), { status: 422 });
         duration = await probeVideoDuration(source);
       }
-      const video = { id: id("vid"), userId: user.id, projectId: project.id, name: String(payload.name ?? "").trim().slice(0, 160) || "Untitled video", duration, sourceUrl, createdAt: now() }; try { await db.transaction((d) => d.videos.push(video)); } catch (error) { if (source) { const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === sourceUrl)); if (!stillReferenced) await safeUnlinkStorageFile(storageDir, sourceUrl); } throw error; } return json(res, 201, { video }); }
+      const video = { id: id("vid"), userId: user.id, projectId: project.id, name: (() => { const value = String(payload.name ?? "").trim(); if (value.length > 160) throw Object.assign(new Error("Video name must be 160 characters or fewer."), { status: 422 }); return value || "Untitled video"; })(), duration, sourceUrl, createdAt: now() }; try { await db.transaction((d) => d.videos.push(video)); } catch (error) { if (source) { const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === sourceUrl)); if (!stillReferenced) await safeUnlinkStorageFile(storageDir, sourceUrl); } throw error; } return json(res, 201, { video }); }
 if (req.method === "POST" && pathname === "/api/uploads") {
       const user = await requireUser(req, db);
       const filename = String(req.headers["x-filename"] || "video.mp4").slice(0, 120).replace(/[^a-zA-Z0-9._-]/g, "_");
