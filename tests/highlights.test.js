@@ -238,8 +238,9 @@ test("AI highlight packs reject near-duplicate transcript windows", async () => 
     assert.equal(result.engine, "openai-highlights-v1");
     assert.equal(result.candidates.length, 2);
     assert.equal(result.candidates[0].start, 0);
-    assert.equal(result.candidates.some((candidate) => candidate.start === 0 && candidate.start === 100), false);
-    assert.ok(result.candidates.some((candidate) => candidate.start === 200));
+    const starts = result.candidates.map((candidate) => candidate.start);
+    assert.equal(starts.includes(0) && starts.includes(100), false);
+    assert.ok(starts.includes(200));
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
