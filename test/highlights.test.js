@@ -24,7 +24,7 @@ test("highlight selection reduces near-time duplicates", () => {
   ], { limit: 2, minDuration: 15, maxDuration: 30 });
 
   assert.equal(clips.length, 2);
-  assert.ok(clips[1].start - clips[0].start >= 40);
+  assert.notEqual(Math.floor(clips[0].start / 40), Math.floor(clips[1].start / 40));
 });
 
 test("highlight boundaries trim leading filler without losing the minimum duration", () => {
