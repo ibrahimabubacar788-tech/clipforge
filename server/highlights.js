@@ -308,10 +308,15 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
       const base = byId.get(Number(selection.id));
       if (!base) return null;
       const score = Number(selection.score);
+      const aiScore = Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null;
+      const baselineScore = Math.max(0, Math.min(100, Number(base.score) * 0.8));
+      const blendedScore = aiScore === null ? baselineScore : Math.round(aiScore * 0.82 + baselineScore * 0.18);
       return {
         ...base,
-        score: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : base.score,
-        aiScore: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null,
+        score: blendedScore,
+        aiScore,
+        baselineScore: Math.round(baselineScore),
+        blendedScore,
         hookScore: Number.isFinite(Number(selection.hook)) ? Math.max(0, Math.min(100, Number(selection.hook))) : null,
         standaloneScore: Number.isFinite(Number(selection.standalone)) ? Math.max(0, Math.min(100, Number(selection.standalone))) : null,
         payoffScore: Number.isFinite(Number(selection.payoff)) ? Math.max(0, Math.min(100, Number(selection.payoff))) : null,
