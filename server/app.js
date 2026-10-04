@@ -43,7 +43,7 @@ import { buildContentPack } from "./content-packaging.js";
 import { buildProducerPlan, summarizePerformance } from "./content-producer.js";
 
 import { parseTimestampedTranscript, normalizeTranscript } from "./transcript.js";
-import { transcribeVideo } from "./stt.js";
+import { transcribeVideo, translateTranscriptSegments } from "./stt.js";
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v", ".ogv": "video/ogg" };
 const json = (res, status, value) => {
   res.writeHead(status, {
@@ -303,8 +303,10 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       if (!resolvedSource || !resolvedStorageRoot) throw Object.assign(new Error("Video file is unavailable."), { status: 404 });
       const relativeResolved = requireRelative(resolvedStorageRoot, resolvedSource);
       if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
-      const requestedLanguage = String(payload.language || "").trim().toLowerCase();
-      const language = /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "en";
+      const requestedLanguage = String(payload.language || payload.sourceLanguage || "").trim().toLowerCase();
+      const language = requestedLanguage === "auto" || /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "auto";
+      const requestedCaptionLanguage = String(payload.captionLanguage || "original").trim().toLowerCase();
+      const captionLanguage = requestedCaptionLanguage === "original" || /^[a-z]{2,3}$/.test(requestedCaptionLanguage) ? requestedCaptionLanguage : "original";
       const profile = normalizeContentProfile(payload.profile || payload.contentProfile || "creator");
       const contentProfile = getContentProfile(profile);
       const transcript = await transcribeVideo({ source: resolvedSource, ffmpegPath: queue.ffmpegPath, language });
@@ -419,7 +421,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         }
         let segments = normalizeTranscript(Array.isArray(video.transcript) ? video.transcript : []);
         let transcribed = false;
-        const storedTranscriptLanguage = String(video.transcriptLanguage || "en").trim().toLowerCase();
+        const storedTranscriptLanguage = String(video.transcriptLanguage || "auto").trim().toLowerCase();
         if (!segments.length || storedTranscriptLanguage !== language) {
           const source = normalize(join(storageDir, video.sourceUrl.slice("/storage/".length)));
           const storageRoot = normalize(storageDir).replace(/[\\/]$/, "");
@@ -432,6 +434,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           const relativeResolved = requireRelative(resolvedStorageRoot, resolvedSource);
           if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) throw Object.assign(new Error("Invalid video path."), { status: 403 });
           segments = await transcribeVideo({ source: resolvedSource, ffmpegPath: queue.ffmpegPath, language });
+
           if (!segments.length) throw Object.assign(new Error("No speech was detected in the video."), { status: 422 });
           transcribed = true;
           await db.transaction((d) => {
