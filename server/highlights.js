@@ -40,12 +40,17 @@ function scoreWindow(text, duration) {
   if (HOOKS.some((pattern) => pattern.test(text))) score += 22;
   if (PAYOFFS.some((pattern) => pattern.test(text))) score += 10;
   if (/\b(you|your|we|I|my)\b/i.test(text)) score += 5;
+  // Reward concrete, information-dense moments instead of generic chatter.
+  if (/\b\d+(?:\.\d+)?(?:%|x|k|m|b)?\b/i.test(text)) score += 5;
+  if (/\b(step|steps|tip|tips|lesson|rule|example|result|proof|mistake|reason)\b/i.test(text)) score += 5;
+  if (/\b(but|however|instead|yet|although|until|even though)\b/i.test(text)) score += 5;
   // Reward clips that can stand alone: a clear opening, enough substance,
   // and a complete thought are more useful than arbitrary transcript windows.
   if (/^[^.!?]{8,}[.!?]/.test(text.trim())) score += 4;
   if (/\b(because|therefore|that means|which is why|so)\b/i.test(text)) score += 4;
   if (/\b(um+|uh+|you know|like|basically|sort of|kind of)\b/i.test(text)) score -= 4;
   if (/\b(subscribe|sponsored by|promo code|link in the description)\b/i.test(text)) score -= 12;
+  if (/\b(guys|hey guys|welcome back|today we're going to|in this video)\b/i.test(text)) score -= 3;
   if (duration >= 15 && duration <= 75) score += 15;
   if (duration > 90) score -= 10;
   return score;
