@@ -113,12 +113,17 @@ function watermarkPpm() {
   return `P3\n${width} ${height}\n255\n${data}\n`;
 }
 
-function videoFilter(clip, captions = []) {
+function videoFilter(clip, captions = [], subtitlePath = null) {
   const { width, height } = formats[clip.format] || formats["9:16"];
   const filters=[`[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}[base]`,`[1:v]format=rgb24,colorkey=0x121212:0.08:0.02,format=rgba[wm]`,`[base][wm]overlay=W-w-24:H-h-24:format=auto[v0]`];
   let previous="v0";
   captions.forEach((c,i)=>{const input=i+2,next=`v${i+1}`;filters.push(`[${input}:v]format=rgb24,colorkey=0x0a0a0a:0.08:0.02,format=rgba[c${i}]`,`[${previous}][c${i}]overlay=(W-w)/2:H-h-90:enable='between(t,${c.start.toFixed(3)},${c.end.toFixed(3)})':format=auto[${next}]`);previous=next;});
-  filters.push(`[${previous}]null[v]`); return filters.join(";");
+  if (subtitlePath) {
+    const escaped = String(subtitlePath).replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/\x27/g, "\\x27");
+    const color = clip.style?.color === "pink" ? "&H008FBEFF" : clip.style?.color === "sky" ? "&H00FFE18B" : "&H0064E9D3";
+    filters.push(`[${previous}]subtitles=\\x27${escaped}\\x27:force_style=\\x27Alignment=2,MarginV=70,FontSize=20,PrimaryColour=${color},OutlineColour=&H00000000,Outline=3,Shadow=0\\x27[v]`);
+  } else filters.push(`[${previous}]null[v]`);
+  return filters.join(";");
 }
 
 export class ClipQueue {
@@ -198,13 +203,13 @@ export class ClipQueue {
     const duration = clip.end - clip.start;
     const watermarkPath = join(exportDir, `.${clip.id}.${renderId}.watermark.ppm`);
     const captions = captionSegmentsForClip(clip);
-    const captionPaths = captions.map((_,i)=>join(exportDir,`.${clip.id}.${renderId}.caption-${i}.ppm`));
+    const captionSrtPath = join(exportDir, `.${clip.id}.${renderId}.captions.srt`);\n    const captionPaths = captions.map((_,i)=>join(exportDir,`.${clip.id}.${renderId}.caption-${i}.ppm`));
     try {
-      await writeFile(watermarkPath, watermarkPpm(), { encoding: "utf8", flag: "wx" });
+      await writeFile(watermarkPath, watermarkPpm(), { encoding: "utf8", flag: "wx" });\n      if (captions.length && this.subtitleSupport) {\n        const stamp = (seconds) => { const total = Math.max(0, Number(seconds) || 0); const ms = Math.round((total % 1) * 1000); const whole = Math.floor(total); const h = Math.floor(whole / 3600); const m = Math.floor((whole % 3600) / 60); const sec = whole % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")},${String(ms).padStart(3, "0")}`; };\n        const srt = captions.map((caption, index) => `${index + 1}\\n${stamp(caption.start)} --> ${stamp(caption.end)}\\n${caption.text}\\n`).join("\\n");\n        await writeFile(captionSrtPath, srt, { encoding: "utf8", flag: "wx" });\n      }
       for(let i=0;i<captions.length;i++) await writeFile(captionPaths[i],captionPpm(captions[i].text,clip.style?.color==="pink"?"ff8fbe":clip.style?.color==="sky"?"8be1ff":"d3e964"),{ encoding: "utf8", flag: "wx" });
       const args=["-y","-i",resolvedSource,"-loop","1","-i",watermarkPath];
       for(const p of captionPaths) args.push("-loop","1","-i",p);
-      args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart","-progress","pipe:2","-nostats",tempOutput);
+      args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions,this.subtitleSupport && captions.length ? captionSrtPath : null),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart","-progress","pipe:2","-nostats",tempOutput);
       let lastProgress = -1;
       let lastPersistedAt = 0;
       await run(this.ffmpegPath,args,{
@@ -228,7 +233,7 @@ export class ClipQueue {
       throw error;
     } finally {
       await safeUnlinkExportFile(exportDir, watermarkPath);
-      for(const p of captionPaths) await safeUnlinkExportFile(exportDir, p);
+      for(const p of captionPaths) await safeUnlinkExportFile(exportDir, p);\n      await safeUnlinkExportFile(exportDir, captionSrtPath);
     }
     return { filename, output };
   }
