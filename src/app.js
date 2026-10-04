@@ -77,6 +77,7 @@ let librarySort = "newest";
 let timelineMaximum = Number(endInput.max);
 const storageKey = "clipforge-exports";
 const sessionKey = "clipforge-session";
+const identityKey = "clipforge-identity";
 const styleKey = "clipforge-caption-style";
 const favoriteKey = "clipforge-favorite-clips";
 const transcriptionLanguageKey = "clipforge-transcription-language";
@@ -151,9 +152,17 @@ async function ensureWorkspace() {
   const loadVersion = ++workspaceLoadVersion;
   try {
     if (!apiSession) {
-      const email = `creator-${crypto.randomUUID().slice(0, 8)}@clipforge.local`;
-      apiSession = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password: crypto.randomUUID() }) });
-      window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+      const savedIdentity = safeStorageParse(identityKey, null);
+      if (savedIdentity?.email && savedIdentity?.password) {
+        apiSession = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: savedIdentity.email, password: savedIdentity.password }) });
+        window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+      } else {
+        const email = `creator-${crypto.randomUUID().slice(0, 8)}@clipforge.local`;
+        const password = crypto.randomUUID();
+        apiSession = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
+        window.localStorage.setItem(identityKey, JSON.stringify({ email, password }));
+        window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+      }
     }
     const { projects } = await api("/api/projects");
     if (loadVersion !== workspaceLoadVersion) return false;
@@ -188,8 +197,9 @@ async function ensureWorkspace() {
       apiSession = null;
       window.localStorage.removeItem(sessionKey);
       try {
-        const email = `creator-${crypto.randomUUID().slice(0, 8)}@clipforge.local`;
-        apiSession = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password: crypto.randomUUID() }) });
+        const savedIdentity = safeStorageParse(identityKey, null);
+        if (!savedIdentity?.email || !savedIdentity?.password) throw new Error("Your ClipForge workspace identity is missing from this browser.");
+        apiSession = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: savedIdentity.email, password: savedIdentity.password }) });
         window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
         const { projects } = await api("/api/projects");
         if (loadVersion !== workspaceLoadVersion) return false;
