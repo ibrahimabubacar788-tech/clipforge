@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { getContentProfile, listContentProfiles, normalizeContentProfile } from "../server/content-strategy.js";
 test("normalizes content profiles", () => {
   assert.equal(normalizeContentProfile("podcast"), "podcast");
-  assert.equal(normalizeContentProfile("REAL ESTATE"), "creator");
+  assert.equal(normalizeContentProfile("REAL ESTATE"), "real_estate");
   assert.equal(normalizeContentProfile("unknown"), "creator");
 });
 test("profiles contain useful creator strategy", () => {
