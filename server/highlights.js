@@ -107,7 +107,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   if (!apiKey) return { candidates: fallback(), engine: "heuristic-fallback" };
 
   const baseline = rankHighlights(segments, {
-    limit: Math.min(50, safeLimit),
+    limit: Math.min(50, safeLimit * 3),
     minDuration: safeMinDuration,
     maxDuration: safeMaxDuration,
   });
