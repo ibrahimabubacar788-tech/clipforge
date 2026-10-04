@@ -463,6 +463,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         minDuration: 15,
         maxDuration: maxClipDuration,
         profile,
+        targetTypes: Array.isArray(payload.targetTypes) ? payload.targetTypes : [],
       });
       const candidates = analysis.candidates.filter((candidate) => {
         const start = Number(candidate.start);
