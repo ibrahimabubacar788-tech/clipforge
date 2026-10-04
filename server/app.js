@@ -40,6 +40,8 @@ import { ClipQueue } from "./queue.js";
 import { rankHighlights, rankHighlightsWithAI } from "./highlights.js";
 import { getContentProfile, listContentProfiles, normalizeContentProfile } from "./content-strategy.js";
 import { buildContentPack } from "./content-packaging.js";
+import { buildProducerPlan } from "./content-producer.js";
+
 import { parseTimestampedTranscript, normalizeTranscript } from "./transcript.js";
 import { transcribeVideo } from "./stt.js";
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v", ".ogv": "video/ogg" };
@@ -184,6 +186,15 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (!req.headers.cookie && bearerToken) res.setHeader("set-cookie", sessionCookie(bearerToken));
     if (req.method === "GET" && pathname === "/api/me") return json(res, 200, { user: publicUser(user) });
     if (req.method === "GET" && pathname === "/api/content-profiles") return json(res, 200, { profiles: listContentProfiles() });
+    const producerPlanMatch = pathname.match(/^\/api\/projects\/([^/]+)\/producer-plan$/);
+    if (req.method === "GET" && producerPlanMatch) {
+      const projectId = producerPlanMatch[1];
+      const project = await db.read((d) => d.projects.find((item) => item.id === projectId && item.userId === user.id));
+      if (!project) throw Object.assign(new Error("Project not found."), { status: 404 });
+      const projectClips = await db.read((d) => d.clips.filter((item) => item.projectId === projectId && item.userId === user.id));
+      const profile = project.contentProfile || projectClips.find((item) => item.contentProfile)?.contentProfile || "creator";
+      return json(res, 200, { projectId, plan: buildProducerPlan(projectClips, profile) });
+    }
     const clipPackagingMatch = pathname.match(/^\/api\/clips\/([^/]+)\/content-packaging$/);
     if (req.method === "GET" && clipPackagingMatch) {
       const clip = await db.read((d) => d.clips.find((item) => item.id === clipPackagingMatch[1] && item.userId === user.id));
