@@ -142,3 +142,5 @@
 
 .generation-profile { grid-column: 1 / -1; }
 .generation-profile select { min-height: 44px; }
+
+#ai-output-format, #ai-caption-enabled { min-height: 44px; }
