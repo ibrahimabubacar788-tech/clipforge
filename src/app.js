@@ -974,6 +974,11 @@ autoTranscribeButton?.addEventListener("click", async () => {
   }
 });
 
+document.querySelector("#library-ai-generate")?.addEventListener("click", () => {
+  if (!sourceVideo) { showToast("Upload a source video first."); switchView("editor"); return; }
+  transcriptDialog.showModal();
+});
+
 document.querySelector("#generate-ai-clips")?.addEventListener("click", () => {
   if (!sourceVideo) { showToast("Upload a source video first."); return; }
   transcriptDialog.showModal();
