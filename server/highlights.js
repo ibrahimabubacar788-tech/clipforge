@@ -198,6 +198,15 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
       return true;
     };
 
+    // Build a more useful clip pack by giving distinct intelligence types
+    // a chance before filling the remaining slots with pure score order.
+    const seenTypes = new Set();
+    for (const candidate of ranked) {
+      if (selected.length >= safeLimit) break;
+      const type = String(candidate.highlightType || "").trim().toLowerCase();
+      if (type && seenTypes.has(type)) continue;
+      if (addIfDistinct(candidate) && type) seenTypes.add(type);
+    }
     for (const candidate of ranked) {
       if (selected.length >= safeLimit) break;
       addIfDistinct(candidate);
