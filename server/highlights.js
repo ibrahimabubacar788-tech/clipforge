@@ -197,7 +197,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
     }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
 
     const selected = [];
-    const tokenize = (value) => new Set(String(value || "").toLowerCase().replace(/[^a-z0-9\\s]/g, " ").split(/\\s+/).filter((word) => word.length > 2));
+    const tokenize = (value) => new Set(String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((word) => word.length > 2));
     const similarity = (left, right) => {
       const a = tokenize(left);
       const b = tokenize(right);
