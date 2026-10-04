@@ -62,3 +62,20 @@
 .producer-next-publish{margin:12px 0;padding:12px;border:1px solid var(--line,#2a2a2a);border-radius:10px;display:grid;gap:4px}
 .producer-next-publish small{opacity:.7;text-transform:uppercase}
 .producer-next-publish span{opacity:.82}
+
+.dashboard { max-width: 1180px; margin: 0 auto; padding: 48px 32px 72px; }
+.dashboard-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:28px; }
+.dashboard-heading h1 { margin:6px 0 8px; font-size:clamp(36px,5vw,56px); letter-spacing:-.04em; }
+.dashboard-heading p:not(.eyebrow) { margin:0; max-width:620px; opacity:.72; }
+.dashboard-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+.project-card { position:relative; min-height:170px; padding:22px; border:1px solid rgba(255,255,255,.09); border-radius:22px; background:rgba(255,255,255,.035); cursor:pointer; transition:transform .18s ease,border-color .18s ease,background .18s ease; display:flex; flex-direction:column; justify-content:space-between; }
+.project-card:hover { transform:translateY(-2px); border-color:rgba(255,255,255,.22); background:rgba(255,255,255,.055); }
+.project-card-mark { width:40px; height:40px; display:grid; place-items:center; border-radius:12px; background:rgba(255,255,255,.08); font-size:12px; font-weight:800; }
+.project-card-copy h3 { margin:18px 0 5px; font-size:20px; }
+.project-card-copy p { margin:0; opacity:.58; font-size:13px; }
+.project-card-arrow { position:absolute; right:20px; bottom:20px; font-size:20px; opacity:.6; }
+.account-card { margin-top:28px; padding:22px; border:1px solid rgba(255,255,255,.09); border-radius:22px; display:flex; align-items:center; justify-content:space-between; gap:20px; background:rgba(255,255,255,.025); }
+.account-card h2 { margin:5px 0; font-size:18px; }
+.account-card p:not(.eyebrow) { margin:0; opacity:.62; }
+.account-actions { display:flex; gap:10px; }
+@media (max-width:700px) { .dashboard { padding:32px 18px 50px; } .dashboard-heading,.account-card { align-items:stretch; flex-direction:column; } .account-actions { flex-wrap:wrap; } }
