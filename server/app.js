@@ -323,6 +323,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
 
       const limit = Math.max(1, Math.min(40, Number(payload.limit) || 12));
       const format = ["9:16", "1:1", "16:9"].includes(payload.format) ? payload.format : "9:16";
+      const profile = normalizeContentProfile(payload.profile || payload.contentProfile || "creator");
+      const contentProfile = getContentProfile(profile);
       const requestedLanguage = String(payload.language || "").trim().toLowerCase();
       const language = /^[a-z]{2,3}$/.test(requestedLanguage) ? requestedLanguage : "en";
       if (autoClipInFlight.has(video.id)) {
