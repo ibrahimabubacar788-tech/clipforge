@@ -482,6 +482,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           aiFallback: analysis.engine !== "openai-highlights-v1",
           aiError: analysis.aiError || null,
           aiReason: String(candidate.aiReason || "").trim().slice(0, 240) || null,
+          highlightType: String(candidate.highlightType || "insight").trim().slice(0, 40) || "insight",
           highlightRank: candidate.rank,
           highlightScore: candidate.score,
           createdAt: now(),
