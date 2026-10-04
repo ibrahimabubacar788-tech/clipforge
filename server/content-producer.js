@@ -76,11 +76,18 @@ export function buildProducerPlan(clips = [], profile = "creator") {
     .sort((a, b) => (b.engagementRate || 0) - (a.engagementRate || 0))
     .slice(0, 2)
     .map((entry) => entry.type);
-  const priorities = missingTypes.slice(0, 3).map((type) => ({
+  const priorities = provenTypes.map((type) => ({
     type,
     label: TYPE_LABELS[type],
-    recommendation: TYPE_NEEDS[type],
+    recommendation: "Double down on this format: it has the strongest tracked engagement so far for this project.",
   }));
+  for (const item of missingTypes.slice(0, 3 - priorities.length)) {
+    priorities.push({
+      type: item,
+      label: TYPE_LABELS[item],
+      recommendation: TYPE_NEEDS[item],
+    });
+  }
   if (!priorities.length) {
     const weakest = Object.entries(counts).sort((a, b) => a[1] - b[1]).slice(0, 2);
     for (const [type] of weakest) {
