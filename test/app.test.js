@@ -332,6 +332,37 @@ test("transcription normalization keeps valid diarized segments and drops invali
   ]);
 });
 
+test("translation preserves transcript timing and falls back safely for missing segments", async () => {
+  const { translateTranscriptSegments } = await import("../server/stt.js");
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "https://api.openai.com/v1/responses");
+    assert.equal(options.headers.Authorization, "Bearer test-key");
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify([
+        { index: 0, text: "Hola mundo" },
+      ]),
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const source = [
+      { start: 0, end: 2.5, speaker: "A", text: "Hello world" },
+      { start: 3, end: 5, text: "Keep this if translation is missing" },
+    ];
+    const translated = await translateTranscriptSegments(source, "es");
+    assert.deepEqual(translated, [
+      { start: 0, end: 2.5, speaker: "A", text: "Hola mundo" },
+      { start: 3, end: 5, text: "Keep this if translation is missing" },
+    ]);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
 
 
 test("automatic clip status isolates spoken and caption language batches", async () => {
