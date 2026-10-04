@@ -18,6 +18,21 @@ export async function register(db, email, password) {
     data.users.push(user); return user;
   });
 }
+export async function updateAccount(db, currentUser, email, password) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || typeof password !== "string" || password.length < 8 || password.length > 256) throw Object.assign(new Error("Use a valid email and a password with 8 to 256 characters."), { status: 422 });
+  return db.transaction((data) => {
+    const user = data.users.find((item) => item.id === currentUser.id);
+    if (!user) throw Object.assign(new Error("Authentication required."), { status: 401 });
+    if (data.users.some((item) => item.id !== user.id && item.email === normalizedEmail)) throw Object.assign(new Error("That email is already registered."), { status: 409 });
+    const salt = randomBytes(16).toString("hex");
+    user.email = normalizedEmail;
+    user.salt = salt;
+    user.passwordHash = digest(password, salt);
+    user.updatedAt = now();
+    return user;
+  });
+}
 export async function login(db, email, password) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const user = await db.read((d) => d.users.find((u) => u.email === normalizedEmail));
