@@ -63,7 +63,7 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
       const next = clean[j];
       if (next.start - start > safeMaxDuration) break;
       end = Math.max(end, next.end);
-      text = text ? `function () { [native code] } ${next.text}` : next.text;
+      text = text ? `${text} ${next.text}` : next.text;
       if (next.speaker) speakers.add(next.speaker);
       const duration = end - start;
       if (duration < safeMinDuration) continue;
