@@ -8,11 +8,41 @@ import ffmpegPath from "ffmpeg-static";
 
 const { rankHighlights } = await import("../server/highlights.js");
 const { normalizeTranscriptionResponse } = await import("../server/stt.js");
+const { ClipQueue } = await import("../server/queue.js");
 
 process.env.DATABASE_URL = "";
 process.env.DATABASE_SSL = "false";
 
 const { createApp } = await import("../server/app.js");
+
+test("clip render queue honors its concurrency limit", async () => {
+  const jobs = Array.from({ length: 4 }, (_, index) => ({
+    id: `job_${index}`,
+    clipId: `clip_${index}`,
+    status: "queued",
+    progress: 0,
+  }));
+  const clips = jobs.map((job) => ({ id: job.clipId, status: "rendering" }));
+  const db = {
+    data: { jobs, clips },
+    async transaction(mutator) { return mutator(this.data); },
+    async read(reader) { return reader(this.data); },
+  };
+  const queue = new ClipQueue(db, "/tmp/clipforge-test");
+  let active = 0;
+  let maxActive = 0;
+  queue.render = async (clip) => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    active -= 1;
+    return { filename: `${clip.id}.mp4` };
+  };
+  await queue.work();
+  assert.equal(maxActive, 2);
+  assert.equal(db.data.jobs.every((job) => job.status === "completed"), true);
+  assert.equal(db.data.clips.every((clip) => clip.status === "ready"), true);
+});
 
 async function startTestApp() {
   const root = await mkdtemp(join(tmpdir(), "clipforge-root-"));
