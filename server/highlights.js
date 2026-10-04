@@ -137,17 +137,18 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
     const start = clean[i].start;
     let end = start;
     const speakers = new Set();
+    const windowSegments = [];
     for (let j = i; j < clean.length; j += 1) {
       const next = clean[j];
       if (next.start - start > safeMaxDuration) break;
       end = Math.max(end, next.end);
       text = text ? `${text} ${next.text}` : next.text;
+      windowSegments.push(next);
       if (next.speaker) speakers.add(next.speaker);
       const duration = end - start;
       if (duration < safeMinDuration) continue;
       if (duration > safeMaxDuration) break;
-      const rawCaptionSegments = clean.slice(i, j + 1).filter((item) => item.end > start && item.start < end);
-      const refinedSegments = refineBoundarySegments(rawCaptionSegments, safeMinDuration);
+      const refinedSegments = refineBoundarySegments(windowSegments, safeMinDuration);
       const refinedStart = refinedSegments[0]?.start ?? start;
       const refinedEnd = refinedSegments[refinedSegments.length - 1]?.end ?? end;
       const refinedDuration = refinedEnd - refinedStart;
