@@ -55,6 +55,27 @@ function scoreWindow(text, duration) {
   if (duration > 90) score -= 10;
   return score;
 }
+function transcriptTokenSet(text) {
+  return new Set(normalizeText(text).split(/\\s+/).filter((token) => token.length >= 4));
+}
+
+function transcriptSimilarity(left, right) {
+  const a = transcriptTokenSet(left);
+  const b = transcriptTokenSet(right);
+  if (!a.size || !b.size) return 0;
+  let intersection = 0;
+  for (const token of a) if (b.has(token)) intersection += 1;
+  return intersection / (a.size + b.size - intersection);
+}
+
+function diversityPenalty(candidate, selected) {
+  return selected.reduce((penalty, item) => {
+    const similarity = transcriptSimilarity(candidate.transcript, item.transcript);
+    const sameType = candidate.highlightType === item.highlightType ? 0.08 : 0;
+    return Math.max(penalty, similarity * 0.45 + sameType);
+  }, 0);
+}
+
 function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDuration = 75, candidateLimit } = {}) {
   const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.min(300, Math.max(0, Number(minDuration))) : 15;
@@ -95,11 +116,25 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
     ? Math.max(safeLimit, Math.min(150, Math.floor(parsedCandidateLimit)))
     : safeLimit;
   const selected = [];
-  for (const candidate of candidates) {
-    if (selected.length >= safeCandidateLimit) break;
-    const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
-    if (!overlaps) selected.push(candidate);
+  const pool = candidates.slice(0, Math.min(candidates.length, Math.max(safeCandidateLimit * 4, 40)));
+  while (selected.length < safeCandidateLimit && pool.length) {
+    let bestIndex = -1;
+    let bestUtility = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < pool.length; i += 1) {
+      const candidate = pool[i];
+      const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
+      if (overlaps) continue;
+      const utility = candidate.score - diversityPenalty(candidate, selected) * 100;
+      if (utility > bestUtility) {
+        bestUtility = utility;
+        bestIndex = i;
+      }
+    }
+    if (bestIndex < 0) break;
+    selected.push(pool[bestIndex]);
+    pool.splice(bestIndex, 1);
   }
+  selected.sort((a, b) => b.score - a.score || a.start - b.start);
   return selected;
 }
 
