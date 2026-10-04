@@ -135,3 +135,7 @@
 .project-card:focus-visible,.dashboard-quick-card:focus-visible{outline:2px solid var(--violet);outline-offset:3px}
 @media(max-width:900px){.dashboard-stats{grid-template-columns:1fr 1fr}.dashboard-stat-wide{grid-column:1/-1}.dashboard-quick-actions{grid-template-columns:1fr}}
 @media(max-width:570px){.dashboard-stats{grid-template-columns:1fr}.dashboard-stat-wide{grid-column:auto}.dashboard-quick-actions{gap:9px}}
+
+.generation-language-note { margin: 0 0 14px; padding: 12px 14px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: rgba(255,255,255,.04); font-size: .9rem; }
+.generation-language-note strong { font-weight: 700; }
+.transcript-language small { display: block; margin: 4px 0 6px; opacity: .65; font-size: .75rem; }
