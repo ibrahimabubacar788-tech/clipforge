@@ -205,7 +205,23 @@ export class ClipQueue {
       const args=["-y","-i",resolvedSource,"-loop","1","-i",watermarkPath];
       for(const p of captionPaths) args.push("-loop","1","-i",p);
       args.push("-ss",String(clip.start),"-t",String(duration),"-filter_complex",videoFilter(clip,captions),"-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-c:a","aac","-shortest","-movflags","+faststart","-progress","pipe:2","-nostats",tempOutput);
-      await run(this.ffmpegPath,args);
+      let lastProgress = -1;
+      let lastPersistedAt = 0;
+      await run(this.ffmpegPath,args,{
+        onProgress: async (seconds) => {
+          const progress = Math.max(35, Math.min(99, Math.round((seconds / Math.max(duration, 0.1)) * 64) + 35));
+          const current = Date.now();
+          if (progress === lastProgress || (current - lastPersistedAt < 2000 && progress < 99)) return;
+          lastProgress = progress;
+          lastPersistedAt = current;
+          await this.db.transaction((d) => {
+            const j = d.jobs.find((item) => item.id === clip.jobId);
+            const c = d.clips.find((item) => item.id === clip.id);
+            if (j) j.progress = progress;
+            if (c) c.renderProgress = progress;
+          });
+        },
+      });
       await rename(tempOutput, output);
     } catch (error) {
       await safeUnlinkExportFile(exportDir, tempOutput);
