@@ -452,69 +452,8 @@ async function uploadSource(file) {
   if (uploadProgressBar) uploadProgressBar.value = 100;
   if (uploadProgressPercent) uploadProgressPercent.textContent = "100%";
   if (uploadProgressLabel) uploadProgressLabel.textContent = "Upload complete";
-  showToast("Video uploaded. ClipForge is analyzing it automatically…");
-  try {
-    const autoClipProjectId = currentProject?.id;
-    const autoClipVideoId = sourceVideo?.id;
-    if (!autoClipProjectId || !autoClipVideoId) throw new Error("The source video is no longer available.");
-    const format = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
-    const contentProfile = window.localStorage.getItem("clipforge-content-profile") || "creator";
-    const autoClipPayload = JSON.stringify({ limit: 40, format, style: captionStyle, language: transcriptionLanguage?.value || "en", profile: contentProfile });
-    const requestAutomaticClipping = () => api(`/api/videos/${encodeURIComponent(autoClipVideoId)}/auto-clip`, {
-      method: "POST",
-      body: autoClipPayload
-    });
-    showToast("ClipForge is analyzing your video and finding the strongest moments…");
-    void pollAutoClipStatus(autoClipVideoId);
-    let result;
-    try {
-      result = await requestAutomaticClipping();
-    } catch (firstError) {
-      const retryable = !firstError.status || [500, 502, 504].includes(firstError.status);
-      if (!retryable) throw firstError;
-      showToast("AI analysis was interrupted. Retrying automatically…");
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      result = await requestAutomaticClipping();
-    }
-    if (currentProject?.id !== autoClipProjectId || sourceVideo?.id !== autoClipVideoId) {
-      showToast("Automatic clipping finished for the original source, but the workspace changed during analysis.");
-      return;
-    }
-    automaticClipFailures.delete(autoClipVideoId);
-    clips = [...result.clips.map((item) => item.clip), ...clips.filter((clip) => !result.clips.some((item) => item.clip.id === clip.id))];
-    renderClipLibrary();
-    startClipStatusPolling();
-    showToast(result.aiFallback
-      ? `Built-in highlight analysis found ${result.generated} clips and started rendering them.`
-      : `AI highlight analysis found ${result.generated} clips and started rendering them.`);
-    void refreshClipLibraryWhileRendering();
-  } catch (error) {
-    if (autoClipVideoId && currentProject?.id === autoClipProjectId && sourceVideo?.id === autoClipVideoId && error.status !== 409) {
-      try {
-        const status = await api(`/api/videos/${encodeURIComponent(autoClipVideoId)}/auto-clip-status`);
-        if (currentProject?.id !== autoClipProjectId || sourceVideo?.id !== autoClipVideoId) return;
-        const hasAutomaticWork = status.total > 0 || status.analysisInProgress;
-        if (hasAutomaticWork) {
-          automaticClipFailures.delete(autoClipVideoId);
-          void pollAutoClipStatus(autoClipVideoId);
-        } else {
-          automaticClipFailures.add(autoClipVideoId);
-        }
-      } catch {
-        automaticClipFailures.add(autoClipVideoId);
-      }
-    }
-    if (currentProject?.id !== autoClipProjectId || sourceVideo?.id !== autoClipVideoId) return;
-    if (error.status === 409) {
-      showToast("Automatic clipping is already running for this video. We are using the existing job.");
-      void pollAutoClipStatus(autoClipVideoId);
-    } else if (error.status === 503) {
-      showToast("Automatic transcription needs a server key. You can import a transcript and use ClipForge's built-in highlight engine.");
-      document.querySelector("#transcript-dialog")?.showModal();
-    } else {
-      showToast(`Video uploaded, but AI clipping failed: ${error.message}`);
-    }
-  }
+  showToast("Video uploaded. Choose how many AI clips you want, then start generation.");
+  document.querySelector("#transcript-dialog")?.showModal();
   } finally {
     if (!uploadCommitted) {
       if (currentProject?.id === uploadProjectId && previousSourceVideo?.id) restoreSourcePreview(previousSourceVideo);
@@ -1018,15 +957,19 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
     const generationProjectId = currentProject?.id;
     const generationVideoId = sourceVideo.id;
     const rawTranscript = transcriptInput.value.trim();
-    if (!rawTranscript) throw new Error("Add or import a transcript before generating clips.");
-    await api(`/api/videos/${encodeURIComponent(generationVideoId)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
+    const selectedClipCount = Number(document.querySelector("#ai-clip-count")?.value) || 10;
+    if (rawTranscript) {
+      await api(`/api/videos/${encodeURIComponent(generationVideoId)}/transcript`, { method: "POST", body: JSON.stringify({ text: rawTranscript, format: "auto" }) });
+    }
     if (currentProject?.id !== generationProjectId || sourceVideo?.id !== generationVideoId) {
       throw new Error("The source video or project changed while generation was running. Please reopen the original project before generating clips.");
     }
     const format = document.querySelector(".format-option.selected").dataset.format;
-    const result = await api(`/api/videos/${encodeURIComponent(generationVideoId)}/generate-clips`, {
+    const contentProfile = window.localStorage.getItem("clipforge-content-profile") || "creator";
+    const endpoint = rawTranscript ? "generate-clips" : "auto-clip";
+    const result = await api(`/api/videos/${encodeURIComponent(generationVideoId)}/${endpoint}`, {
       method: "POST",
-      body: JSON.stringify({ limit: 40, format, style: captionStyle })
+      body: JSON.stringify({ limit: selectedClipCount, format, style: captionStyle, language: transcriptionLanguage?.value || "en", profile: contentProfile })
     });
     if (currentProject?.id !== generationProjectId || sourceVideo?.id !== generationVideoId) {
       throw new Error("The source video or project changed while generation was running. The generated clips were kept on the original source.");
