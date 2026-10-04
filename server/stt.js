@@ -42,6 +42,35 @@ export function normalizeTranscriptionResponse(response) {
     .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start && segment.text);
 }
 
+export const INTERNATIONAL_LANGUAGES = [
+["auto","Auto-detect spoken language"],["en","English"],["es","Spanish"],["fr","French"],["de","German"],["pt","Portuguese"],["it","Italian"],["nl","Dutch"],["pl","Polish"],["tr","Turkish"],["ru","Russian"],["uk","Ukrainian"],["ar","Arabic"],["he","Hebrew"],["fa","Persian"],["hi","Hindi"],["bn","Bengali"],["ur","Urdu"],["ta","Tamil"],["te","Telugu"],["mr","Marathi"],["gu","Gujarati"],["kn","Kannada"],["ml","Malayalam"],["pa","Punjabi"],["th","Thai"],["vi","Vietnamese"],["id","Indonesian"],["ms","Malay"],["ja","Japanese"],["ko","Korean"],["zh","Chinese"],["sw","Swahili"],["yo","Yoruba"],["ha","Hausa"],["ig","Igbo"],["am","Amharic"],["zu","Zulu"],["fil","Filipino"],["ro","Romanian"],["cs","Czech"],["el","Greek"],["hu","Hungarian"],["sv","Swedish"],["da","Danish"],["fi","Finnish"],["no","Norwegian"],["sk","Slovak"],["bg","Bulgarian"],["sr","Serbian"],["hr","Croatian"]
+];
+
+export async function translateTranscriptSegments(segments, targetLanguage) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const target = String(targetLanguage || "").trim().toLowerCase();
+  if (!apiKey) throw Object.assign(new Error("AI translation is not configured. Add OPENAI_API_KEY to the server environment."), { status: 503 });
+  if (!target || target === "original" || target === "auto") return segments;
+  if (!Array.isArray(segments) || !segments.length) return [];
+  const compact = segments.slice(0, 2000).map((segment, index) => ({ index, start: segment.start, end: segment.end, text: segment.text }));
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + apiKey, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: process.env.CLIPFORGE_TRANSLATION_MODEL || "gpt-4o-mini",
+      input: "Translate every transcript segment into " + target + ". Preserve each index, start, and end exactly. Return JSON only as an array of objects with index and text. Do not summarize, omit, merge, or reorder segments. Preserve names and meaning.\n\n" + JSON.stringify(compact)
+    })
+  });
+  const raw = await response.text();
+  let result = {};
+  try { result = JSON.parse(raw); } catch { result = { error: { message: raw } }; }
+  if (!response.ok) throw Object.assign(new Error(result?.error?.message || "AI translation failed."), { status: response.status >= 500 ? 502 : 422 });
+  const output = String(result.output_text || "").trim().replace("```json", "").replace("```", "").trim();
+  let translated;
+  try { translated = JSON.parse(output); } catch { throw Object.assign(new Error("AI translation returned an invalid result."), { status: 502 }); }
+  const byIndex = new Map((Array.isArray(translated) ? translated : []).map(item => [Number(item.index), String(item.text || "").trim()]));
+  return segments.map((segment, index) => ({ ...segment, text: byIndex.get(index) || segment.text }));
+}
 export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw Object.assign(new Error("Automatic transcription is not configured. Add OPENAI_API_KEY to the server environment."), { status: 503 });
@@ -57,7 +86,7 @@ export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
     form.append("model", "gpt-4o-transcribe-diarize");
     form.append("response_format", "diarized_json");
     form.append("chunking_strategy", "auto");
-    if (language) form.append("language", language);
+    if (language && language !== "auto") form.append("language", language);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15 * 60 * 1000);
