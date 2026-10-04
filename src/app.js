@@ -21,6 +21,8 @@ const clipDetailsTitle = document.querySelector("#clip-details-title");
 const clipDetailsList = document.querySelector("#clip-details-list");
 const detailsDownloadClipButton = document.querySelector("#details-download-clip");
 const generateContentPackButton = document.querySelector("#generate-content-pack");
+const savePerformanceButton = document.querySelector("#save-performance");
+const performanceLogSection = document.querySelector("#clip-performance-log");
 const clipContentPack = document.querySelector("#clip-content-pack");
 const clipContentPackList = document.querySelector("#clip-content-pack-list");
 const clipsEmpty = document.querySelector("#clips-empty");
@@ -588,6 +590,9 @@ async function loadProducerPlan() {
     const result = await api("/api/projects/" + encodeURIComponent(currentProject.id) + "/producer-plan");
     const plan = result.plan || {};
     const priorities = (plan.priorities || []).map((item) => "<li><b>" + escapeHtml(item.label) + "</b><span>" + escapeHtml(item.recommendation) + "</span></li>").join("");
+    const performance = plan.performance || {};
+    const proven = (plan.provenTypes || []).join(", ");
+    const learning = performance.trackedClips ? "Performance: " + performance.trackedClips + " tracked · " + performance.totals.views.toLocaleString() + " views · " + (performance.engagementRate ?? 0) + "% engagement" + (proven ? " · Proven: " + escapeHtml(proven) : "") : "No performance data yet — log published clip results to teach the Producer what your audience responds to.";
     const mix = (plan.mix || []).slice(0, 5).map((item) => escapeHtml(item.label) + ": " + item.count).join(" · ");
     const targetTypes = (plan.priorities || []).map((item) => item.type).filter(Boolean).slice(0, 3);
     if (libraryProducerCreateButton) {
@@ -597,7 +602,7 @@ async function loadProducerPlan() {
     }
     libraryProducerPlan.innerHTML = "<div class=\"producer-plan-head\"><strong>AI Producer Plan</strong><span>" + escapeHtml(plan.strategy?.label || "Creator") + "</span></div>" +
       "<p>" + (plan.averageScore === null ? "No scored clips yet." : "Average AI score: <b>" + plan.averageScore + "/100</b>") + (mix ? " · " + mix : "") + "</p>" +
-      (priorities ? "<ul>" + priorities + "</ul>" : "<p>Your current clip mix covers the main intelligence types. Keep rotating formats to avoid repetition.</p>");
+      "<p>" + learning + "</p>" + (priorities ? "<ul>" + priorities + "</ul>" : "<p>Your current clip mix covers the main intelligence types. Keep rotating formats to avoid repetition.</p>");
     libraryProducerPlan.hidden = false;
   } catch (error) {
     showToast("Producer plan unavailable: " + error.message);
@@ -1653,6 +1658,13 @@ clipLibrary.addEventListener("click", async (event) => {
       ["Created", new Date(clip.createdAt).toLocaleString()]
     ].map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("") + scoreBreakdown;
     if (clipContentPack) clipContentPack.hidden = true;
+    if (performanceLogSection) performanceLogSection.hidden = false;
+    document.querySelector("#performance-platform").value = clip.performance?.platform || "tiktok";
+    document.querySelector("#performance-views").value = clip.performance?.views ?? "";
+    document.querySelector("#performance-likes").value = clip.performance?.likes ?? "";
+    document.querySelector("#performance-comments").value = clip.performance?.comments ?? "";
+    document.querySelector("#performance-shares").value = clip.performance?.shares ?? "";
+    document.querySelector("#performance-completion").value = clip.performance?.completionRate ?? "";
     if (clipContentPackList) clipContentPackList.innerHTML = "";
     if (generateContentPackButton) generateContentPackButton.disabled = false;
     detailsDownloadClipButton.disabled = clip.status !== "ready";
@@ -1920,3 +1932,32 @@ async function pollAutoClipStatus(videoId) {
     automaticClipPolls.delete(videoId);
   }
 }
+
+savePerformanceButton?.addEventListener("click", async () => {
+  const clipId = detailsDownloadClipButton?.dataset.downloadClip;
+  if (!clipId || !savePerformanceButton) return;
+  savePerformanceButton.disabled = true;
+  savePerformanceButton.textContent = "Saving…";
+  const number = (id) => Math.max(0, Number(document.querySelector(id)?.value) || 0);
+  try {
+    const result = await api("/api/clips/" + encodeURIComponent(clipId) + "/performance", {
+      method: "POST",
+      body: JSON.stringify({
+        platform: document.querySelector("#performance-platform")?.value || "unknown",
+        views: number("#performance-views"),
+        likes: number("#performance-likes"),
+        comments: number("#performance-comments"),
+        shares: number("#performance-shares"),
+        completionRate: Math.min(100, number("#performance-completion")),
+      }),
+    });
+    const clip = clips.find((item) => item.id === clipId);
+    if (clip) clip.performance = result.performance;
+    showToast("Performance saved. ClipForge can now learn from this result.");
+  } catch (error) {
+    showToast("Performance save failed: " + error.message);
+  } finally {
+    savePerformanceButton.disabled = false;
+    savePerformanceButton.textContent = "Save performance";
+  }
+});
