@@ -234,13 +234,15 @@ test("AI highlight packs reject near-duplicate transcript windows", async () => 
       { start: 0, end: 20, text: "The biggest lesson is that creators should focus on one clear idea and make the result useful for the audience." },
       { start: 100, end: 120, text: "Creators should focus on one clear idea and make the result useful for the audience today." },
       { start: 200, end: 220, text: "The surprising result is that consistency matters more than posting every single day." },
-    ], { limit: 2, minDuration: 15, maxDuration: 75 });
+    ], { limit: 2, minDuration: 20, maxDuration: 20 });
     assert.equal(result.engine, "openai-highlights-v1");
     assert.equal(result.candidates.length, 2);
     assert.equal(result.candidates[0].start, 0);
     const starts = result.candidates.map((candidate) => candidate.start);
-    assert.equal(starts.includes(0) && starts.includes(100), false);
+    assert.equal(starts.length, 2);
+    assert.ok(starts.includes(0));
     assert.ok(starts.includes(200));
+    assert.equal(starts.includes(100), false);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
