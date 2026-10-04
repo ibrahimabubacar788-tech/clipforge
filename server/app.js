@@ -357,7 +357,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         total: clips.length,
         ready: counts.ready || 0,
         processing: (counts.processing || 0) + (counts.queued || 0),
+        queued: counts.queued || 0,
         failed: counts.failed || 0,
+        progress: clips.length ? Math.round(clips.reduce((sum, clip) => sum + (Number(clip.renderProgress) || (clip.status === "ready" ? 100 : 0)), 0) / clips.length) : 0,
         clips,
         jobs: result.jobs,
       });
