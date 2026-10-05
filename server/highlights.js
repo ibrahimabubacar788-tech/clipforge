@@ -262,7 +262,8 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
       const refinedText = refinedSegments.map((item) => item.text).join(" ").trim();
       const completeness = sentenceCompletenessScore(refinedText);
       const continuity = transcriptContinuityScore(refinedSegments);
-      if (refinedDuration >= safeMinDuration && refinedText && completeness >= -1) {
+      const promotionalBoilerplate = /\b(?:subscribe(?:d)?|sponsored by|promo code|link in the description|use (?:my|the) promo code|thanks for watching|see you next time)\b/i.test(refinedText);
+      if (refinedDuration >= safeMinDuration && refinedText && completeness >= -1 && !promotionalBoilerplate) {
         candidates.push({
           start: Number(refinedStart.toFixed(3)), end: Number(refinedEnd.toFixed(3)),
           duration: Number(refinedDuration.toFixed(3)), score: scoreWindow(refinedText, refinedDuration) + completeness + continuity,
@@ -455,7 +456,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         const candidate = selectionPool[i];
         const type = String(candidate.highlightType || "").trim().toLowerCase();
         const requestedBonus = safeTargetTypes.includes(type) && !seenTypes.has(type) ? 8 : 0;
-        const noveltyBonus = type && !seenTypes.has(type) ? 5 : 0;
+        const noveltyBonus = type && !seenTypes.has(type) ? 12 : 0;
         const utility = Number(candidate.score || 0) + requestedBonus + noveltyBonus;
         if (utility > bestUtility) {
           bestUtility = utility;
