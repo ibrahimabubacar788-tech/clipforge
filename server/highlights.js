@@ -884,8 +884,46 @@ function replayDependencyScore(text) {
   return Math.max(-6, Math.min(5, score));
 }
 
+function payoffNoveltyScore(text) {
+  const value = String(text || "").trim();
+  const words = value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length < 30) return 0;
+
+  const third = Math.ceil(words.length / 3);
+  const early = words.slice(0, third);
+  const middle = words.slice(third, third * 2);
+  const late = words.slice(third * 2);
+
+  const stop = new Set(["the","and","that","this","with","from","have","were","they","them","then","than","when","what","your","you","for","are","was","but","not","its","into","about","just","really","very","there","their","would","could","should","because","also","some","more","been","being","will","can","here","how","why"]);
+  const meaningful = (list) => new Set(list.filter((word) => word.length >= 4 && !stop.has(word)));
+  const earlySet = meaningful(early);
+  const middleSet = meaningful(middle);
+  const lateSet = meaningful(late);
+
+  if (earlySet.size < 8) return 0;
+
+  let lateNew = 0;
+  for (const word of lateSet) if (!earlySet.has(word) && !middleSet.has(word)) lateNew += 1;
+
+  let middleNew = 0;
+  for (const word of middleSet) if (!earlySet.has(word)) middleNew += 1;
+
+  const lateNovelty = lateNew / Math.max(1, lateSet.size);
+  const middleNovelty = middleNew / Math.max(1, middleSet.size);
+  const payoffSignal = /\b(?:result|answer|solution|realized|learned|discovered|found|changed|ended up|turned out|finally|ultimately|actually|proof|lesson|key|difference|mistake|strategy|method|saved|earned|won|improved|increased|decreased)\b/i.test(late.join(" "));
+
+  let score = 0;
+  if (lateNew >= 4 && lateNovelty >= 0.28) score += 5;
+  else if (lateNew >= 3 && lateNovelty >= 0.2) score += 3;
+  if (middleNew >= 3 && middleNovelty >= 0.18) score += 2;
+  if (payoffSignal && lateNew >= 3) score += 2;
+  if (lateNew <= 1 && middleNew <= 1) score -= 3;
+
+  return Math.max(-4, Math.min(8, score));
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + payoffNoveltyScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
