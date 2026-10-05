@@ -284,8 +284,24 @@ function contrastSignalScore(text) {
   return 0;
 }
 
+function hookPayoffAlignmentScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 18) return 0;
+  const hookPattern = /\b(?:secret|truth|mistake|biggest|why|how|here'?s the thing|surprising|nobody|never|didn'?t expect)\b/i;
+  const payoffPattern = /\b(?:because|that means|the reason|turns out|ended up|as a result|which is why|realized|learned|discovered|result|finally|in the end|actually)\b/i;
+  const early = words.slice(0, Math.ceil(words.length * 0.38)).join(" ");
+  const late = words.slice(Math.floor(words.length * 0.55)).join(" ");
+  const hasHook = hookPattern.test(early);
+  const hasPayoff = payoffPattern.test(late);
+  if (hasHook && hasPayoff) return 9;
+  if (hasHook && !hasPayoff) return -4;
+  if (!hasHook && hasPayoff) return 1;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text); + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
