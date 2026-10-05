@@ -125,8 +125,24 @@ function unresolvedTeaserScore(text) {
   return resolutionPattern.test(laterText) ? -2 : -10;
 }
 
+function outcomeCompletionScore(text) {
+  const value = String(text || "").trim();
+  if (!value) return 0;
+  const words = value.split(/\\s+/).filter(Boolean);
+  if (words.length < 18) return 0;
+  const setupPattern = /\\b(?:the problem is|the challenge is|i thought|we thought|i assumed|we assumed|at first|initially|the question is|you might wonder)\\b/i;
+  const outcomePattern = /\\b(?:because|which is why|that meant|that means|the answer is|it turns out|turns out|eventually|in the end|finally|ended up|as a result|so we|so i|we realized|i realized|we learned|i learned|we discovered|i discovered|changed|won|lost|failed|succeeded)\\b/i;
+  const firstHalf = words.slice(0, Math.ceil(words.length * 0.55)).join(" ");
+  const secondHalf = words.slice(Math.floor(words.length * 0.45)).join(" ");
+  const hasSetup = setupPattern.test(firstHalf);
+  const hasOutcome = outcomePattern.test(secondHalf);
+  if (hasSetup && hasOutcome) return 9;
+  if (hasSetup && !hasOutcome) return -7;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
