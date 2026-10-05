@@ -334,12 +334,17 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   }).map((item, index) => ({ ...item, rank: index + 1 }));
   if (!baseline.length) return { candidates: [], engine: "openai-highlights-v1" };
 
-  const candidates = baseline.map((item, id) => ({
+  // Keep the model focused on the strongest, most diverse candidates. Sending
+  // every baseline window makes the AI call slower without improving the top
+  // results proportionally, especially on 30–50 clip requests.
+  const aiCandidateLimit = Math.min(90, Math.max(24, safeLimit * 2));
+  const aiCandidates = baseline.slice(0, aiCandidateLimit);
+  const candidates = aiCandidates.map((item, id) => ({
     id,
     start: item.start,
     end: item.end,
     duration: item.duration,
-    transcript: item.transcript.slice(0, 1800),
+    transcript: item.transcript.slice(0, 1200),
     baselineScore: Math.round(Number(item.score) || 0),
     highlightType: item.highlightType || "insight",
   }));
