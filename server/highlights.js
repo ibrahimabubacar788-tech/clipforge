@@ -860,8 +860,32 @@ function payoffEscalationScore(text) {
   return Math.max(-4, Math.min(8, score));
 }
 
+function replayDependencyScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+
+  const opening = words.slice(0, Math.ceil(words.length * 0.3)).join(" ");
+  const rest = words.slice(Math.ceil(words.length * 0.3)).join(" ");
+
+  const dependency = /\b(?:as I said|as I mentioned|like I said|again|previously|earlier|back then|you know what I mean|you remember|that thing|the other thing|the one I told you|from before)\b/i;
+  const selfContained = /\b(?:the problem|the goal|the reason|the answer|the result|the company|the customer|the product|the story|I learned|we learned|I realized|we realized|because|here'?s how|the key|the mistake)\b/i;
+
+  const dependencyHits = (opening.match(dependency) || []).length;
+  const contextHits = (opening.match(selfContained) || []).length;
+  const laterContext = selfContained.test(rest);
+
+  let score = 0;
+  if (dependencyHits >= 2 && contextHits === 0) score -= 6;
+  else if (dependencyHits >= 1 && contextHits === 0 && !laterContext) score -= 4;
+  if (contextHits >= 1) score += 3;
+  if (laterContext && dependencyHits === 0) score += 2;
+
+  return Math.max(-6, Math.min(5, score));
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
