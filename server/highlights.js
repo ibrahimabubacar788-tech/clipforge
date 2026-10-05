@@ -186,6 +186,38 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function openingContextDensityScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+
+  const opening = words.slice(0, Math.ceil(words.length * 0.28)).join(" ");
+  const openingWords = opening.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 4);
+
+  const subjectSignals = /\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|video|project|lesson|experience)\b/g;
+  const referenceSignals = /\b(?:this|that|they|them|he|she|it|we|you|there|here|something|someone)\b/g;
+  const concreteSignals = /\b(?:\d+(?:[.,]\d+)?|[A-Z][a-z]{2,})\b/g;
+
+  const subjects = opening.match(subjectSignals)?.length || 0;
+  const vague = opening.match(referenceSignals)?.length || 0;
+  const concrete = opening.match(concreteSignals)?.length || 0;
+  const density = (subjects + concrete) / Math.max(1, openingWords.length);
+  const vagueRatio = vague / Math.max(1, openingWords.length);
+
+  let score = 0;
+  if (subjects >= 1) score += 3;
+  if (subjects >= 2) score += 2;
+  if (concrete >= 1) score += 2;
+  if (density >= 0.12) score += 3;
+  if (vagueRatio >= 0.18 && subjects === 0 && concrete === 0) score -= 6;
+  if (/^(?:and|but|so|because|which|that|if|when|while)\b/i.test(value)) score -= 5;
+
+  return Math.max(-6, Math.min(10, score));
+}
+
 function progressionMomentumScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
