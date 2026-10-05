@@ -148,8 +148,46 @@ function outcomeCompletionScore(text) {
   if (hasSetup && !hasOutcome) return -7;
   return 0;
 }
+function narrativeProgressionScore(text) {
+  const value = String(text || "").trim();
+  if (!value) return 0;
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 20) return 0;
+
+  const normalized = words.map((word) => word.replace(/[^a-z0-9']/gi, "").toLowerCase());
+  const hookPattern = /^(?:why|how|what|here|the|my|our|i|we|you|this|that)$|(?:secret|mistake|truth|problem|story|question|surprising|didn't expect)/;
+  const developmentPattern = /(?:but|however|then|after|before|until|while|because|thought|assumed|tried|started|realized|learned|discovered)/;
+  const payoffPattern = /(?:because|therefore|that means|turns out|ended up|as a result|which is why|realized|learned|discovered|finally|in the end|won|lost|failed|succeeded|changed)/;
+
+  const positionsFor = (pattern) => {
+    const positions = [];
+    for (let i = 0; i < normalized.length; i += 1) {
+      if (pattern.test(normalized[i]) || pattern.test(normalized.slice(i, i + 3).join(" "))) {
+        positions.push(i / Math.max(1, normalized.length - 1));
+      }
+    }
+    return positions;
+  };
+
+  const hooks = positionsFor(hookPattern);
+  const development = positionsFor(developmentPattern);
+  const payoffs = positionsFor(payoffPattern);
+  if (!hooks.length || !payoffs.length) return 0;
+
+  const earlyHook = Math.min(...hooks) <= 0.32;
+  const laterPayoff = Math.max(...payoffs) >= 0.55;
+  const hasMiddleDevelopment = development.some((position) => position >= 0.2 && position <= 0.75);
+  const ordered = Math.min(...hooks) < Math.max(...payoffs);
+
+  if (earlyHook && laterPayoff && hasMiddleDevelopment && ordered) return 9;
+  if (earlyHook && laterPayoff && ordered) return 5;
+  if (laterPayoff && !earlyHook) return 2;
+  if (earlyHook && !laterPayoff) return -3;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
