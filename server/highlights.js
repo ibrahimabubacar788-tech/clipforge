@@ -231,8 +231,21 @@ function valueDensityScore(text) {
   return 0;
 }
 
+function temporalFlowScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+  const transitionPattern = /\b(?:first|then|next|after|before|later|eventually|finally|meanwhile|at first|in the end|because|so|but|however|until|once|when)\b/gi;
+  const changePattern = /\b(?:started|stopped|changed|became|realized|learned|discovered|found|ended up|went from|turned into|decided|tried|failed|succeeded)\b/gi;
+  const transitions = value.match(transitionPattern)?.length || 0;
+  const changes = value.match(changePattern)?.length || 0;
+  if (transitions >= 2 && changes >= 1) return 7;
+  if (transitions >= 2 || changes >= 2) return 3;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
