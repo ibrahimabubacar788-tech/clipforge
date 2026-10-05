@@ -258,8 +258,21 @@ function concreteEntityScore(text) {
   return 0;
 }
 
+function fillerRatioPenaltyScore(text) {
+  const value = String(text || "").trim();
+  const words = value.toLowerCase().replace(/[^a-z0-9'\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length < 20) return 0;
+  const filler = new Set(["you","know","kind","sort","basically","actually","literally","right","okay","ok","yeah","yes","well"]);
+  const count = words.filter((word) => filler.has(word)).length;
+  const ratio = count / words.length;
+  if (ratio >= 0.18) return -8;
+  if (ratio >= 0.13) return -5;
+  if (ratio >= 0.09) return -2;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
