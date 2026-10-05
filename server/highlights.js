@@ -364,10 +364,10 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
             content: [{
               type: "input_text",
               text: `Select the strongest short-form video moments from these transcript windows.\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
-Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.
+Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.
 Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
 ${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
-Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"payoff":90,"emotion":78,"clarity":96,"reason":"brief reason","title":"short title","type":"hook"}]}.
+Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"context":90,"payoff":90,"emotion":78,"clarity":96,"reason":"brief reason","title":"short title","type":"hook"}]}.
 For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
 Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.`,
             }],
@@ -410,6 +410,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
       const aiScore = Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null;
       const dimensionWeights = [
         ["standalone", 20],
+        ["context", 8],
         ["hook", 12],
         ["clarity", 10],
         ["payoff", 4],
@@ -444,6 +445,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         baselineScore: Math.round(baselineScore),
         blendedScore,
         hookScore: Number.isFinite(Number(selection.hook)) ? Math.max(0, Math.min(100, Number(selection.hook))) : null,
+        contextScore: Number.isFinite(Number(selection.context)) ? Math.max(0, Math.min(100, Number(selection.context))) : null,
         standaloneScore: Number.isFinite(Number(selection.standalone)) ? Math.max(0, Math.min(100, Number(selection.standalone))) : null,
         payoffScore: Number.isFinite(Number(selection.payoff)) ? Math.max(0, Math.min(100, Number(selection.payoff))) : null,
         emotionScore: Number.isFinite(Number(selection.emotion)) ? Math.max(0, Math.min(100, Number(selection.emotion))) : null,
