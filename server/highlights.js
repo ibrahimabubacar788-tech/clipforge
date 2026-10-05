@@ -193,9 +193,9 @@ function storyPhaseCoverageScore(text) {
 
   const normalized = words.map((word) => word.replace(/[^a-z0-9']/gi, "").toLowerCase());
   const phasePattern = {
-    setup: /^(?:at|initially|first|before|originally|the problem|the challenge|i thought|we thought|i assumed|we assumed|wanted|needed|tried)\\b|(?:problem|challenge|question|goal|plan|expect)/,
-    development: /^(?:then|next|after|while|but|however|because|until|tried|started|struggled|worked|failed|kept)\\b|(?:tested|built|changed|discovered|learned|realized)/,
-    resolution: /^(?:finally|eventually|ultimately|in|the end|so|therefore|because|that means|turns out|ended up)\\b|(?:result|answer|solution|won|lost|succeeded|failed|saved|earned|changed|learned|realized|discovered)/
+    setup: /^(?:at|initially|first|before|originally|the problem|the challenge|i thought|we thought|i assumed|we assumed|wanted|needed|tried)\b|(?:problem|challenge|question|goal|plan|expect)/,
+    development: /^(?:then|next|after|while|but|however|because|until|tried|started|struggled|worked|failed|kept)\b|(?:tested|built|changed|discovered|learned|realized)/,
+    resolution: /^(?:finally|eventually|ultimately|in|the end|so|therefore|because|that means|turns out|ended up)\b|(?:result|answer|solution|won|lost|succeeded|failed|saved|earned|changed|learned|realized|discovered)/
   };
 
   const findPositions = (pattern) => {
@@ -349,7 +349,7 @@ function hookPayoffAlignmentScore(text) {
 }
 
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
