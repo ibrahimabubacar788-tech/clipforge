@@ -186,6 +186,33 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function semanticShiftScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 28) return 0;
+
+  const first = words.slice(0, Math.ceil(words.length * 0.42)).join(" ").toLowerCase();
+  const last = words.slice(Math.floor(words.length * 0.58)).join(" ").toLowerCase();
+
+  const expectation = /\b(?:thought|assumed|expected|believed|planned|wanted|hoped|supposed|figured|used to)\b/.test(first);
+  const shift = /\b(?:but|however|instead|yet|actually|realized|learned|discovered|found|changed|different|wrong|turned out|ended up|became|decided)\b/.test(last);
+  const contrast = /\b(?:but|however|instead|yet|although|except|surprisingly)\b/.test(value);
+
+  const firstConcepts = new Set(first.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length >= 5));
+  const lastConcepts = new Set(last.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length >= 5));
+  const overlap = [...firstConcepts].filter((word) => lastConcepts.has(word)).length;
+  const continuity = overlap / Math.max(1, Math.min(firstConcepts.size, 10));
+
+  let score = 0;
+  if (expectation && shift) score += 7;
+  else if (shift && contrast) score += 4;
+  if (expectation && contrast) score += 2;
+  if (expectation && shift && continuity >= 0.15) score += 3;
+
+  if (expectation && !shift && contrast) score -= 2;
+  return Math.max(-3, Math.min(12, score));
+}
+
 function endingClosureScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
