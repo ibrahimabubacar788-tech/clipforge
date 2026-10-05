@@ -832,8 +832,36 @@ function timeToValueScore(text) {
   return Math.max(-4, Math.min(8, score));
 }
 
+function payoffEscalationScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 30) return 0;
+
+  const third = Math.ceil(words.length / 3);
+  const first = words.slice(0, third).join(" ");
+  const middle = words.slice(third, third * 2).join(" ");
+  const last = words.slice(third * 2).join(" ");
+
+  const signal = /\b(?:because|reason|answer|solution|result|realized|learned|discovered|found|revealed|means|changed|turned out|ended up|finally|ultimately|actually|proof|example|lesson|key|difference|mistake|strategy|method|saved|earned|lost|won|failed|improved|increased|decreased)\b/gi;
+  const concrete = /\b\d+(?:[.,]\d+)?(?:%|x|k|m|b)?\b|\b(?:dollars?|naira|million|thousand|days?|weeks?|months?|years?|steps?|price|cost)\b/gi;
+
+  const firstSignals = (first.match(signal) || []).length;
+  const middleSignals = (middle.match(signal) || []).length;
+  const lastSignals = (last.match(signal) || []).length;
+  const lastConcrete = (last.match(concrete) || []).length;
+
+  let score = 0;
+  if (lastSignals > firstSignals && lastSignals >= middleSignals) score += 5;
+  else if (lastSignals > firstSignals) score += 3;
+  if (lastConcrete >= 1 && lastSignals >= 1) score += 3;
+  if (firstSignals >= 3 && lastSignals === 0) score -= 4;
+  if (firstSignals === 0 && middleSignals === 0 && lastSignals === 0) score -= 2;
+
+  return Math.max(-4, Math.min(8, score));
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
