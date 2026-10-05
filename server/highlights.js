@@ -116,10 +116,10 @@ function questionResolutionScore(text) {
 function unresolvedTeaserScore(text) {
   const value = String(text || "").trim();
   if (!value) return 0;
-  const words = value.split(/\\s+/).filter(Boolean);
+  const words = value.split(/\s+/).filter(Boolean);
   if (words.length < 10) return 0;
-  const teaserPattern = /\\b(?:i'?ll tell you|i'?m going to tell you|we'?ll get to that|coming up|wait until|you'?ll find out|i'?ll explain|more on that|we'?ll talk about|stay tuned|but first)\\b/i;
-  const resolutionPattern = /\\b(?:because|the reason|that means|the answer|it turns out|turns out|actually|in fact|therefore|realized|learned|discovered|result|ended up|which is why)\\b/i;
+  const teaserPattern = /\b(?:i'?ll tell you|i'?m going to tell you|we'?ll get to that|coming up|wait until|you'?ll find out|i'?ll explain|more on that|we'?ll talk about|stay tuned|but first)\b/i;
+  const resolutionPattern = /\b(?:because|the reason|that means|the answer|it turns out|turns out|actually|in fact|therefore|realized|learned|discovered|result|ended up|which is why)\b/i;
   if (!teaserPattern.test(value)) return 0;
   const laterText = words.slice(Math.floor(words.length * 0.45)).join(" ");
   return resolutionPattern.test(laterText) ? -2 : -10;
@@ -128,10 +128,10 @@ function unresolvedTeaserScore(text) {
 function outcomeCompletionScore(text) {
   const value = String(text || "").trim();
   if (!value) return 0;
-  const words = value.split(/\\s+/).filter(Boolean);
+  const words = value.split(/\s+/).filter(Boolean);
   if (words.length < 18) return 0;
-  const setupPattern = /\\b(?:the problem is|the challenge is|i thought|we thought|i assumed|we assumed|at first|initially|the question is|you might wonder)\\b/i;
-  const outcomePattern = /\\b(?:because|which is why|that meant|that means|the answer is|it turns out|turns out|eventually|in the end|finally|ended up|as a result|so we|so i|we realized|i realized|we learned|i learned|we discovered|i discovered|changed|won|lost|failed|succeeded)\\b/i;
+  const setupPattern = /\b(?:the problem is|the challenge is|i thought|we thought|i assumed|we assumed|at first|initially|the question is|you might wonder)\b/i;
+  const outcomePattern = /\b(?:because|which is why|that meant|that means|the answer is|it turns out|turns out|eventually|in the end|finally|ended up|as a result|so we|so i|we realized|i realized|we learned|i learned|we discovered|i discovered|changed|won|lost|failed|succeeded)\b/i;
   const firstHalf = words.slice(0, Math.ceil(words.length * 0.55)).join(" ");
   const secondHalf = words.slice(Math.floor(words.length * 0.45)).join(" ");
   const hasSetup = setupPattern.test(firstHalf);
@@ -140,7 +140,6 @@ function outcomeCompletionScore(text) {
   if (hasSetup && !hasOutcome) return -7;
   return 0;
 }
-
 function scoreWindow(text, duration) {
   let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
