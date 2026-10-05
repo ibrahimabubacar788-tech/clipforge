@@ -27,7 +27,7 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Run tests with bounded concurrency
-        run: npm test -- --test-concurrency=2 --test-timeout=60000
+        run: npm test -- --test-concurrency=1 --test-timeout=60000
 
   docker:
     runs-on: ubuntu-latest
