@@ -86,9 +86,17 @@ function payoffPlacementScore(text) {
   if (!value) return 0;
   const words = value.split(/\s+/).filter(Boolean);
   if (words.length < 12) return 0;
-  const payoffPattern = /\b(?:because|that means|turns out|ended up|result|which is why|therefore|realized|learned|discovered|changed|actually|so)\b/i;
+  const payoffPattern = /\b(?:because|that means|turns out|ended up|as a result|which is why|therefore|realized|learned|discovered|changed|actually|so)\b/i;
   const positions = [];
-  for (let i = 0; i < words.length; i += 1) if (payoffPattern.test(words[i])) positions.push(i / Math.max(1, words.length - 1));
+  const normalizedWords = words.map((word) => word.replace(/[^a-z0-9']/gi, "").toLowerCase());
+  for (let i = 0; i < normalizedWords.length; i += 1) {
+    const single = normalizedWords[i];
+    const phrase2 = [single, normalizedWords[i + 1]].filter(Boolean).join(" ");
+    const phrase3 = [phrase2, normalizedWords[i + 2]].filter(Boolean).join(" ");
+    if (payoffPattern.test(single) || payoffPattern.test(phrase2) || payoffPattern.test(phrase3)) {
+      positions.push(i / Math.max(1, normalizedWords.length - 1));
+    }
+  }
   if (!positions.length) return 0;
   const strongest = Math.max(...positions);
   if (strongest >= 0.55) return 7;
