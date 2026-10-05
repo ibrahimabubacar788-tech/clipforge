@@ -345,7 +345,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   }));
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 90_000);
+  const timer = setTimeout(() => controller.abort(), 35_000);
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
