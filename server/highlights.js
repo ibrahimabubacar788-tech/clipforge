@@ -186,6 +186,30 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function noveltyProgressionScore(text) {
+  const value = String(text || "").trim();
+  const words = value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length < 30) return 0;
+  const stop = new Set(["the","and","that","this","with","from","have","were","they","them","then","than","when","what","your","you","for","are","was","but","not","its","into","about","just","really","very","there","their","would","could","should","because","also","some","more","been","being","were"]);
+  const third = Math.ceil(words.length / 3);
+  const sections = [words.slice(0, third), words.slice(third, third * 2), words.slice(third * 2)];
+  const sets = sections.map((section) => new Set(section.filter((word) => word.length >= 4 && !stop.has(word))));
+  const newWords = (a, b) => {
+    let count = 0;
+    for (const word of b) if (!a.has(word)) count += 1;
+    return count;
+  };
+  const firstNew = newWords(sets[0], sets[1]);
+  const secondNew = newWords(new Set([...sets[0], ...sets[1]]), sets[2]);
+  const totalUnique = new Set(words.filter((word) => word.length >= 4 && !stop.has(word))).size;
+  let score = 0;
+  if (firstNew >= 4 && secondNew >= 4) score += 6;
+  else if (firstNew >= 3 || secondNew >= 3) score += 3;
+  if (secondNew >= firstNew && secondNew >= 4) score += 2;
+  if (totalUnique < 10) score -= 3;
+  return Math.max(-4, Math.min(8, score));
+}
+
 function payoffConcretenessScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
