@@ -186,8 +186,24 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function repetitionPenaltyScore(text) {
+  const value = String(text || "").trim();
+  const words = value.toLowerCase().replace(/[^a-z0-9'\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+  const counts = new Map();
+  for (const word of words) {
+    if (word.length < 4) continue;
+    counts.set(word, (counts.get(word) || 0) + 1);
+  }
+  const repeated = [...counts.values()].filter((count) => count >= 3).length;
+  const density = repeated / Math.max(1, counts.size);
+  if (density >= 0.16) return -8;
+  if (density >= 0.1) return -4;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
