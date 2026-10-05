@@ -805,8 +805,35 @@ function payoffBridgeScore(text) {
   return Math.max(-3, Math.min(7, score));
 }
 
+function timeToValueScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+
+  const earlyCount = Math.max(8, Math.ceil(words.length * 0.35));
+  const early = words.slice(0, earlyCount).join(" ");
+  const middle = words.slice(earlyCount, Math.ceil(words.length * 0.62)).join(" ");
+  const valueSignal = /\b(?:key|lesson|tip|reason|answer|solution|result|mistake|rule|strategy|method|learned|realized|discovered|found|because|here'?s how|the point|the trick|the difference|important)\b/i;
+  const contextSignal = /\b(?:I|we|you|they|he|she|the|this|that|problem|goal|company|customer|story|experience)\b/i;
+  const fillerSignal = /\b(?:um+|uh+|you know|basically|like|okay|well|so)\b/gi;
+
+  const earlyValue = (early.match(valueSignal) || []).length;
+  const middleValue = (middle.match(valueSignal) || []).length;
+  const earlyContext = contextSignal.test(early);
+  const earlyFiller = (early.match(fillerSignal) || []).length;
+
+  let score = 0;
+  if (earlyContext && earlyValue >= 1) score += 6;
+  else if (earlyValue >= 1) score += 3;
+  if (middleValue >= 1 && earlyValue >= 1) score += 2;
+  if (earlyFiller >= 3 && earlyValue === 0) score -= 4;
+  if (earlyValue === 0 && middleValue === 0) score -= 2;
+
+  return Math.max(-4, Math.min(8, score));
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
