@@ -186,6 +186,40 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function questionPayoffCoherenceScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+
+  const early = words.slice(0, Math.ceil(words.length * 0.42)).join(" ");
+  const late = words.slice(Math.floor(words.length * 0.55)).join(" ");
+
+  const questionSignals = early.match(/\b(?:why|how|what|when|where|which|who|problem|challenge|goal|mistake|reason|question|wanted to know|trying to)\b/gi) || [];
+  const resolutionSignals = late.match(/\b(?:because|the reason|the answer|that means|which is why|turns out|ended up|as a result|finally|in the end|realized|learned|discovered|solution|result|changed|won|lost|failed|succeeded)\b/gi) || [];
+
+  if (!questionSignals.length || !resolutionSignals.length) return 0;
+
+  const topicWords = new Set(
+    early.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length >= 5)
+      .filter((word) => !new Set(["about","there","their","would","could","should","thing","really","because","people"]).has(word))
+  );
+  const lateWords = late.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 5);
+
+  const overlap = new Set(lateWords.filter((word) => topicWords.has(word))).size;
+  const coherence = overlap / Math.max(1, Math.min(topicWords.size, 8));
+
+  if (questionSignals.length >= 2 && resolutionSignals.length >= 2 && coherence >= 0.25) return 10;
+  if (questionSignals.length >= 1 && resolutionSignals.length >= 1 && coherence >= 0.15) return 6;
+  if (questionSignals.length >= 1 && resolutionSignals.length >= 1) return -2;
+  return 0;
+}
+
 function storyPhaseCoverageScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
