@@ -180,7 +180,7 @@ function sentenceCompletenessScore(text) {
   if (/[.!?]["'”’)]?$/.test(value)) score += 7;
   if (/[,:;]$/.test(value)) score -= 5;
   if (/\b(?:a|an|the|to|of|for|with|from|in|on|at|by|is|are|was|were|and|but|or|because|which|that)\s*$/i.test(value.replace(/[.!?,;:]+$/, ""))) score -= 7;
-  if (/\\b(?:I|we|you|they|he|she)\\s+(?:was|were|am|are|is|have|had|will|would|can|could)\\b/i.test(value)) score += 2;
+  if (/\b(?:I|we|you|they|he|she)\s+(?:was|were|am|are|is|have|had|will|would|can|could)\b/i.test(value)) score += 2;
   return score;
 }
 
@@ -191,10 +191,10 @@ function isTrimWorthyBoundary(text, side) {
     // Only remove a connective when it is genuinely acting as a dangling
     // continuation. "So this is..." or "But here's why..." are valid hooks.
     const danglingStarter = /^(?:and|but|or|because|which|that|if|when|while|although|yet|then|you know|basically|like)[,.:;!\s]/i.test(value)
-      && !/^(?:and|but|so|then)\\s+(?:this|that|here|there|I|we|you|the|a|an|my|our|what|why|how)\\b/i.test(value);
+      && !/^(?:and|but|so|then)\s+(?:this|that|here|there|I|we|you|the|a|an|my|our|what|why|how)\b/i.test(value);
     return /^(?:um+|uh+|well|okay|ok)[,.:;!\s]/i.test(value)
       || danglingStarter
-      || /^(?:today we're going to|in this video|in today's video)\\b/i.test(value);
+      || /^(?:today we're going to|in this video|in today's video)\b/i.test(value);
   }
   return /(?:subscribe|sponsored by|promo code|link in the description)\b/i.test(value)
     || /^(?:thanks for watching|see you next time|that's it)[.!\s]*$/i.test(value);
