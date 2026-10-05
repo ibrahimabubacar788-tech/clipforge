@@ -186,6 +186,40 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function topicConsistencyScore(text) {
+  const value = String(text || "").trim();
+  const words = value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length < 30) return 0;
+  const stop = new Set(["the","and","that","this","with","from","have","were","they","them","then","than","when","what","your","you","for","are","was","but","not","its","into","about","just","really","very","there","their","would","could","should","because","also","some","more"]);
+  const meaningful = words.filter((word) => word.length >= 4 && !stop.has(word));
+  if (meaningful.length < 10) return 0;
+  const third = Math.ceil(words.length / 3);
+  const sections = [
+    words.slice(0, third),
+    words.slice(third, third * 2),
+    words.slice(third * 2),
+  ];
+  const sets = sections.map((section) => new Set(section.filter((word) => word.length >= 4 && !stop.has(word))));
+  const overlap = (a, b) => {
+    if (!a.size || !b.size) return 0;
+    let shared = 0;
+    for (const word of a) if (b.has(word)) shared += 1;
+    return shared / Math.max(1, Math.min(a.size, b.size));
+  };
+  const firstMiddle = overlap(sets[0], sets[1]);
+  const middleLast = overlap(sets[1], sets[2]);
+  const allSet = new Set(meaningful);
+  const repeated = meaningful.filter((word, index) => meaningful.indexOf(word) !== index);
+  const repetitionRatio = repeated.length / meaningful.length;
+  let score = 0;
+  if (firstMiddle >= 0.18 && middleLast >= 0.18) score += 6;
+  else if (firstMiddle >= 0.12 || middleLast >= 0.12) score += 3;
+  if (firstMiddle < 0.05 && middleLast < 0.05) score -= 3;
+  if (repetitionRatio > 0.42) score -= 2;
+  if (allSet.size >= 12 && repetitionRatio < 0.3) score += 2;
+  return Math.max(-4, Math.min(8, score));
+}
+
 function claimEvidenceScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
