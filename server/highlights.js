@@ -451,7 +451,7 @@ function hookPayoffAlignmentScore(text) {
 }
 
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
