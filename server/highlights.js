@@ -244,8 +244,22 @@ function temporalFlowScore(text) {
   return 0;
 }
 
+function concreteEntityScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 18) return 0;
+  const properNounSignals = (value.match(/\b[A-Z][a-z]{2,}\b/g) || []).length;
+  const numberSignals = (value.match(/\b\d+(?:[.,]\d+)?(?:%|x|k|m|b)?\b/gi) || []).length;
+  const specificSignals = (value.match(/\b(?:company|person|place|city|country|product|year|month|day|dollar|naira|million|thousand|team|brand|customer|client|price|cost|date)\b/gi) || []).length;
+  const signals = properNounSignals + numberSignals + specificSignals;
+  if (signals >= 4) return 7;
+  if (signals >= 2) return 4;
+  if (signals >= 1) return 1;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
