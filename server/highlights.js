@@ -113,8 +113,20 @@ function questionResolutionScore(text) {
   return 0;
 }
 
+function unresolvedTeaserScore(text) {
+  const value = String(text || "").trim();
+  if (!value) return 0;
+  const words = value.split(/\\s+/).filter(Boolean);
+  if (words.length < 10) return 0;
+  const teaserPattern = /\\b(?:i'?ll tell you|i'?m going to tell you|we'?ll get to that|coming up|wait until|you'?ll find out|i'?ll explain|more on that|we'?ll talk about|stay tuned|but first)\\b/i;
+  const resolutionPattern = /\\b(?:because|the reason|that means|the answer|it turns out|turns out|actually|in fact|therefore|realized|learned|discovered|result|ended up|which is why)\\b/i;
+  if (!teaserPattern.test(value)) return 0;
+  const laterText = words.slice(Math.floor(words.length * 0.45)).join(" ");
+  return resolutionPattern.test(laterText) ? -2 : -10;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
