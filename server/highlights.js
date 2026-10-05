@@ -97,8 +97,24 @@ function payoffPlacementScore(text) {
   return 0;
 }
 
+function questionResolutionScore(text) {
+  const value = String(text || "").trim();
+  if (!value) return 0;
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 14) return 0;
+  const questionPattern = /\b(?:why|how|what|who|when|where|whether|did|does|can|could|should|would)\b/i;
+  const answerPattern = /\b(?:because|the reason|that means|the answer|it turns out|turns out|actually|in fact|so|therefore|realized|learned|discovered|result|ended up)\b/i;
+  const firstHalf = words.slice(0, Math.ceil(words.length * 0.55)).join(" ");
+  const secondHalf = words.slice(Math.floor(words.length * 0.35)).join(" ");
+  const hasQuestion = /\?/.test(value) || questionPattern.test(firstHalf);
+  const hasLaterAnswer = answerPattern.test(secondHalf);
+  if (hasQuestion && hasLaterAnswer) return 8;
+  if (hasQuestion && !hasLaterAnswer) return -4;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
