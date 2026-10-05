@@ -900,5 +900,10 @@ if (req.method === "POST" && pathname === "/api/uploads") {
       if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); const resolvedCandidate = await realpath(candidate); const resolvedRoot = await realpath(baseDir); const relativeResolved = requireRelative(resolvedRoot, resolvedCandidate); if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); let handle; try { handle = await open(resolvedCandidate, O_RDONLY | O_NOFOLLOW); const openedInfo = await handle.stat(); if (!openedInfo.isFile()) return json(res, 403, { error: "Forbidden" }); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); handle.createReadStream({ autoClose: true }).pipe(res); handle = null; } finally { if (handle) await handle.close().catch(() => {}); } } catch (error) { if (error?.status === 403) throw error; if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } } } catch (error) { const status = Number.isInteger(error?.status) && error.status >= 400 && error.status < 500 ? error.status : 500; if (status === 429 && Number.isInteger(error?.retryAfter)) res.setHeader("retry-after", String(error.retryAfter)); if (status >= 500) console.error("ClipForge request failed:", error); json(res, status, { error: status < 500 ? (error.message || "Request failed.") : "Internal server error." }); } });
   server.clipQueue = queue;
   server.database = db;
+  const originalClose = server.close.bind(server);
+  server.close = (callback) => {
+    void queue.shutdown().finally(() => originalClose(callback));
+    return server;
+  };
   return server;
 }
