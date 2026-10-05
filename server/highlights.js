@@ -186,6 +186,27 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function claimEvidenceScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 26) return 0;
+
+  const claim = /\b(?:I|we|they|it)\s+(?:made|did|got|found|learned|discovered|increased|decreased|saved|lost|earned|won|failed|built|sold|bought|changed|achieved)\b/i.test(value)
+    || /\b(?:the result|the proof|the data|the numbers|evidence|example|case study|actually)\b/i.test(value);
+  const evidence = /\b(?:because|for example|specifically|the reason|according to|in fact|which means|that means|as a result|the numbers|percent|million|thousand|dollars|naira)\b/i.test(value)
+    || /\b\d+(?:[.,]\d+)?(?:%|x|k|m|b)?\b/i.test(value);
+  const conclusion = /\b(?:therefore|so|that'?s why|which is why|result|ended up|turns out|finally|in the end|realized|learned|discovered)\b/i.test(value);
+
+  let score = 0;
+  if (claim && evidence && conclusion) score += 9;
+  else if (claim && evidence) score += 6;
+  else if (evidence && conclusion) score += 4;
+  else if (claim) score += 1;
+
+  if (claim && !evidence && !conclusion) score -= 2;
+  return Math.max(-3, Math.min(9, score));
+}
+
 function emotionalArcScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
