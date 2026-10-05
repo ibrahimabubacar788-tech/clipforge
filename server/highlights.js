@@ -186,6 +186,35 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function unresolvedReferencePenaltyScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+
+  const opening = words.slice(0, Math.ceil(words.length * 0.35)).join(" ");
+  const openingWords = opening.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const vagueRefs = new Set(["this","that","these","those","they","them","he","she","it","there","here","someone","something","somebody"]);
+  const vagueCount = openingWords.filter((word) => vagueRefs.has(word)).length;
+  const explicitSubjects = opening.match(/\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|project|lesson|experience)\b/gi)?.length || 0;
+  const properNouns = opening.match(/\b[A-Z][a-z]{2,}\b/g)?.length || 0;
+  const questions = opening.match(/\b(?:who|what|why|how|when|where|which)\b/gi)?.length || 0;
+
+  let penalty = 0;
+  const vagueRatio = vagueCount / Math.max(1, openingWords.length);
+  if (vagueRatio >= 0.18 && explicitSubjects === 0 && properNouns === 0 && questions === 0) penalty -= 7;
+  else if (vagueRatio >= 0.12 && explicitSubjects === 0 && properNouns === 0) penalty -= 3;
+
+  if (/^(?:this|that|these|those|they|he|she|it|there|here)\b/i.test(value) && questions === 0 && explicitSubjects === 0) {
+    penalty -= 4;
+  }
+
+  return Math.max(-8, Math.min(0, penalty));
+}
+
 function openingContextDensityScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
