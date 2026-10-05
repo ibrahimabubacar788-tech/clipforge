@@ -218,8 +218,21 @@ function speechQualityScore(text) {
   return 0;
 }
 
+function valueDensityScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 20) return 0;
+  const valueSignals = /\b(?:the key|the reason|the lesson|the trick|the rule|the answer|the point|the difference|what I learned|what we learned|here's how|the best way|the worst|important|remember|because|result|example|proof|step|steps|mistake|solution|strategy|advice)\b/gi;
+  const signals = value.match(valueSignals)?.length || 0;
+  const density = signals / words.length;
+  if (signals >= 3 && density >= 0.035) return 7;
+  if (signals >= 2) return 4;
+  if (signals === 1) return 1;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
