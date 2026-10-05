@@ -186,6 +186,29 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function endingClosureScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+
+  const ending = words.slice(Math.floor(words.length * 0.62)).join(" ");
+  const closureSignals = ending.match(/\b(?:because|therefore|so|that means|which is why|turns out|ended up|as a result|finally|in the end|ultimately|realized|learned|discovered|the answer|the reason|the solution|the result|what happened|what I learned|what we learned|now I know|that's why)\b/gi) || [];
+  const finalSentence = ending.split(/[.!?]/).filter(Boolean).pop()?.trim() || ending;
+  const finalWords = finalSentence.split(/\s+/).filter(Boolean);
+
+  let score = 0;
+  if (closureSignals.length >= 2) score += 5;
+  else if (closureSignals.length >= 1) score += 3;
+
+  if (/[.!?]["'”’)]?$/.test(value)) score += 4;
+  if (/[,:;]$/.test(value)) score -= 5;
+  if (/^(?:and|but|or|because|which|that|if|when|while|so)\b/i.test(finalSentence)) score -= 4;
+  if (finalWords.length >= 8 && finalWords.length <= 42) score += 2;
+  if (/^(?:um+|uh+|well|okay|ok|you know|basically)\b/i.test(finalSentence)) score -= 2;
+
+  return Math.max(-6, Math.min(11, score));
+}
+
 function unresolvedReferencePenaltyScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
