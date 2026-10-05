@@ -33,11 +33,14 @@ async function safeUnlinkExportFile(exportDir, candidate) {
   await unlink(resolvedCandidate).catch(() => {});
 }
 
-function run(command, args, { onProgress } = {}) {
+function run(command, args, { onProgress, activeProcesses } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
+    activeProcesses?.add(child);
+    const cleanup = () => activeProcesses?.delete(child);
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
+      cleanup();
       reject(new Error("FFmpeg render timed out."));
     }, 15 * 60 * 1000);
     let stderr = "";
@@ -55,8 +58,8 @@ function run(command, args, { onProgress } = {}) {
         if (match) void onProgress(Number(match[1]) / 1000000);
       }
     });
-    child.on("error", (error) => { clearTimeout(timeout); reject(error); });
-    child.on("close", (code) => { clearTimeout(timeout); code === 0 ? resolve() : reject(new Error(`FFmpeg exited with code ${code}: ${stderr.slice(-1000)}`)); });
+    child.on("error", (error) => { clearTimeout(timeout); cleanup(); reject(error); });
+    child.on("close", (code) => { clearTimeout(timeout); cleanup(); code === 0 ? resolve() : reject(new Error(`FFmpeg exited with code ${code}: ${stderr.slice(-1000)}`)); });
   });
 }
 
@@ -128,7 +131,7 @@ function videoFilter(clip, captions = [], subtitlePath = null) {
 }
 
 export class ClipQueue {
-  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; this.subtitleSupport = null; const configuredConcurrency = Number(process.env.CLIPFORGE_RENDER_CONCURRENCY);
+  constructor(db, storageDir, { ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg" } = {}) { this.db = db; this.storageDir = storageDir; this.ffmpegPath = ffmpegPath; this.running = false; this.workerPromise = null; this.shuttingDown = false; this.activeProcesses = new Set(); this.subtitleSupport = null; const configuredConcurrency = Number(process.env.CLIPFORGE_RENDER_CONCURRENCY);
     const cpuConcurrency = Math.max(1, Math.min(2, Number(availableParallelism()) || 1));
     this.concurrency = Number.isFinite(configuredConcurrency) && configuredConcurrency > 0
       ? Math.max(1, Math.min(2, Math.floor(configuredConcurrency)))
@@ -180,7 +183,7 @@ export class ClipQueue {
     });
     void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error));
   }
-  async enqueue(clip) { const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
+  async enqueue(clip) { if (this.shuttingDown) throw new Error("Clip queue is shutting down."); const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
   async render(clip) {
     const { file: source, uploadsDir } = await sourcePath(this.storageDir, clip.sourceUrl);
     const sourceInfo = await lstat(source).catch(() => null);
@@ -224,6 +227,7 @@ export class ClipQueue {
       let lastProgress = -1;
       let lastPersistedAt = 0;
       await run(this.ffmpegPath,args,{
+        activeProcesses: this.activeProcesses,
         onProgress: async (seconds) => {
           const progress = Math.max(35, Math.min(99, Math.round((seconds / Math.max(duration, 0.1)) * 64) + 35));
           const current = Date.now();
@@ -250,10 +254,11 @@ export class ClipQueue {
     return { filename, output };
   }
   async work() {
-    if (this.running) return;
+    if (this.running || this.shuttingDown) return;
     this.running = true;
     const worker = async () => {
       while (true) {
+        if (this.shuttingDown) break;
         const job = await this.db.transaction((d) => {
           const next = d.jobs.find((j) => j.status === "queued");
           if (next) {
@@ -278,11 +283,21 @@ export class ClipQueue {
         }
       }
     };
+    this.workerPromise = Promise.all(Array.from({ length: this.concurrency }, () => worker()));
     try {
-      await Promise.all(Array.from({ length: this.concurrency }, () => worker()));
+      await this.workerPromise;
     } finally {
+      this.workerPromise = null;
       this.running = false;
     }
+  }
+  async shutdown() {
+    this.shuttingDown = true;
+    for (const child of this.activeProcesses) child.kill("SIGTERM");
+    const worker = this.workerPromise;
+    if (worker) await worker.catch(() => {});
+    for (const child of this.activeProcesses) child.kill("SIGKILL");
+    this.activeProcesses.clear();
   }
   async removeExport(downloadUrl) {
     if (!downloadUrl?.startsWith("/storage/exports/")) return;
