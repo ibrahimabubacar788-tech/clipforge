@@ -1386,7 +1386,10 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         const weakStandalonePenalty = Number.isFinite(candidate.standaloneScore) && candidate.standaloneScore < 60
           ? (60 - candidate.standaloneScore) * 0.35
           : 0;
-        const utility = Number(candidate.score || 0) + requestedBonus + noveltyBonus
+        const temporalCoverageBonus = selected.length
+          ? Math.min(8, Math.max(0, Math.min(...selected.map((item) => Math.abs(Number(candidate.start) - Number(item.start)))) / 18))
+          : 0;
+        const utility = Number(candidate.score || 0) + requestedBonus + noveltyBonus + temporalCoverageBonus
           - weakContextPenalty - weakStandalonePenalty;
         if (utility > bestUtility) {
           bestUtility = utility;
