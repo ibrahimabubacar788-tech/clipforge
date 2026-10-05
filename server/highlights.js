@@ -271,8 +271,21 @@ function fillerRatioPenaltyScore(text) {
   return 0;
 }
 
+function contrastSignalScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 18) return 0;
+  const contrast = /\b(?:but|however|instead|yet|although|except|surprisingly|actually)\b/i.test(value);
+  const shift = /\b(?:thought|assumed|expected|believed)\b/i.test(value)
+    && /\b(?:realized|learned|discovered|changed|different|wrong)\b/i.test(value);
+  if (shift && contrast) return 8;
+  if (shift) return 6;
+  if (contrast) return 2;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
