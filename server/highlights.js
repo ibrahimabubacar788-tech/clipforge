@@ -186,6 +186,41 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function emotionalArcScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 30) return 0;
+
+  const positive = /\b(?:excited|happy|proud|relieved|amazing|great|love|won|success|hopeful|grateful|confident)\b/gi;
+  const negative = /\b(?:afraid|angry|sad|worried|scared|failed|lost|pain|hard|difficult|problem|mistake|regret|frustrated)\b/gi;
+  const turning = /\b(?:but|however|then|until|suddenly|realized|learned|discovered|changed|turned out|ended up|finally)\b/gi;
+
+  const sections = [
+    words.slice(0, Math.ceil(words.length / 3)).join(" "),
+    words.slice(Math.ceil(words.length / 3), Math.ceil(words.length * 2 / 3)).join(" "),
+    words.slice(Math.ceil(words.length * 2 / 3)).join(" "),
+  ];
+
+  const state = sections.map((section) => ({
+    positive: section.match(positive)?.length || 0,
+    negative: section.match(negative)?.length || 0,
+    turning: section.match(turning)?.length || 0,
+  }));
+
+  const startPolarity = state[0].positive - state[0].negative;
+  const endPolarity = state[2].positive - state[2].negative;
+  const polarityShift = Math.abs(endPolarity - startPolarity);
+  const turns = state.reduce((sum, item) => sum + item.turning, 0);
+
+  let score = 0;
+  if (polarityShift >= 2 && turns >= 1) score += 7;
+  else if (polarityShift >= 1 || turns >= 2) score += 3;
+  if (state[2].turning >= 1 && (state[2].positive > 0 || state[2].negative > 0)) score += 2;
+
+  if (polarityShift === 0 && turns === 0) return 0;
+  return Math.max(0, Math.min(9, score));
+}
+
 function narrativePayoffDistanceScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
