@@ -337,14 +337,14 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   // Keep the model focused on the strongest, most diverse candidates. Sending
   // every baseline window makes the AI call slower without improving the top
   // results proportionally, especially on 30–50 clip requests.
-  const aiCandidateLimit = Math.min(90, Math.max(24, safeLimit * 2));
+  const aiCandidateLimit = Math.min(60, Math.max(24, safeLimit * 2));
   const aiCandidates = baseline.slice(0, aiCandidateLimit);
   const candidates = aiCandidates.map((item, id) => ({
     id,
     start: item.start,
     end: item.end,
     duration: item.duration,
-    transcript: item.transcript.slice(0, 1200),
+    transcript: item.transcript.slice(0, 900),
     baselineScore: Math.round(Number(item.score) || 0),
     highlightType: item.highlightType || "insight",
   }));
@@ -377,7 +377,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
             content: [{ type: "input_text", text: JSON.stringify({ requested: safeLimit, candidates }) }],
           },
         ],
-        max_output_tokens: Math.max(800, safeLimit * 120),
+        max_output_tokens: Math.max(700, Math.min(4200, safeLimit * 90)),
       }),
     });
 
