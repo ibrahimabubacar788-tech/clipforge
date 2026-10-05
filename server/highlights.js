@@ -186,6 +186,24 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function sentenceRhythmScore(text) {
+  const value = String(text || "").trim();
+  const sentences = value.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  if (sentences.length < 3) return 0;
+  const lengths = sentences.map((s) => s.split(/\s+/).filter(Boolean).length);
+  const average = lengths.reduce((sum, n) => sum + n, 0) / lengths.length;
+  const short = lengths.filter((n) => n >= 5 && n <= 14).length;
+  const medium = lengths.filter((n) => n >= 15 && n <= 34).length;
+  const long = lengths.filter((n) => n >= 55).length;
+  let score = 0;
+  if (short >= 1 && medium >= 1) score += 3;
+  if (medium >= 2) score += 2;
+  if (long >= 2 && average > 45) score -= 3;
+  const ending = sentences[sentences.length - 1] || "";
+  if (ending.split(/\s+/).filter(Boolean).length >= 6 && ending.length <= 220) score += 2;
+  return Math.max(-3, Math.min(6, score));
+}
+
 function topicConsistencyScore(text) {
   const value = String(text || "").trim();
   const words = value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
