@@ -408,8 +408,35 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
       if (!base) return null;
       const score = Number(selection.score);
       const aiScore = Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null;
+      const dimensionWeights = [
+        ["standalone", 20],
+        ["hook", 12],
+        ["clarity", 10],
+        ["payoff", 4],
+        ["emotion", 4],
+      ];
+      let dimensionTotal = 0;
+      let dimensionWeight = 0;
+      for (const [key, weight] of dimensionWeights) {
+        const value = Number(selection[key]);
+        if (!Number.isFinite(value)) continue;
+        dimensionTotal += Math.max(0, Math.min(100, value)) * weight;
+        dimensionWeight += weight;
+      }
+      const dimensionScore = dimensionWeight > 0 ? dimensionTotal / dimensionWeight : null;
+      // Use the model's overall judgment as the anchor, but incorporate its
+      // explicit quality dimensions when available. This prevents a candidate
+      // with a flashy hook but poor standalone clarity from outranking a complete,
+      // useful clip simply because its single headline score was high.
+      const effectiveAiScore = aiScore === null
+        ? dimensionScore
+        : dimensionScore === null
+          ? aiScore
+          : Math.round(aiScore * 0.55 + dimensionScore * 0.45);
       const baselineScore = Math.max(0, Math.min(100, Number(base.score) * 0.8));
-      const blendedScore = aiScore === null ? baselineScore : Math.round(aiScore * 0.82 + baselineScore * 0.18);
+      const blendedScore = effectiveAiScore === null
+        ? baselineScore
+        : Math.round(effectiveAiScore * 0.82 + baselineScore * 0.18);
       return {
         ...base,
         score: blendedScore,
