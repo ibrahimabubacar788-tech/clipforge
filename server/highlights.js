@@ -651,7 +651,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         ["context", 8],
         ["hook", 12],
         ["clarity", 10],
-        ["payoff", 4],
+        ["payoff", 12],
         ["emotion", 4],
       ];
       let dimensionTotal = 0;
