@@ -186,6 +186,30 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function audienceCuriosityArcScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 28) return 0;
+
+  const early = words.slice(0, Math.ceil(words.length * 0.35)).join(" ");
+  const middle = words.slice(Math.floor(words.length * 0.3), Math.ceil(words.length * 0.72)).join(" ");
+  const late = words.slice(Math.floor(words.length * 0.62)).join(" ");
+
+  const curiosity = /\b(?:why|how|what|secret|truth|surprising|didn'?t expect|nobody|never|question|wonder|curious|turns out)\b/i.test(early);
+  const development = /\b(?:because|then|but|however|after|when|tried|found|discovered|realized|learned|started|changed)\b/i.test(middle);
+  const resolution = /\b(?:answer|reason|result|solution|realized|learned|discovered|turns out|ended up|which means|that means|finally|in the end|actually)\b/i.test(late);
+
+  let score = 0;
+  if (curiosity && development && resolution) score += 9;
+  else if (curiosity && resolution) score += 5;
+  else if (development && resolution) score += 3;
+
+  if (curiosity && !resolution) score -= 5;
+  if (!curiosity && resolution && development) score += 1;
+
+  return Math.max(-5, Math.min(9, score));
+}
+
 function payoffSpecificityScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
