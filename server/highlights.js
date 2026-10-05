@@ -491,7 +491,14 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         const type = String(candidate.highlightType || "").trim().toLowerCase();
         const requestedBonus = safeTargetTypes.includes(type) && !seenTypes.has(type) ? 8 : 0;
         const noveltyBonus = type && !seenTypes.has(type) ? 12 : 0;
-        const utility = Number(candidate.score || 0) + requestedBonus + noveltyBonus;
+        const weakContextPenalty = Number.isFinite(candidate.contextScore) && candidate.contextScore < 55
+          ? (55 - candidate.contextScore) * 0.55
+          : 0;
+        const weakStandalonePenalty = Number.isFinite(candidate.standaloneScore) && candidate.standaloneScore < 60
+          ? (60 - candidate.standaloneScore) * 0.35
+          : 0;
+        const utility = Number(candidate.score || 0) + requestedBonus + noveltyBonus
+          - weakContextPenalty - weakStandalonePenalty;
         if (utility > bestUtility) {
           bestUtility = utility;
           bestIndex = i;
