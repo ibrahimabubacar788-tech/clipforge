@@ -186,6 +186,42 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function progressionMomentumScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 28) return 0;
+
+  const normalized = words.map((word) => word.replace(/[^a-z0-9']/gi, "").toLowerCase());
+  const segments = [];
+  const size = Math.max(8, Math.ceil(normalized.length / 3));
+  for (let i = 0; i < normalized.length; i += size) segments.push(normalized.slice(i, i + size));
+
+  const changePattern = /\b(?:but|however|instead|yet|then|after|before|because|until|while|tried|started|stopped|changed|became|realized|learned|discovered|found|decided|failed|succeeded|ended|result|finally|eventually)\b/;
+  const newInfoPattern = /\b(?:new|different|another|first|second|next|also|more|less|increase|decrease|from|to|now|then|result|example|step|lesson|reason|answer|solution)\b/;
+
+  const changeCounts = segments.map((segment) => segment.filter((word) => changePattern.test(word)).length);
+  const infoCounts = segments.map((segment) => segment.filter((word) => newInfoPattern.test(word)).length);
+
+  let score = 0;
+  if (changeCounts[0] + changeCounts[1] + changeCounts[2] >= 3) score += 3;
+  if (changeCounts[1] + changeCounts[2] >= 2) score += 3;
+  if (infoCounts[1] + infoCounts[2] >= 2) score += 2;
+
+  const firstSet = new Set(segments[0] || []);
+  const secondSet = new Set(segments[1] || []);
+  const thirdSet = new Set(segments[2] || []);
+  const overlap12 = [...firstSet].filter((word) => secondSet.has(word) && word.length >= 5).length;
+  const overlap23 = [...secondSet].filter((word) => thirdSet.has(word) && word.length >= 5).length;
+  const meaningfulFirst = [...firstSet].filter((word) => word.length >= 5).length;
+  const repetitionRatio = (overlap12 + overlap23) / Math.max(1, meaningfulFirst * 2);
+
+  if (repetitionRatio >= 0.42 && changeCounts[1] + changeCounts[2] < 2) score -= 7;
+  else if (repetitionRatio >= 0.30 && changeCounts[1] + changeCounts[2] < 2) score -= 3;
+
+  if (changeCounts[2] >= 2 && infoCounts[2] >= 1) score += 3;
+  return Math.max(-7, Math.min(14, score));
+}
+
 function questionPayoffCoherenceScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
