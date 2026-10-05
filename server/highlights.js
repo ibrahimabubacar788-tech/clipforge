@@ -186,6 +186,29 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function narrativePayoffDistanceScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 28) return 0;
+
+  const hookPattern = /\b(?:why|how|secret|truth|mistake|biggest|surprising|nobody|never|didn'?t expect|question)\b/i;
+  const payoffPattern = /\b(?:because|answer|reason|solution|result|realized|learned|discovered|found|turns out|ended up|which means|that means|finally|in the end|actually)\b/i;
+
+  const hookIndex = words.findIndex((word) => hookPattern.test(word));
+  let payoffIndex = -1;
+  for (let i = words.length - 1; i >= 0; i -= 1) {
+    if (payoffPattern.test(words[i])) { payoffIndex = i; break; }
+  }
+
+  if (hookIndex < 0 || payoffIndex < 0 || payoffIndex <= hookIndex) return 0;
+
+  const distanceRatio = (payoffIndex - hookIndex) / words.length;
+  if (distanceRatio >= 0.18 && distanceRatio <= 0.78) return 7;
+  if (distanceRatio < 0.10) return 2;
+  if (distanceRatio > 0.88) return -3;
+  return 4;
+}
+
 function audienceCuriosityArcScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
