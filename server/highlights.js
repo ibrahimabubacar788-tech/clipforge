@@ -186,6 +186,40 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function informationGainScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 30) return 0;
+
+  const parts = [
+    words.slice(0, Math.ceil(words.length / 3)),
+    words.slice(Math.ceil(words.length / 3), Math.ceil(words.length * 2 / 3)),
+    words.slice(Math.ceil(words.length * 2 / 3)),
+  ].map((section) => section.join(" ").toLowerCase());
+
+  const changePattern = /\b(?:learned|realized|discovered|found|revealed|explained|showed|means|because|reason|result|difference|changed|turned out|ended up|actually|instead|therefore|so)\b/g;
+  const firstWords = new Set(parts[0].replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length >= 5));
+  const secondWords = new Set(parts[1].replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length >= 5));
+  const thirdWords = new Set(parts[2].replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length >= 5));
+
+  const newMiddle = [...secondWords].filter((w) => !firstWords.has(w)).length;
+  const newEnd = [...thirdWords].filter((w) => !secondWords.has(w)).length;
+  const changes = parts.map((part) => part.match(changePattern)?.length || 0);
+  const totalChange = changes.reduce((sum, n) => sum + n, 0);
+
+  let score = 0;
+  if (newMiddle >= 3 && newEnd >= 3) score += 6;
+  else if (newMiddle >= 2 || newEnd >= 2) score += 3;
+  if (changes[1] >= 1 && changes[2] >= 1) score += 4;
+  else if (totalChange >= 2) score += 2;
+
+  const repeated = [...secondWords].filter((w) => firstWords.has(w)).length
+    + [...thirdWords].filter((w) => secondWords.has(w)).length;
+  if (repeated > 12 && totalChange === 0) score -= 4;
+
+  return Math.max(-4, Math.min(10, score));
+}
+
 function semanticShiftScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
