@@ -933,12 +933,12 @@ function audienceValueProgressionScore(text) {
   const last = words.slice(third * 2).join(" ");
 
   const audience = /\b(?:you|your|if you|for anyone|people|creator|business|customer|audience|viewer|beginner|entrepreneur|team|company)\b/gi;
-  const value = /\b(?:benefit|help|save|earn|avoid|learn|understand|use|step|strategy|tip|lesson|mistake|solution|result|reason|key|difference|how|why|because|example|proof|method)\b/gi;
+  const valueSignal = /\b(?:benefit|help|save|earn|avoid|learn|understand|use|step|strategy|tip|lesson|mistake|solution|result|reason|key|difference|how|why|because|example|proof|method)\b/gi;
   const concrete = /\b\d+(?:[.,]\d+)?(?:%|x|k|m|b)?\b|\b(?:dollars?|naira|days?|weeks?|months?|years?|steps?)\b/gi;
 
   const firstAudience = (first.match(audience) || []).length;
-  const middleValue = (middle.match(value) || []).length;
-  const lastValue = (last.match(value) || []).length;
+  const middleValue = (middle.match(valueSignal) || []).length;
+  const lastValue = (last.match(valueSignal) || []).length;
   const lastConcrete = (last.match(concrete) || []).length;
 
   let score = 0;
