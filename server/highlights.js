@@ -202,8 +202,24 @@ function repetitionPenaltyScore(text) {
   return 0;
 }
 
+function speechQualityScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 18) return 0;
+  const lowValue = new Set(["um","uh","erm","ah","like","basically","literally"]);
+  let count = 0;
+  for (const word of words) {
+    if (lowValue.has(word.toLowerCase().replace(/[.,!?]/g, ""))) count += 1;
+  }
+  const ratio = count / words.length;
+  if (ratio >= 0.14) return -9;
+  if (ratio >= 0.09) return -5;
+  if (ratio >= 0.06) return -2;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
