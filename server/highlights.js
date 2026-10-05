@@ -186,6 +186,25 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function payoffConcretenessScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+  const late = words.slice(Math.floor(words.length * 0.58)).join(" ");
+  const concrete = /\b(?:number|percent|dollars?|naira|million|thousand|days?|weeks?|months?|years?|steps?|rule|method|strategy|price|cost|saved|earned|lost|gained|increased|decreased|grew|reduced|improved|failed|won|sold|bought|result|answer|solution|example|exactly|specifically)\b/i;
+  const vague = /\b(?:something|somehow|things|stuff|someone|somebody|somewhere|a lot|kind of|sort of|basically)\b/gi;
+  const concreteHits = late.match(concrete)?.length || 0;
+  const vagueHits = late.match(vague)?.length || 0;
+  const endsCleanly = /[.!?]["'”’)]?$/.test(value);
+  let score = 0;
+  if (concreteHits >= 2) score += 7;
+  else if (concreteHits === 1) score += 3;
+  if (concreteHits >= 1 && endsCleanly) score += 2;
+  if (vagueHits >= 2 && concreteHits === 0) score -= 5;
+  if (vagueHits >= 3) score -= 2;
+  return Math.max(-6, Math.min(9, score));
+}
+
 function sentenceRhythmScore(text) {
   const value = String(text || "").trim();
   const sentences = value.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
