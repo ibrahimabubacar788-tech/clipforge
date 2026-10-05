@@ -296,6 +296,25 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
   const clean = (Array.isArray(segments) ? segments.slice(0, 5000) : [])
     .map(normalize).filter(valid).sort((a, b) => a.start - b.start);
   const candidates = [];
+  // Prefer transcript segments that already contain strong narrative signals as
+  // window anchors. We still keep every segment eligible, but signal anchors
+  // get earlier attention and can capture a complete payoff without requiring
+  // the clip to begin at an arbitrary sentence.
+  const anchorIndexes = new Set();
+  const anchorPatterns = [...HOOKS, ...PAYOFFS, ...CURIOSITY_GAPS, ...STAKES, ...STORY_ARCS, ...EMOTIONAL_SHIFTS];
+  for (let i = 0; i < clean.length; i += 1) {
+    const text = clean[i].text;
+    if (anchorPatterns.some((pattern) => pattern.test(text))) anchorIndexes.add(i);
+    if (/[!?]/.test(text) && text.split(/\\s+/).filter(Boolean).length >= 8) anchorIndexes.add(i);
+  }
+  const startIndexes = [...new Set([
+    ...anchorIndexes,
+    ...clean.map((_, index) => index),
+  ])].sort((a, b) => {
+    const aAnchor = anchorIndexes.has(a) ? 0 : 1;
+    const bAnchor = anchorIndexes.has(b) ? 0 : 1;
+    return aAnchor - bAnchor || a - b;
+  });
   // Sample a small set of useful duration checkpoints instead of scoring every
   // possible transcript window. This keeps long videos fast while preserving
   // the 15–75s range that short-form clips normally need.
@@ -307,7 +326,7 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
     Math.min(safeMaxDuration, Math.max(safeMinDuration, 60)),
     safeMaxDuration,
   ].map((value) => Number(value.toFixed(3))))].sort((a, b) => a - b);
-  for (let i = 0; i < clean.length; i += 1) {
+  for (const i of startIndexes) {
     const start = clean[i].start;
     let end = start;
     const windowSegments = [];
