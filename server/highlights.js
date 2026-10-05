@@ -155,7 +155,7 @@ function narrativeProgressionScore(text) {
   if (words.length < 20) return 0;
 
   const normalized = words.map((word) => word.replace(/[^a-z0-9']/gi, "").toLowerCase());
-  const hookPattern = /^(?:why|how|what|here|the|my|our|i|we|you|this|that)$|(?:secret|mistake|truth|problem|story|question|surprising|didn't expect)/;
+  const hookPattern = /^(?:why|how|what|where|when)\b|(?:here'?s the thing|secret|mistake|truth|problem|story|question|surprising|didn'?t expect|nobody|biggest|never)\b/;
   const developmentPattern = /(?:but|however|then|after|before|until|while|because|thought|assumed|tried|started|realized|learned|discovered)/;
   const payoffPattern = /(?:because|therefore|that means|turns out|ended up|as a result|which is why|realized|learned|discovered|finally|in the end|won|lost|failed|succeeded|changed)/;
 
