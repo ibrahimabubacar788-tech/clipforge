@@ -81,8 +81,24 @@ function standaloneContextScore(text) {
   return score;
 }
 
+function payoffPlacementScore(text) {
+  const value = String(text || "").trim();
+  if (!value) return 0;
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 12) return 0;
+  const payoffPattern = /\b(?:because|that means|turns out|ended up|result|which is why|therefore|realized|learned|discovered|changed|actually|so)\b/i;
+  const positions = [];
+  for (let i = 0; i < words.length; i += 1) if (payoffPattern.test(words[i])) positions.push(i / Math.max(1, words.length - 1));
+  if (!positions.length) return 0;
+  const strongest = Math.max(...positions);
+  if (strongest >= 0.55) return 7;
+  if (strongest >= 0.35) return 3;
+  if (strongest < 0.2) return -5;
+  return 0;
+}
+
 function scoreWindow(text, duration) {
-  let score = boundaryQualityScore(text) + standaloneContextScore(text);
+  let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
