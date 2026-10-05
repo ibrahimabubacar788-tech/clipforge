@@ -186,6 +186,54 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function storyPhaseCoverageScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+
+  const normalized = words.map((word) => word.replace(/[^a-z0-9']/gi, "").toLowerCase());
+  const phasePattern = {
+    setup: /^(?:at|initially|first|before|originally|the problem|the challenge|i thought|we thought|i assumed|we assumed|wanted|needed|tried)\\b|(?:problem|challenge|question|goal|plan|expect)/,
+    development: /^(?:then|next|after|while|but|however|because|until|tried|started|struggled|worked|failed|kept)\\b|(?:tested|built|changed|discovered|learned|realized)/,
+    resolution: /^(?:finally|eventually|ultimately|in|the end|so|therefore|because|that means|turns out|ended up)\\b|(?:result|answer|solution|won|lost|succeeded|failed|saved|earned|changed|learned|realized|discovered)/
+  };
+
+  const findPositions = (pattern) => {
+    const positions = [];
+    for (let i = 0; i < normalized.length; i += 1) {
+      const window = normalized.slice(i, i + 4).join(" ");
+      if (pattern.test(normalized[i]) || pattern.test(window)) {
+        positions.push(i / Math.max(1, normalized.length - 1));
+      }
+    }
+    return positions;
+  };
+
+  const setup = findPositions(phasePattern.setup);
+  const development = findPositions(phasePattern.development);
+  const resolution = findPositions(phasePattern.resolution);
+  const earlySetup = setup.some((p) => p <= 0.38);
+  const middleDevelopment = development.some((p) => p >= 0.18 && p <= 0.78);
+  const lateResolution = resolution.some((p) => p >= 0.55);
+
+  let score = 0;
+  if (earlySetup) score += 2;
+  if (middleDevelopment) score += 3;
+  if (lateResolution) score += 3;
+  if (earlySetup && middleDevelopment && lateResolution) score += 4;
+
+  const ordered = earlySetup
+    && middleDevelopment
+    && lateResolution
+    && Math.min(...setup) < Math.max(...development)
+    && Math.min(...development) < Math.max(...resolution);
+  if (ordered) score += 3;
+
+  if (lateResolution && !earlySetup) score -= 2;
+  if (earlySetup && !lateResolution) score -= 3;
+  return Math.max(-4, Math.min(15, score));
+}
+
 function repetitionPenaltyScore(text) {
   const value = String(text || "").trim();
   const words = value.toLowerCase().replace(/[^a-z0-9'\s]/g, " ").split(/\s+/).filter(Boolean);
