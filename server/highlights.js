@@ -186,6 +186,24 @@ function narrativeProgressionScore(text) {
   return 0;
 }
 
+function payoffSpecificityScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+  const late = words.slice(Math.floor(words.length * 0.55)).join(" ");
+  const concrete = [
+    /\b\d+(?:[.,]\d+)?(?:%|x|k|m|b)?\b/i,
+    /\b(?:because|the reason|the answer|the solution|the result|the difference|the key|the lesson|the exact|specifically|for example|which means|that means)\b/i,
+    /\b(?:saved|made|lost|gained|increased|decreased|cost|paid|earned|grew|reduced|improved|failed|won|sold|bought)\b/i,
+    /\b(?:step|steps|method|strategy|rule|mistake|decision|change|process)\b/i,
+  ];
+  const hits = concrete.reduce((sum, pattern) => sum + (pattern.test(late) ? 1 : 0), 0);
+  let score = hits >= 3 ? 9 : hits === 2 ? 6 : hits === 1 ? 2 : 0;
+  if (/[.!?]["'”’)]?$/.test(value) && hits >= 2) score += 2;
+  if (/\b(?:something|somehow|things|stuff|whatever|some guy|someone)\b/i.test(late) && hits < 2) score -= 3;
+  return Math.max(-3, Math.min(11, score));
+}
+
 function informationGainScore(text) {
   const value = String(text || "").trim();
   const words = value.split(/\s+/).filter(Boolean);
