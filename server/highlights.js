@@ -1692,7 +1692,7 @@ When the transcript has multiple speakers, also prefer genuinely strong moments 
 ${hasLearning ? `Use this project's historical performance as a secondary signal, not a hard rule. Previously tracked clip-type engagement: ${JSON.stringify(learnedTypes.slice(0, 5).map(([type, value]) => ({ type, engagementRate: Number(value.toFixed(2)) })))}. Favor proven types modestly when the transcript quality is comparable, but still surface genuinely exceptional moments of other types.` : ""}
 Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
 ${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
-Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"context":90,"payoff":90,"emotion":78,"clarity":96,"novelty":90,"replayability":88,"specificity":92,"reason":"brief reason","title":"short title","type":"hook"}]}.
+Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"context":90,"payoff":90,"emotion":78,"clarity":96,"novelty":90,"replayability":88,"specificity":92,"reason":"brief reason","title":"short title","hookLine":"short spoken-style hook","socialCaption":"short caption for posting","type":"hook"}]}.
 For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
 Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.`,
             }],
@@ -1790,6 +1790,8 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
           ? String(selection.type).trim().toLowerCase()
           : base.highlightType || "insight",
         title: String(selection.title || base.title).replace(/\s+/g, " ").trim().slice(0, 100) || base.title,
+        hookLine: String(selection.hookLine || "").replace(/\s+/g, " ").trim().slice(0, 160) || null,
+        socialCaption: String(selection.socialCaption || "").replace(/\s+/g, " ").trim().slice(0, 320) || null,
       };
     }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
 
