@@ -1059,8 +1059,32 @@ function contextAwareWindowScore(items, allSegments, startIndex, endIndex) {
   return Math.max(-12, Math.min(8, score));
 }
 
+function speakerInteractionScore(items) {
+  if (!Array.isArray(items) || items.length < 2) return 0;
+  const speakers = items.map((item) => String(item?.speaker || "").trim()).filter(Boolean);
+  const uniqueSpeakers = new Set(speakers);
+  if (uniqueSpeakers.size < 2) return 0;
+
+  const text = items.map((item) => String(item?.text || "")).join(" ").trim();
+  if (!text) return 0;
+
+  const question = /\?/g;
+  const answer = /\b(?:because|the reason|exactly|yes|no|that's right|correct|actually|the answer|it turns out|we found|we learned|I agree)\b/i;
+  const conflict = /\b(?:but|however|disagree|wrong|no way|not true|instead|except|really)\b/i;
+  const reaction = /\b(?:wait|wow|seriously|exactly|right|really|I didn't know|that's crazy|you're right)\b/i;
+
+  const questionCount = (text.match(question) || []).length;
+  let score = 0;
+  if (uniqueSpeakers.size >= 2) score += 3;
+  if (questionCount >= 1 && answer.test(text)) score += 5;
+  if (conflict.test(text) && reaction.test(text)) score += 4;
+  if (uniqueSpeakers.size >= 2 && text.split(/\\s+/).filter(Boolean).length >= 24) score += 2;
+
+  return Math.max(0, Math.min(10, score));
+}
+
 function scoreWindow(text, duration, contextItems = [], allSegments = [], startIndex = 0, endIndex = 0) {
-  let score = contextAwareWindowScore(contextItems, allSegments, startIndex, endIndex) + (earlyRetentionScore(text) * 2) + boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + payoffNoveltyScore(text) + audienceValueProgressionScore(text) + speakerTurnContinuityScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
+  let score = contextAwareWindowScore(contextItems, allSegments, startIndex, endIndex) + speakerInteractionScore(contextItems) + (earlyRetentionScore(text) * 2) + boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + payoffNoveltyScore(text) + audienceValueProgressionScore(text) + speakerTurnContinuityScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
