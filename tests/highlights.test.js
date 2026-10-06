@@ -277,3 +277,50 @@ test("highlight engine remains stable when evaluating speech pacing", () => {
   assert.equal(candidates.length, 2);
   assert.ok(candidates.every((item) => Number.isFinite(item.score)));
 });
+
+
+test("AI highlight ranking preserves novelty, replayability, and specificity signals", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  let requestBody = "";
+  globalThis.fetch = async (_url, options) => {
+    requestBody = String(options?.body || "");
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({
+        selections: [{
+          id: 0,
+          score: 90,
+          hook: 88,
+          standalone: 92,
+          context: 90,
+          payoff: 91,
+          emotion: 70,
+          clarity: 94,
+          novelty: 96,
+          replayability: 95,
+          specificity: 93,
+          reason: "Distinct, memorable payoff with concrete value.",
+          title: "The key result",
+          type: "payoff",
+        }],
+      }),
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 20, text: "The surprising result is that creators can improve their videos by focusing on one clear idea, using a specific method, and measuring the result carefully." },
+    ], { limit: 1, minDuration: 20, maxDuration: 20 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 1);
+    assert.equal(result.candidates[0].noveltyScore, 96);
+    assert.equal(result.candidates[0].replayabilityScore, 95);
+    assert.equal(result.candidates[0].specificityScore, 93);
+    assert.match(requestBody, /"replayability"/);
+    assert.match(requestBody, /"specificity"/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
