@@ -989,7 +989,6 @@ document.querySelector("#apply-hook").addEventListener("click", () => {
 const transcriptDialog = document.querySelector("#transcript-dialog");
 const transcriptInput = document.querySelector("#transcript-input");
 const transcriptFile = document.querySelector("#transcript-file");
-const autoTranscribeButton = document.querySelector("#auto-transcribe");
 const transcriptionLanguage = document.querySelector("#transcription-language");
 const savedTranscriptionLanguage = safeStorageParse(transcriptionLanguageKey, "auto");
 if (transcriptionLanguage && [...transcriptionLanguage.options].some((option) => option.value === savedTranscriptionLanguage)) {
@@ -998,7 +997,6 @@ if (transcriptionLanguage && [...transcriptionLanguage.options].some((option) =>
 transcriptionLanguage?.addEventListener("change", () => {
   window.localStorage.setItem(transcriptionLanguageKey, JSON.stringify(transcriptionLanguage.value || "auto"));
 });
-const savedCaptionLanguage = safeStorageParse(captionLanguageKey, "original");
 const captionLanguageSelect = document.querySelector("#caption-language");
 if (captionLanguageSelect && [...captionLanguageSelect.options].some((option) => option.value === savedCaptionLanguage)) captionLanguageSelect.value = savedCaptionLanguage;
 captionLanguageSelect?.addEventListener("change", () => window.localStorage.setItem(captionLanguageKey, JSON.stringify(captionLanguageSelect.value || "original")));
