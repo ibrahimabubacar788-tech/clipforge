@@ -1,14 +1,51 @@
+function splitCaptionBeats(text) {
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const beats = [];
+  let current = [];
+  for (const word of words) {
+    const candidate = [...current, word].join(" ");
+    const punctuationBreak = /[.!?]["')\]]?$/.test(word);
+    if (current.length && (current.length >= 5 || candidate.length > 34)) {
+      beats.push(current.join(" "));
+      current = [word];
+    } else {
+      current.push(word);
+      if (punctuationBreak && current.length >= 2) {
+        beats.push(current.join(" "));
+        current = [];
+      }
+    }
+  }
+  if (current.length) beats.push(current.join(" "));
+  return beats;
+}
+
 export function captionSegmentsForClip(clip) {
   if (!clip.captions || !Array.isArray(clip.captionSegments)) return [];
   const start = Number(clip.start), duration = Number(clip.end) - start;
-  return clip.captionSegments.map((s) => {
-    const a = Number(s.start), b = Number(s.end), text = String(s.text || "").trim();
-    if (!text || !Number.isFinite(a) || !Number.isFinite(b) || b <= a) return null;
+  if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) return [];
+  const result = [];
+  for (const segment of clip.captionSegments) {
+    const a = Number(segment?.start), b = Number(segment?.end), text = String(segment?.text || "").trim();
+    if (!text || !Number.isFinite(a) || !Number.isFinite(b) || b <= a) continue;
     const localStart = Math.max(0, a - start), localEnd = Math.min(duration, b - start);
-    if (localEnd <= localStart) return null;
-    const speaker = String(s.speaker || "").trim();
-    return { start: localStart, end: localEnd, text: speaker ? speaker + ": " + text : text };
-  }).filter(Boolean);
+    if (localEnd <= localStart) continue;
+    const beats = splitCaptionBeats(text);
+    if (!beats.length) continue;
+    let cursor = localStart;
+    const speaker = String(segment?.speaker || "").trim();
+    for (let index = 0; index < beats.length; index += 1) {
+      const remaining = localEnd - cursor;
+      const remainingWeight = beats.slice(index).reduce((sum, beat) => sum + beat.length, 0) || 1;
+      const end = index === beats.length - 1 ? localEnd : cursor + remaining * (beats[index].length / remainingWeight);
+      if (end > cursor) {
+        result.push({ start: cursor, end, text: index === 0 && speaker ? speaker + ": " + beats[index] : beats[index] });
+        cursor = end;
+      }
+    }
+  }
+  return result;
 }
 
 const glyphs = {
