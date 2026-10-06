@@ -1,62 +1,14 @@
 export function captionSegmentsForClip(clip) {
   if (!clip.captions || !Array.isArray(clip.captionSegments)) return [];
-  const start = Number(clip.start);
-  const duration = Number(clip.end) - start;
-  if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) return [];
-
-  const output = [];
-  let previousSpeaker = "";
-
-  for (const segment of clip.captionSegments) {
-    const a = Number(segment?.start);
-    const b = Number(segment?.end);
-    const text = String(segment?.text || "").replace(/\\s+/g, " ").trim();
-    if (!text || !Number.isFinite(a) || !Number.isFinite(b) || b <= a) continue;
-
-    const localStart = Math.max(0, a - start);
-    const localEnd = Math.min(duration, b - start);
-    if (localEnd <= localStart) continue;
-
-    const speaker = String(segment?.speaker || "").trim();
-    const words = text.split(/\\s+/).filter(Boolean);
-    const chunks = [];
-    let current = [];
-
-    for (const word of words) {
-      current.push(word);
-      const punctuationBoundary = /[.!?,;:][”'")\\]]?$/.test(word);
-      if (current.length >= 5 || (current.length >= 2 && punctuationBoundary)) {
-        chunks.push(current.join(" "));
-        current = [];
-      }
-    }
-    if (current.length) chunks.push(current.join(" "));
-    if (!chunks.length) continue;
-
-    const weights = chunks.map((chunk) => Math.max(1, chunk.length));
-    const totalWeight = weights.reduce((sum, value) => sum + value, 0);
-    let cursor = localStart;
-
-    chunks.forEach((chunk, index) => {
-      const share = weights[index] / totalWeight;
-      const chunkEnd = index === chunks.length - 1
-        ? localEnd
-        : Math.min(localEnd, cursor + (localEnd - localStart) * share);
-      if (chunkEnd <= cursor) return;
-
-      const prefix = speaker && speaker !== previousSpeaker && index === 0 ? speaker + ": " : "";
-      output.push({
-        start: cursor,
-        end: chunkEnd,
-        text: prefix + chunk,
-      });
-      cursor = chunkEnd;
-    });
-
-    if (speaker) previousSpeaker = speaker;
-  }
-
-  return output;
+  const start = Number(clip.start), duration = Number(clip.end) - start;
+  return clip.captionSegments.map((s) => {
+    const a = Number(s.start), b = Number(s.end), text = String(s.text || "").trim();
+    if (!text || !Number.isFinite(a) || !Number.isFinite(b) || b <= a) return null;
+    const localStart = Math.max(0, a - start), localEnd = Math.min(duration, b - start);
+    if (localEnd <= localStart) return null;
+    const speaker = String(s.speaker || "").trim();
+    return { start: localStart, end: localEnd, text: speaker ? speaker + ": " + text : text };
+  }).filter(Boolean);
 }
 
 const glyphs = {
