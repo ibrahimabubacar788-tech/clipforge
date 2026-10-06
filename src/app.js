@@ -990,7 +990,6 @@ const transcriptDialog = document.querySelector("#transcript-dialog");
 const transcriptInput = document.querySelector("#transcript-input");
 const transcriptFile = document.querySelector("#transcript-file");
 const transcriptionLanguage = document.querySelector("#transcription-language");
-const savedTranscriptionLanguage = safeStorageParse(transcriptionLanguageKey, "auto");
 if (transcriptionLanguage && [...transcriptionLanguage.options].some((option) => option.value === savedTranscriptionLanguage)) {
   transcriptionLanguage.value = savedTranscriptionLanguage;
 }
@@ -999,7 +998,6 @@ transcriptionLanguage?.addEventListener("change", () => {
 });
 const captionLanguageSelect = document.querySelector("#caption-language");
 if (captionLanguageSelect && [...captionLanguageSelect.options].some((option) => option.value === savedCaptionLanguage)) captionLanguageSelect.value = savedCaptionLanguage;
-captionLanguageSelect?.addEventListener("change", () => window.localStorage.setItem(captionLanguageKey, JSON.stringify(captionLanguageSelect.value || "original")));
 
 function parseTranscript(rawText) {
   return rawText.split("\n").map((line) => {
