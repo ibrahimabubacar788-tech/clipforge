@@ -93,11 +93,13 @@ test("ready endpoint reports a healthy ClipForge service", async () => {
   try {
     const response = await fetch(`${ctx.base}/api/ready`);
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
-      ok: true,
-      service: "clipforge",
-      mediaStorage: { mode: "local", persistent: false },
-    });
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.service, "clipforge");
+    assert.deepEqual(body.mediaStorage, { mode: "local", persistent: false });
+    assert.equal(typeof body.mediaStorage.warning, "string");
+    assert.ok(body.ai && typeof body.ai.configured === "boolean");
+    assert.ok(body.ffmpeg && typeof body.ffmpeg.pathConfigured === "boolean");
   } finally {
     await stopTestApp(ctx);
   }
