@@ -215,6 +215,8 @@ test("AI highlight ranking receives a lightweight map of the full conversation",
     assert.match(requestBody, /problem creators keep facing/);
     assert.match(requestBody, /unexpected reason/);
     assert.match(requestBody, /problem was solved/);
+    assert.match(requestBody, /nearbyContext/);
+    assert.match(requestBody, /unexpected reason/);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
