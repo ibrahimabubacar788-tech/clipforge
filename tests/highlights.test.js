@@ -434,3 +434,20 @@ test("highlight engine rewards semantic loop closure from setup to takeaway", ()
   assert.equal(open.length, 1);
   assert.ok(closed[0].score > open[0].score);
 });
+
+
+test("highlight engine rewards memorable quote-worthy phrasing", () => {
+  const quotable = rankHighlights([
+    { start: 0, end: 8, text: "The truth is, you do not need more tools. You need a better system, because the point is to make the work simpler and more useful." },
+    { start: 8, end: 16, text: "We tested the process and the result was clear for the team." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  const ordinary = rankHighlights([
+    { start: 0, end: 8, text: "We talked about some tools and then discussed several things that were available for the team to use." },
+    { start: 8, end: 16, text: "We tested the process and the result was clear for the team." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  assert.equal(quotable.length, 1);
+  assert.equal(ordinary.length, 1);
+  assert.ok(quotable[0].score > ordinary[0].score);
+});
