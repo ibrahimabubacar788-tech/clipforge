@@ -553,3 +553,34 @@ test("AI highlight packs cover different story stages when quality is comparable
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+
+test("AI highlight packs cover different speakers when quality is comparable", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    output_text: JSON.stringify({
+      selections: [
+        { id: 0, score: 99, reason: "Host hook", title: "Host", type: "hook" },
+        { id: 1, score: 98, reason: "Host insight", title: "Host two", type: "insight" },
+        { id: 2, score: 88, reason: "Guest payoff", title: "Guest", type: "payoff" },
+      ],
+    }),
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 20, speaker: "Host", text: "The biggest lesson is how creators should structure their opening." },
+      { start: 20, end: 40, speaker: "Host", text: "Another strong insight is why this method keeps viewers watching." },
+      { start: 180, end: 200, speaker: "Guest", text: "The final result shows exactly what changed and why it worked." },
+      { start: 200, end: 220, speaker: "Guest", text: "The takeaway is a practical result creators can use." },
+    ], { limit: 2, minDuration: 20, maxDuration: 20 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 2);
+    assert.ok(result.candidates.some((candidate) => candidate.speakers?.includes("Guest")));
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
