@@ -510,12 +510,41 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       }
       const videoDuration = Number(video.duration);
       const maxClipDuration = Math.min(75, Math.max(20, Number.isFinite(videoDuration) && videoDuration > 0 ? videoDuration : 75));
+      const performanceLearning = await db.read((d) => {
+        const projectClips = d.clips.filter((clip) =>
+          clip.projectId === video.projectId &&
+          clip.userId === user.id &&
+          clip.performance &&
+          Number.isFinite(Number(clip.performance.views)) &&
+          Number(clip.performance.views) >= 100
+        );
+        const byType = {};
+        for (const clip of projectClips) {
+          const type = String(clip.highlightType || "insight").trim().toLowerCase();
+          const metric = clip.performance || {};
+          const views = Math.max(0, Number(metric.views) || 0);
+          const engagements = Math.max(0, Number(metric.likes) || 0)
+            + Math.max(0, Number(metric.comments) || 0)
+            + Math.max(0, Number(metric.shares) || 0);
+          if (!byType[type]) byType[type] = { views: 0, engagements: 0 };
+          byType[type].views += views;
+          byType[type].engagements += engagements;
+        }
+        return {
+          trackedClips: projectClips.length,
+          byType: Object.fromEntries(Object.entries(byType).map(([type, value]) => [
+            type,
+            value.views ? (value.engagements / value.views) * 100 : 0,
+          ])),
+        };
+      });
       const analysis = await rankHighlightsWithAI(segments, {
         limit,
         minDuration: 15,
         maxDuration: maxClipDuration,
         profile,
         targetTypes: Array.isArray(payload.targetTypes) ? payload.targetTypes : [],
+        performanceLearning,
       });
       const candidates = analysis.candidates.filter((candidate) => {
         const start = Number(candidate.start);
