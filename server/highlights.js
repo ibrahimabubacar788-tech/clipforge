@@ -1549,7 +1549,7 @@ function buildGlobalTranscriptContext(segments, maxItems = 72) {
   return picked;
 }
 
-export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator", targetTypes = [], performanceLearning = null } = {}) {
+export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator", targetTypes = [], performanceLearning = null, creatorMemory = [] } = {}) {
   const contentProfile = getContentProfile(normalizeContentProfile(profile));
   const learning = performanceLearning && typeof performanceLearning === "object" ? performanceLearning : {};
   const learnedTypeWeights = learning.byType && typeof learning.byType === "object" ? learning.byType : {};
@@ -1585,6 +1585,17 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   // Give the model a lightweight view of the entire conversation so it can judge
   // candidate windows against the broader story, not only the selected snippets.
   const globalConversationContext = buildGlobalTranscriptContext(segments);
+  const safeCreatorMemory = Array.isArray(creatorMemory)
+    ? creatorMemory
+        .filter((item) => item && typeof item === "object" && String(item.text || "").trim())
+        .slice(0, 48)
+        .map((item) => ({
+          videoId: String(item.videoId || "").slice(0, 80),
+          title: String(item.title || "").slice(0, 120),
+          text: String(item.text || "").replace(/\s+/g, " ").trim().slice(0, 260),
+        }))
+    : [];
+
   const candidateContext = aiCandidates.map((item, id) => {
     const nearby = (Array.isArray(segments) ? segments : [])
       .map((segment, index) => ({
@@ -1632,7 +1643,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
             role: "system",
             content: [{
               type: "input_text",
-              text: `Select the strongest short-form video moments from these transcript windows.\nYou also receive a lightweight global conversation map below. Use it to understand the overall topic, story progression, repeated ideas, and where each candidate fits in the full conversation. Do not select from the map directly; only select supplied candidate IDs. Each candidate also includes nearbyContext from the surrounding transcript. Use it to avoid cutting off setup or payoff, while scoring only the supplied candidate window.\nGlobal conversation map: ${JSON.stringify(globalConversationContext)}\n\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
+              text: `Select the strongest short-form video moments from these transcript windows.\nYou also receive a lightweight global conversation map below. Use it to understand the overall topic, story progression, repeated ideas, and where each candidate fits in the full conversation. Do not select from the map directly; only select supplied candidate IDs.\nYou may also receive a lightweight creator memory from earlier videos. Use it only to understand recurring topics, terminology, themes, and continuity across this creator's library. Do not select or invent moments from memory; only select supplied candidate IDs. If the current video revisits an earlier topic, favor moments that add a new angle, meaningful update, contradiction, continuation, or stronger payoff instead of repeating an old idea.\nCreator memory: ${JSON.stringify(safeCreatorMemory)} Each candidate also includes nearbyContext from the surrounding transcript. Use it to avoid cutting off setup or payoff, while scoring only the supplied candidate window.\nGlobal conversation map: ${JSON.stringify(globalConversationContext)}\n\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.
 When returning several clips, prefer genuinely strong moments from different stages of the conversation when quality is comparable. Do not cluster the entire clip pack around one short section of the source.
 When the transcript has multiple speakers, also prefer genuinely strong moments that represent different speakers when quality is comparable.
