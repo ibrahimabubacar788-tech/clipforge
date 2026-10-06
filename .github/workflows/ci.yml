@@ -7,10 +7,6 @@ on:
   pull_request:
     branches: [main]
 
-concurrency:
-  group: clipforge-ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   checks:
     runs-on: ubuntu-latest
