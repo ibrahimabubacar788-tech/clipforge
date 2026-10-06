@@ -415,3 +415,22 @@ test("highlight engine rewards tension that resolves into a clear release", () =
   assert.equal(unresolved.length, 1);
   assert.ok(resolved[0].score > unresolved[0].score);
 });
+
+
+test("highlight engine rewards semantic loop closure from setup to takeaway", () => {
+  const closed = rankHighlights([
+    { start: 0, end: 6, text: "The biggest problem was our customer retention after the first month." },
+    { start: 6, end: 12, text: "We changed the onboarding process and measured customer retention every week." },
+    { start: 12, end: 18, text: "In the end, that change improved customer retention because people understood the product sooner." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  const open = rankHighlights([
+    { start: 0, end: 6, text: "The biggest problem was our customer retention after the first month." },
+    { start: 6, end: 12, text: "We changed the onboarding process and discussed several unrelated design ideas." },
+    { start: 12, end: 18, text: "The team also reviewed different tools and talked about future projects." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  assert.equal(closed.length, 1);
+  assert.equal(open.length, 1);
+  assert.ok(closed[0].score > open[0].score);
+});
