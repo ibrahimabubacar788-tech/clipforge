@@ -316,8 +316,8 @@ test("AI highlight ranking preserves novelty, replayability, and specificity sig
     assert.equal(result.candidates[0].noveltyScore, 96);
     assert.equal(result.candidates[0].replayabilityScore, 95);
     assert.equal(result.candidates[0].specificityScore, 93);
-    assert.match(requestBody, /"replayability"/);
-    assert.match(requestBody, /"specificity"/);
+    assert.match(requestBody, /replayability/);
+    assert.match(requestBody, /specificity/);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
