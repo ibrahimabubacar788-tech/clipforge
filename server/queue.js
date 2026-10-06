@@ -248,6 +248,14 @@ export class ClipQueue {
         await safeUnlinkExportFile(exportDir, output);
         throw new Error("FFmpeg completed but the rendered clip was not written correctly.");
       }
+      try {
+        await run(this.ffmpegPath, ["-v", "error", "-i", output, "-map", "0:v:0", "-f", "null", "-"], {
+          activeProcesses: this.activeProcesses,
+        });
+      } catch (error) {
+        await safeUnlinkExportFile(exportDir, output);
+        throw new Error(`Rendered clip failed media integrity validation: ${error.message}`);
+      }
     } catch (error) {
       await safeUnlinkExportFile(exportDir, tempOutput);
       throw error;
