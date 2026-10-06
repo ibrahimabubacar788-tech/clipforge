@@ -1004,10 +1004,10 @@ function earlyRetentionScore(text) {
   const middle = words.slice(Math.floor(words.length * 0.2), Math.ceil(words.length * 0.62)).join(" ");
   const late = words.slice(Math.floor(words.length * 0.62)).join(" ");
 
-  const subject = /\\b(?:I|we|you|your|this|that|the|my|our|people|company|product|problem|story|goal|mistake|reason|result|lesson|money|business|game|project)\\b/i;
-  const tension = /\\b(?:but|however|instead|surprisingly|secret|truth|mistake|problem|challenge|risk|why|how|what|never|nobody|failed|lost|won|changed|unexpected|actually)\\b/i;
-  const valueSignal = /\\b(?:because|reason|answer|result|solution|lesson|key|tip|step|strategy|method|learned|realized|discovered|saved|earned|improved|increased|decreased|example|proof)\\b/i;
-  const filler = /\\b(?:um+|uh+|well|okay|ok|basically|literally|you know|so today|welcome back|in this video)\\b/gi;
+  const subject = /\b(?:I|we|you|your|this|that|the|my|our|people|company|product|problem|story|goal|mistake|reason|result|lesson|money|business|game|project)\b/i;
+  const tension = /\b(?:but|however|instead|surprisingly|secret|truth|mistake|problem|challenge|risk|why|how|what|never|nobody|failed|lost|won|changed|unexpected|actually)\b/i;
+  const valueSignal = /\b(?:because|reason|answer|result|solution|lesson|key|tip|step|strategy|method|learned|realized|discovered|saved|earned|improved|increased|decreased|example|proof)\b/i;
+  const filler = /\b(?:um+|uh+|well|okay|ok|basically|literally|you know|so today|welcome back|in this video)\b/gi;
 
   const earlySubject = subject.test(early);
   const earlyTension = tension.test(early);
@@ -1039,16 +1039,16 @@ function contextAwareWindowScore(items, allSegments, startIndex, endIndex) {
   const following = allSegments.slice(endIndex + 1, Math.min(allSegments.length, endIndex + 3))
     .map((item) => item.text).join(" ");
 
-  const openingDependency = /^(?:this|that|these|those|they|them|he|she|it|there|here|and|but|so|because|which|then)\\b/i.test(firstText)
-    || /\\b(?:as I said|as I mentioned|like I said|earlier|before this|the previous)\\b/i.test(firstText);
-  const explicitSubject = /\\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|project|lesson|experience|strategy|method|result|answer|solution)\\b/i.test(firstText);
-  const previousSubject = /\\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|project|lesson|experience|strategy|method)\\b/i.test(previous);
-  const unresolvedEnding = /(?:\\b(?:and|but|because|which|that|if|when|while|to|of|for|with)\\s*)$/i.test(lastText.replace(/[.!?,;:]+$/, ""));
-  const followingResolution = /\\b(?:because|the reason|the answer|the result|solution|realized|learned|discovered|turns out|ended up|which is why|that means|finally|in the end|actually)\\b/i.test(following);
+  const openingDependency = /^(?:this|that|these|those|they|them|he|she|it|there|here|and|but|so|because|which|then)\b/i.test(firstText)
+    || /\b(?:as I said|as I mentioned|like I said|earlier|before this|the previous)\b/i.test(firstText);
+  const explicitSubject = /\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|project|lesson|experience|strategy|method|result|answer|solution)\b/i.test(firstText);
+  const previousSubject = /\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|project|lesson|experience|strategy|method)\b/i.test(previous);
+  const unresolvedEnding = /(?:\b(?:and|but|because|which|that|if|when|while|to|of|for|with)\s*)$/i.test(lastText.replace(/[.!?,;:]+$/, ""));
+  const followingResolution = /\b(?:because|the reason|the answer|the result|solution|realized|learned|discovered|turns out|ended up|which is why|that means|finally|in the end|actually)\b/i.test(following);
 
   let score = 0;
-  const pronounOpening = /^(?:this|that|these|those|they|them|he|she|it)\\b/i.test(firstText);
-  const stronglyDependentOpening = /^(?:this|that|these|those|they|them|he|she|it)\\s+(?:is|was|are|were|means|shows|explains|saved|cost|changed|worked|failed|won|lost|made|gave|helped)\\b/i.test(firstText);
+  const pronounOpening = /^(?:this|that|these|those|they|them|he|she|it)\b/i.test(firstText);
+  const stronglyDependentOpening = /^(?:this|that|these|those|they|them|he|she|it)\s+(?:is|was|are|were|means|shows|explains|saved|cost|changed|worked|failed|won|lost|made|gave|helped)\b/i.test(firstText);
   if (openingDependency && !explicitSubject) score -= previousSubject ? 8 : 5;
   if (pronounOpening && stronglyDependentOpening) score -= previousSubject ? 7 : 5;
   if (!openingDependency && explicitSubject) score += 3;
@@ -1079,7 +1079,7 @@ function speakerInteractionScore(items) {
   if (uniqueSpeakers.size >= 2) score += 3;
   if (questionCount >= 1 && answer.test(text)) score += 5;
   if (conflict.test(text) && reaction.test(text)) score += 4;
-  if (uniqueSpeakers.size >= 2 && text.split(/\\s+/).filter(Boolean).length >= 24) score += 2;
+  if (uniqueSpeakers.size >= 2 && text.split(/\s+/).filter(Boolean).length >= 24) score += 2;
 
   return Math.max(0, Math.min(10, score));
 }
@@ -1417,7 +1417,7 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
   for (let i = 0; i < clean.length; i += 1) {
     const text = clean[i].text;
     if (anchorPatterns.some((pattern) => pattern.test(text))) anchorIndexes.add(i);
-    if (/[!?]/.test(text) && text.split(/\\s+/).filter(Boolean).length >= 8) anchorIndexes.add(i);
+    if (/[!?]/.test(text) && text.split(/\s+/).filter(Boolean).length >= 8) anchorIndexes.add(i);
   }
   const startIndexes = [...new Set([
     ...anchorIndexes,
@@ -1557,7 +1557,7 @@ function buildGlobalTranscriptContext(segments, maxItems = 72) {
         .map((segment) => ({
           start: Number(segment?.start),
           end: Number(segment?.end),
-          text: String(segment?.text || "").replace(/\\s+/g, " ").trim(),
+          text: String(segment?.text || "").replace(/\s+/g, " ").trim(),
           speaker: String(segment?.speaker || "").trim(),
         }))
         .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start && segment.text)
@@ -1642,7 +1642,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
         index,
         start: Number(segment?.start),
         end: Number(segment?.end),
-        text: String(segment?.text || "").replace(/\\s+/g, " ").trim(),
+        text: String(segment?.text || "").replace(/\s+/g, " ").trim(),
         speaker: String(segment?.speaker || "").trim(),
       }))
       .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start && segment.text)
