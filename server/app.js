@@ -617,6 +617,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           aiFallback: analysis.engine !== "openai-highlights-v1",
           aiError: analysis.aiError || null,
           aiReason: String(candidate.aiReason || "").trim().slice(0, 240) || null,
+          hookLine: String(candidate.hookLine || "").trim().slice(0, 160) || null,
+          socialCaption: String(candidate.socialCaption || "").trim().slice(0, 320) || null,
           hookScore: Number.isFinite(Number(candidate.hookScore)) ? Math.round(Number(candidate.hookScore)) : null,
           standaloneScore: Number.isFinite(Number(candidate.standaloneScore)) ? Math.round(Number(candidate.standaloneScore)) : null,
           payoffScore: Number.isFinite(Number(candidate.payoffScore)) ? Math.round(Number(candidate.payoffScore)) : null,
