@@ -1,18 +1,5 @@
 export function captionSegmentsForClip(clip) {
   if (!clip.captions || !Array.isArray(clip.captionSegments)) return [];
-  const start = Number(clip.start), duration = Number(clip.end) - start;
-  return clip.captionSegments.map((s) => {
-    const a = Number(s.start), b = Number(s.end), text = String(s.text || "").trim();
-    if (!text || !Number.isFinite(a) || !Number.isFinite(b) || b <= a) return null;
-    const localStart = Math.max(0, a - start), localEnd = Math.min(duration, b - start);
-    if (localEnd <= localStart) return null;
-    const speaker = String(s.speaker || "").trim();
-    return { start: localStart, end: localEnd, text: speaker ? speaker + ": " + text : text };
-  }).filter(Boolean);
-}
-
-export function captionSegmentsForClip(clip) {
-  if (!clip.captions || !Array.isArray(clip.captionSegments)) return [];
   const start = Number(clip.start);
   const duration = Number(clip.end) - start;
   if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) return [];
@@ -62,7 +49,6 @@ export function captionSegmentsForClip(clip) {
         start: cursor,
         end: chunkEnd,
         text: prefix + chunk,
-        speaker: speaker || undefined,
       });
       cursor = chunkEnd;
     });
