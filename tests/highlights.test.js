@@ -519,3 +519,37 @@ test("highlight engine rewards clear concrete consequences", () => {
   assert.equal(vague.length, 1);
   assert.ok(clear[0].score > vague[0].score);
 });
+
+
+test("AI highlight packs cover different story stages when quality is comparable", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    output_text: JSON.stringify({
+      selections: [
+        { id: 0, score: 99, reason: "Opening hook", title: "Opening", type: "hook" },
+        { id: 1, score: 98, reason: "Second opening hook", title: "Opening two", type: "hook" },
+        { id: 2, score: 97, reason: "Third opening insight", title: "Opening three", type: "insight" },
+        { id: 3, score: 88, reason: "Later payoff", title: "Final payoff", type: "payoff" },
+      ],
+    }),
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 20, text: "Here is the biggest lesson from the beginning of this story." },
+      { start: 20, end: 40, text: "The opening problem became much clearer after we tested it." },
+      { start: 40, end: 60, text: "Another useful insight from the opening section is this result." },
+      { start: 80, end: 100, text: "The middle of the conversation explains how the method changed." },
+      { start: 180, end: 200, text: "Finally, the result shows exactly what worked and why it mattered." },
+      { start: 200, end: 220, text: "The final takeaway gives creators a clear result they can use." },
+    ], { limit: 3, minDuration: 20, maxDuration: 20 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 3);
+    assert.ok(result.candidates.some((candidate) => candidate.start >= 180));
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
