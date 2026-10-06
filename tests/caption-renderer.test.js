@@ -34,3 +34,17 @@ test("invalid caption colors fall back safely", () => {
   assert.match(ppm, /^P3\n\d+ \d+\n255\n/);
   assert.match(ppm, /211 233 100/);
 });
+
+
+test("long caption segments are split into timed short beats", () => {
+  const result = captionSegmentsForClip({
+    captions: true,
+    start: 0,
+    end: 12,
+    captionSegments: [{ start: 0, end: 6, speaker: "Host", text: "This is a longer sentence that should become several readable caption beats." }]
+  });
+  assert.ok(result.length >= 2);
+  assert.equal(result[0].text.startsWith("Host: "), true);
+  assert.ok(result.every((segment) => segment.end > segment.start));
+  assert.equal(result[result.length - 1].end, 6);
+});
