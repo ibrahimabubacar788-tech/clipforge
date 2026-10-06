@@ -63,6 +63,38 @@ function run(command, args, { onProgress, activeProcesses } = {}) {
   });
 }
 
+async function probeRenderedDuration(ffmpegPath, file, activeProcesses) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(ffmpegPath, ["-hide_banner", "-i", file], { stdio: ["ignore", "ignore", "pipe"] });
+    activeProcesses?.add(child);
+    let stderr = "";
+    let settled = false;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      activeProcesses?.delete(child);
+      error ? reject(error) : resolve(value);
+    };
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish(new Error("Rendered clip duration validation timed out."));
+    }, 30_000);
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+      if (stderr.length > 20_000) stderr = stderr.slice(-20_000);
+    });
+    child.on("error", (error) => finish(error));
+    child.on("close", () => {
+      const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/i);
+      if (!match) return finish(new Error("Rendered clip duration could not be determined."));
+      const duration = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+      if (!Number.isFinite(duration) || duration <= 0) return finish(new Error("Rendered clip duration is invalid."));
+      finish(null, duration);
+    });
+  });
+}
+
 async function sourcePath(storageDir, sourceUrl) {
   if (typeof sourceUrl !== "string" || !sourceUrl.startsWith("/storage/uploads/")) throw new Error("Source video must be an uploaded file.");
   const uploadsDir = resolve(storageDir, "uploads");
@@ -255,6 +287,17 @@ export class ClipQueue {
       } catch (error) {
         await safeUnlinkExportFile(exportDir, output);
         throw new Error(`Rendered clip failed media integrity validation: ${error.message}`);
+      }
+      try {
+        const renderedDuration = await probeRenderedDuration(this.ffmpegPath, output, this.activeProcesses);
+        const expectedDuration = Math.max(0.1, Number(duration));
+        const durationTolerance = Math.max(0.75, expectedDuration * 0.08);
+        if (Math.abs(renderedDuration - expectedDuration) > durationTolerance) {
+          throw new Error(`Expected about ${expectedDuration.toFixed(2)}s but rendered ${renderedDuration.toFixed(2)}s.`);
+        }
+      } catch (error) {
+        await safeUnlinkExportFile(exportDir, output);
+        throw new Error(`Rendered clip duration validation failed: ${error.message}`);
       }
     } catch (error) {
       await safeUnlinkExportFile(exportDir, tempOutput);
