@@ -1083,8 +1083,43 @@ function speakerInteractionScore(items) {
   return Math.max(0, Math.min(10, score));
 }
 
+function promiseFulfillmentScore(text) {
+  const value = String(text || "").trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 24) return 0;
+
+  const early = words.slice(0, Math.ceil(words.length * 0.35)).join(" ");
+  const late = words.slice(Math.floor(words.length * 0.58)).join(" ");
+
+  const promisePattern = /\b(?:i(?:'|’)ll show you|i(?:'|’)ll explain|you(?:'|’)ll learn|you(?:'|’)ll see|here(?:'|’)s how|the key is|the secret is|the reason is|what happened was|what you need to know|the important part is)\b/i;
+  const resolutionPattern = /\b(?:because|the reason|the answer|that means|which is why|it turns out|turns out|as a result|finally|in the end|realized|learned|discovered|the key|the secret|the solution|the result)\b/i;
+
+  if (!promisePattern.test(early)) return 0;
+
+  const earlyTokens = new Set(
+    early.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+      .filter((word) => word.length >= 5 && !/^(about|there|which|where|their|these|those|would|could|should)$/.test(word))
+  );
+  const lateTokens = new Set(
+    late.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+      .filter((word) => word.length >= 5)
+  );
+
+  let shared = 0;
+  for (const word of earlyTokens) if (lateTokens.has(word)) shared += 1;
+
+  let score = 0;
+  if (resolutionPattern.test(late)) score += 4;
+  if (shared >= 3) score += 5;
+  else if (shared >= 1) score += 2;
+  if (shared === 0) score -= 6;
+  if (resolutionPattern.test(late) && shared >= 1) score += 2;
+
+  return Math.max(-7, Math.min(11, score));
+}
+
 function scoreWindow(text, duration, contextItems = [], allSegments = [], startIndex = 0, endIndex = 0) {
-  let score = contextAwareWindowScore(contextItems, allSegments, startIndex, endIndex) + speakerInteractionScore(contextItems) + (earlyRetentionScore(text) * 2) + boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + payoffNoveltyScore(text) + audienceValueProgressionScore(text) + speakerTurnContinuityScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
+  let score = contextAwareWindowScore(contextItems, allSegments, startIndex, endIndex) + speakerInteractionScore(contextItems) + promiseFulfillmentScore(text) + (earlyRetentionScore(text) * 2) + boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + payoffNoveltyScore(text) + audienceValueProgressionScore(text) + speakerTurnContinuityScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
