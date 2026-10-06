@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import ffmpegPath from "ffmpeg-static";
 import { createServer } from "node:http";
 import { createReadStream, createWriteStream } from "node:fs";
-import { access, lstat, mkdir, open, realpath, stat, unlink } from "node:fs/promises";
+import { access, lstat, mkdir, open, readFile, realpath, stat, unlink, writeFile } from "node:fs/promises";
 import { O_NOFOLLOW, O_RDONLY } from "node:constants";
 import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -822,11 +822,19 @@ if (req.method === "POST" && pathname === "/api/uploads/chunk") {
         }
         if (bytes === 0) throw Object.assign(new Error("Upload chunk is empty."), { status: 400 });
       };
+      const incoming = [];
+      for await (const chunk of limited()) incoming.push(chunk);
+      const incomingBuffer = Buffer.concat(incoming);
       if (existing?.isFile()) {
         const info = await stat(partPath);
-        if (info.size === bytes) return json(res, 200, { uploadId, index, reused: true });
+        if (info.size === incomingBuffer.length) {
+          const existingBuffer = await readFile(partPath);
+          if (existingBuffer.equals(incomingBuffer)) {
+            return json(res, 200, { uploadId, index, reused: true });
+          }
+        }
       }
-      await pipeline(limited(), createWriteStream(partPath, { flags: "w" }));
+      await writeFile(partPath, incomingBuffer, { flag: "w" });
       return json(res, 201, { uploadId, index, bytes });
     }
     if (req.method === "POST" && pathname === "/api/uploads/complete") {
