@@ -482,8 +482,13 @@ async function uploadSource(file) {
   if (uploadProgressBar) uploadProgressBar.value = 100;
   if (uploadProgressPercent) uploadProgressPercent.textContent = "100%";
   if (uploadProgressLabel) uploadProgressLabel.textContent = "Upload complete";
-  showToast("Video uploaded. Choose how many AI clips you want, then start generation.");
-  document.querySelector("#transcript-dialog")?.showModal();
+  showToast("Video uploaded. ClipForge AI is starting automatic clipping…");
+  const generationButton = document.querySelector("#run-ai-generation");
+  if (generationButton && !generationButton.disabled) {
+    window.setTimeout(() => generationButton.click(), 150);
+  } else {
+    document.querySelector("#transcript-dialog")?.showModal();
+  }
   } finally {
     if (!uploadCommitted) {
       if (currentProject?.id === uploadProjectId && previousSourceVideo?.id) restoreSourcePreview(previousSourceVideo);
