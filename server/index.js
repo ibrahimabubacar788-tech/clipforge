@@ -8,6 +8,8 @@ const app = createApp({ dbFile, storageDir });
 app.listen(port, async () => {
   try {
     await app.clipQueue.recover();
+    const recoveredAutoClipRuns = await app.recoverAutoClipRuns();
+    if (recoveredAutoClipRuns) console.log(`ClipForge checked ${recoveredAutoClipRuns} interrupted auto-clip run(s) for recovery.`);
     console.log(`ClipForge API and web app listening on port ${port}`);
   } catch (error) {
     console.error("ClipForge startup recovery failed:", error);
