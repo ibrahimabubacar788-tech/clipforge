@@ -1029,8 +1029,37 @@ function earlyRetentionScore(text) {
   return Math.max(-6, Math.min(14, score));
 }
 
-function scoreWindow(text, duration) {
-  let score = earlyRetentionScore(text) + boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + payoffNoveltyScore(text) + audienceValueProgressionScore(text) + speakerTurnContinuityScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
+function contextAwareWindowScore(items, allSegments, startIndex, endIndex) {
+  if (!Array.isArray(items) || !items.length || !Array.isArray(allSegments)) return 0;
+
+  const firstText = String(items[0]?.text || "").trim();
+  const lastText = String(items[items.length - 1]?.text || "").trim();
+  const previous = allSegments[Math.max(0, startIndex - 2)]?.text
+    ? allSegments.slice(Math.max(0, startIndex - 2), startIndex).map((item) => item.text).join(" ")
+    : "";
+  const following = allSegments.slice(endIndex + 1, Math.min(allSegments.length, endIndex + 3))
+    .map((item) => item.text).join(" ");
+
+  const openingDependency = /^(?:this|that|these|those|they|them|he|she|it|there|here|and|but|so|because|which|then)\\b/i.test(firstText)
+    || /\\b(?:as I said|as I mentioned|like I said|earlier|before this|the previous)\\b/i.test(firstText);
+  const openingSubject = /\\b(?:I|we|you|they|he|she|the|this|that|problem|challenge|goal|company|product|story|reason|result|lesson|business|project|game|money)\\b/i.test(firstText);
+  const previousSubject = /\\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|project|lesson|experience)\\b/i.test(previous);
+  const unresolvedEnding = /(?:\\b(?:and|but|because|which|that|if|when|while|to|of|for|with)\\s*)$/i.test(lastText.replace(/[.!?,;:]+$/, ""));
+  const followingResolution = /\\b(?:because|the reason|the answer|the result|solution|realized|learned|discovered|turns out|ended up|which is why|that means|finally|in the end|actually)\\b/i.test(following);
+
+  let score = 0;
+  if (openingDependency && !openingSubject) score -= previousSubject ? 8 : 5;
+  if (!openingDependency && openingSubject) score += 3;
+  if (previousSubject && !openingSubject) score -= 3;
+  if (unresolvedEnding && followingResolution) score -= 8;
+  if (!unresolvedEnding && /[.!?]["'”’)]?$/.test(lastText)) score += 3;
+  if (items.length >= 3 && previousSubject && openingSubject) score += 2;
+
+  return Math.max(-12, Math.min(8, score));
+}
+
+function scoreWindow(text, duration, contextItems = [], allSegments = [], startIndex = 0, endIndex = 0) {
+  let score = contextAwareWindowScore(contextItems, allSegments, startIndex, endIndex) + earlyRetentionScore(text) + boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + payoffNoveltyScore(text) + audienceValueProgressionScore(text) + speakerTurnContinuityScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
   if (words >= 12) score += 10;
   if (words >= 25) score += 8;
@@ -1233,7 +1262,7 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
       if (refinedDuration >= safeMinDuration && refinedText && completeness >= -1 && !promotionalBoilerplate) {
         candidates.push({
           start: Number(refinedStart.toFixed(3)), end: Number(refinedEnd.toFixed(3)),
-          duration: Number(refinedDuration.toFixed(3)), score: scoreWindow(refinedText, refinedDuration) + completeness + continuity,
+          duration: Number(refinedDuration.toFixed(3)), score: scoreWindow(refinedText, refinedDuration, refinedSegments, clean, i, j) + completeness + continuity,
           highlightType: classifyHighlight(refinedText),
           title: refinedText.replace(/\s+/g, " ").slice(0, 72) || "Untitled highlight",
           transcript: refinedText,
