@@ -96,3 +96,29 @@ test("removeExport deletes real export files but refuses traversal and symlink t
   assert.equal(await readFile(outside, "utf8"), "protected");
   await db.close();
 });
+
+
+test("queue prioritizes higher-scoring AI clips before lower-scoring queued clips", async () => {
+  const { storageDir, db } = await setup();
+  const queue = new ClipQueue(db, storageDir);
+  const rendered = [];
+  queue.render = async (clip) => {
+    rendered.push(clip.id);
+    return { filename: clip.id + ".mp4" };
+  };
+  await db.transaction((d) => {
+    d.clips.push(
+      { id: "clip-low", status: "queued", highlightScore: 55, sourceUrl: "/storage/uploads/a.mp4", start: 0, end: 2, format: "9:16" },
+      { id: "clip-high", status: "queued", highlightScore: 95, sourceUrl: "/storage/uploads/a.mp4", start: 0, end: 2, format: "9:16" },
+      { id: "clip-manual", status: "queued", sourceUrl: "/storage/uploads/a.mp4", start: 0, end: 2, format: "9:16" },
+    );
+    d.jobs.push(
+      { id: "job-low", clipId: "clip-low", status: "queued", progress: 0, priority: 55, createdAt: "2026-01-01T00:00:01.000Z" },
+      { id: "job-high", clipId: "clip-high", status: "queued", progress: 0, priority: 95, createdAt: "2026-01-01T00:00:02.000Z" },
+      { id: "job-manual", clipId: "clip-manual", status: "queued", progress: 0, priority: 0, createdAt: "2026-01-01T00:00:03.000Z" },
+    );
+  });
+  await queue.work();
+  assert.deepEqual(rendered, ["clip-high", "clip-low", "clip-manual"]);
+  await db.close();
+});
