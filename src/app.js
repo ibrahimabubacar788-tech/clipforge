@@ -989,14 +989,12 @@ document.querySelector("#apply-hook").addEventListener("click", () => {
 const transcriptDialog = document.querySelector("#transcript-dialog");
 const transcriptInput = document.querySelector("#transcript-input");
 const transcriptFile = document.querySelector("#transcript-file");
-const transcriptionLanguage = document.querySelector("#transcription-language");
 if (transcriptionLanguage && [...transcriptionLanguage.options].some((option) => option.value === savedTranscriptionLanguage)) {
   transcriptionLanguage.value = savedTranscriptionLanguage;
 }
 transcriptionLanguage?.addEventListener("change", () => {
   window.localStorage.setItem(transcriptionLanguageKey, JSON.stringify(transcriptionLanguage.value || "auto"));
 });
-const captionLanguageSelect = document.querySelector("#caption-language");
 if (captionLanguageSelect && [...captionLanguageSelect.options].some((option) => option.value === savedCaptionLanguage)) captionLanguageSelect.value = savedCaptionLanguage;
 
 function parseTranscript(rawText) {
