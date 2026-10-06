@@ -1295,7 +1295,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.
 Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
 ${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
-Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"context":90,"payoff":90,"emotion":78,"clarity":96,"reason":"brief reason","title":"short title","type":"hook"}]}.
+Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"context":90,"payoff":90,"emotion":78,"clarity":96,"novelty":90,"replayability":88,"specificity":92,"reason":"brief reason","title":"short title","type":"hook"}]}.
 For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
 Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.`,
             }],
@@ -1343,6 +1343,9 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         ["clarity", 10],
         ["payoff", 12],
         ["emotion", 4],
+        ["novelty", 7],
+        ["replayability", 9],
+        ["specificity", 8],
       ];
       let dimensionTotal = 0;
       let dimensionWeight = 0;
@@ -1377,6 +1380,9 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         standaloneScore: Number.isFinite(Number(selection.standalone)) ? Math.max(0, Math.min(100, Number(selection.standalone))) : null,
         payoffScore: Number.isFinite(Number(selection.payoff)) ? Math.max(0, Math.min(100, Number(selection.payoff))) : null,
         emotionScore: Number.isFinite(Number(selection.emotion)) ? Math.max(0, Math.min(100, Number(selection.emotion))) : null,
+        noveltyScore: Number.isFinite(Number(selection.novelty)) ? Math.max(0, Math.min(100, Number(selection.novelty))) : null,
+        replayabilityScore: Number.isFinite(Number(selection.replayability)) ? Math.max(0, Math.min(100, Number(selection.replayability))) : null,
+        specificityScore: Number.isFinite(Number(selection.specificity)) ? Math.max(0, Math.min(100, Number(selection.specificity))) : null,
         clarityScore: Number.isFinite(Number(selection.clarity)) ? Math.max(0, Math.min(100, Number(selection.clarity))) : null,
         aiReason: String(selection.reason || "").trim().slice(0, 240),
         highlightType: allowedHighlightTypes.has(String(selection.type || "").trim().toLowerCase())
