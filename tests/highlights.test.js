@@ -190,6 +190,38 @@ test("AI highlight packs diversify intelligence types before filling by score", 
 });
 
 
+test("AI highlight ranking receives a lightweight map of the full conversation", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  let requestBody = "";
+  globalThis.fetch = async (_url, options) => {
+    requestBody = String(options?.body || "");
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({
+        selections: [{ id: 0, score: 92, reason: "Strong complete moment", title: "The result", type: "payoff" }],
+      }),
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 20, text: "The conversation begins with a problem creators keep facing." },
+      { start: 100, end: 120, text: "Later we discover the unexpected reason the problem happens." },
+      { start: 200, end: 220, text: "Finally the result shows exactly how the problem was solved." },
+    ], { limit: 1, minDuration: 20, maxDuration: 20 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 1);
+    assert.match(requestBody, /Global conversation map/);
+    assert.match(requestBody, /problem creators keep facing/);
+    assert.match(requestBody, /unexpected reason/);
+    assert.match(requestBody, /problem was solved/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
 test("AI highlight wrapper sends producer target types to the model", async () => {
   const previousKey = process.env.OPENAI_API_KEY;
   const previousFetch = globalThis.fetch;
