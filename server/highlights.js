@@ -1694,7 +1694,7 @@ Reject filler, contextless fragments, repetitive introductions, sponsor boilerpl
 ${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
 Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"context":90,"payoff":90,"emotion":78,"clarity":96,"novelty":90,"replayability":88,"specificity":92,"reason":"brief reason","title":"short title","hookLine":"short spoken-style hook","socialCaption":"short caption for posting","type":"hook"}]}.
 For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
-Use only supplied IDs. Score each selection from 0 to 100. Do not invent timestamps.`,
+Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a concise attention-grabbing line grounded only in the selected moment. For socialCaption, write a concise natural-language post caption grounded only in the selected moment; do not invent facts, links, or hashtags. Do not invent timestamps.`,
             }],
           },
           {
