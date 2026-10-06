@@ -1585,12 +1585,35 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   // Give the model a lightweight view of the entire conversation so it can judge
   // candidate windows against the broader story, not only the selected snippets.
   const globalConversationContext = buildGlobalTranscriptContext(segments);
+  const candidateContext = aiCandidates.map((item, id) => {
+    const nearby = (Array.isArray(segments) ? segments : [])
+      .map((segment, index) => ({
+        index,
+        start: Number(segment?.start),
+        end: Number(segment?.end),
+        text: String(segment?.text || "").replace(/\\s+/g, " ").trim(),
+        speaker: String(segment?.speaker || "").trim(),
+      }))
+      .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start && segment.text)
+      .filter((segment) => segment.end >= item.start - 18 && segment.start <= item.end + 18)
+      .slice(0, 8)
+      .map((segment) => ({
+        index: segment.index,
+        start: Number(segment.start.toFixed(2)),
+        end: Number(segment.end.toFixed(2)),
+        speaker: segment.speaker || undefined,
+        text: segment.text.slice(0, 260),
+      }));
+    return { id, nearby };
+  });
+
   const candidates = aiCandidates.map((item, id) => ({
     id,
     start: item.start,
     end: item.end,
     duration: item.duration,
     transcript: item.transcript.slice(0, 900),
+    nearbyContext: candidateContext.find((entry) => entry.id === id)?.nearby || [],
     baselineScore: Math.round(Number(item.score) || 0),
     highlightType: item.highlightType || "insight",
   }));
@@ -1609,7 +1632,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
             role: "system",
             content: [{
               type: "input_text",
-              text: `Select the strongest short-form video moments from these transcript windows.\nYou also receive a lightweight global conversation map below. Use it to understand the overall topic, story progression, repeated ideas, and where each candidate fits in the full conversation. Do not select from the map directly; only select supplied candidate IDs.\nGlobal conversation map: ${JSON.stringify(globalConversationContext)}\n\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
+              text: `Select the strongest short-form video moments from these transcript windows.\nYou also receive a lightweight global conversation map below. Use it to understand the overall topic, story progression, repeated ideas, and where each candidate fits in the full conversation. Do not select from the map directly; only select supplied candidate IDs. Each candidate also includes nearbyContext from the surrounding transcript. Use it to avoid cutting off setup or payoff, while scoring only the supplied candidate window.\nGlobal conversation map: ${JSON.stringify(globalConversationContext)}\n\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.
 ${hasLearning ? `Use this project's historical performance as a secondary signal, not a hard rule. Previously tracked clip-type engagement: ${JSON.stringify(learnedTypes.slice(0, 5).map(([type, value]) => ({ type, engagementRate: Number(value.toFixed(2)) })))}. Favor proven types modestly when the transcript quality is comparable, but still surface genuinely exceptional moments of other types.` : ""}
 Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
