@@ -468,3 +468,20 @@ test("highlight engine rewards strong audience reaction cues", () => {
   assert.equal(flat.length, 1);
   assert.ok(reaction[0].score > flat[0].score);
 });
+
+
+test("highlight engine rewards clear concrete consequences", () => {
+  const clear = rankHighlights([
+    { start: 0, end: 8, text: "We changed the onboarding flow, which is why customer retention increased by 24% in three weeks and saved the team hours every day." },
+    { start: 8, end: 16, text: "We discussed the process and there were some really good improvements for everyone." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  const vague = rankHighlights([
+    { start: 0, end: 8, text: "We changed the onboarding flow and somehow things became a lot better for everyone after that." },
+    { start: 8, end: 16, text: "We discussed the process and there were some really good improvements for everyone." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  assert.equal(clear.length, 1);
+  assert.equal(vague.length, 1);
+  assert.ok(clear[0].score > vague[0].score);
+});
