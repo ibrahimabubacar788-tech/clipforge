@@ -735,7 +735,8 @@ function renderClipLibrary() {
     const highlightType = String(clip.highlightType || "").trim();
     const hookLine = String(clip.hookLine || "").trim();
     const socialCaption = String(clip.socialCaption || "").trim();
-    const intelligence = (aiReason || strategyLabel || highlightType || hookLine || socialCaption) ? `<div class="clip-intelligence"><span>${highlightType ? escapeHtml(highlightType) : "AI pick"}${strategyLabel ? " · " + escapeHtml(strategyLabel) : ""}</span>${hookLine ? `<p><strong>Hook:</strong> ${escapeHtml(hookLine)}</p>` : ""}${socialCaption ? `<p><strong>Caption:</strong> ${escapeHtml(socialCaption)}</p>` : ""}${aiReason ? `<p>${escapeHtml(aiReason)}</p>` : ""}</div>` : "";
+    const libraryRelationship = clip.libraryRelationship && typeof clip.libraryRelationship === "object" ? String(clip.libraryRelationship.type || "").trim() : "";
+    const intelligence = (aiReason || strategyLabel || highlightType || hookLine || socialCaption) ? `<div class="clip-intelligence"><span>${highlightType ? escapeHtml(highlightType) : "AI pick"}${strategyLabel ? " · " + escapeHtml(strategyLabel) : ""}</span>${hookLine ? `<p><strong>Hook:</strong> ${escapeHtml(hookLine)}</p>` : ""}${socialCaption ? `<p><strong>Caption:</strong> ${escapeHtml(socialCaption)}</p>` : ""}${libraryRelationship && libraryRelationship !== "new" ? `<p><strong>Library:</strong> ${escapeHtml(libraryRelationship)}</p>` : ""}${aiReason ? `<p>${escapeHtml(aiReason)}</p>` : ""}</div>` : "";
 const packageButton = (hookLine || socialCaption || title !== "Untitled clip")
   ? `<button class="text-button copy-package-clip" type="button" data-copy-package-clip="${clipId}">Copy content package</button>`
   : "";
