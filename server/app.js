@@ -619,6 +619,14 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           aiReason: String(candidate.aiReason || "").trim().slice(0, 240) || null,
           hookLine: String(candidate.hookLine || "").trim().slice(0, 160) || null,
           socialCaption: String(candidate.socialCaption || "").trim().slice(0, 320) || null,
+          libraryNovelty: Number.isFinite(Number(candidate.libraryNovelty)) ? Math.round(Number(candidate.libraryNovelty)) : null,
+          libraryRelationship: candidate.libraryRelationship && typeof candidate.libraryRelationship === "object"
+            ? {
+                type: String(candidate.libraryRelationship.type || "new").trim().slice(0, 40) || "new",
+                score: Number.isFinite(Number(candidate.libraryRelationship.score)) ? Math.round(Number(candidate.libraryRelationship.score)) : null,
+                matchedMemory: String(candidate.libraryRelationship.matchedMemory || "").trim().slice(0, 120) || null,
+              }
+            : null,
           hookScore: Number.isFinite(Number(candidate.hookScore)) ? Math.round(Number(candidate.hookScore)) : null,
           standaloneScore: Number.isFinite(Number(candidate.standaloneScore)) ? Math.round(Number(candidate.standaloneScore)) : null,
           payoffScore: Number.isFinite(Number(candidate.payoffScore)) ? Math.round(Number(candidate.payoffScore)) : null,
