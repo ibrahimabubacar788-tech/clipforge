@@ -567,6 +567,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         profile,
         targetTypes: Array.isArray(payload.targetTypes) ? payload.targetTypes : [],
         performanceLearning,
+        creatorMemory,
       });
       const candidates = analysis.candidates.filter((candidate) => {
         const start = Number(candidate.start);
