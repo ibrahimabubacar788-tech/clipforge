@@ -989,13 +989,17 @@ document.querySelector("#apply-hook").addEventListener("click", () => {
 const transcriptDialog = document.querySelector("#transcript-dialog");
 const transcriptInput = document.querySelector("#transcript-input");
 const transcriptFile = document.querySelector("#transcript-file");
+const autoTranscribeButton = document.querySelector("#auto-transcribe");
+const savedTranscriptionLanguage = safeStorageParse(transcriptionLanguageKey, "auto");
 if (transcriptionLanguage && [...transcriptionLanguage.options].some((option) => option.value === savedTranscriptionLanguage)) {
   transcriptionLanguage.value = savedTranscriptionLanguage;
 }
 transcriptionLanguage?.addEventListener("change", () => {
   window.localStorage.setItem(transcriptionLanguageKey, JSON.stringify(transcriptionLanguage.value || "auto"));
 });
+const savedCaptionLanguage = safeStorageParse(captionLanguageKey, "original");
 if (captionLanguageSelect && [...captionLanguageSelect.options].some((option) => option.value === savedCaptionLanguage)) captionLanguageSelect.value = savedCaptionLanguage;
+captionLanguageSelect?.addEventListener("change", () => window.localStorage.setItem(captionLanguageKey, JSON.stringify(captionLanguageSelect.value || "original")));
 
 function parseTranscript(rawText) {
   return rawText.split("\n").map((line) => {
