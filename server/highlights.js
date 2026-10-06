@@ -1005,15 +1005,15 @@ function earlyRetentionScore(text) {
 
   const subject = /\\b(?:I|we|you|your|this|that|the|my|our|people|company|product|problem|story|goal|mistake|reason|result|lesson|money|business|game|project)\\b/i;
   const tension = /\\b(?:but|however|instead|surprisingly|secret|truth|mistake|problem|challenge|risk|why|how|what|never|nobody|failed|lost|won|changed|unexpected|actually)\\b/i;
-  const value = /\\b(?:because|reason|answer|result|solution|lesson|key|tip|step|strategy|method|learned|realized|discovered|saved|earned|improved|increased|decreased|example|proof)\\b/i;
+  const valueSignal = /\\b(?:because|reason|answer|result|solution|lesson|key|tip|step|strategy|method|learned|realized|discovered|saved|earned|improved|increased|decreased|example|proof)\\b/i;
   const filler = /\\b(?:um+|uh+|well|okay|ok|basically|literally|you know|so today|welcome back|in this video)\\b/gi;
 
   const earlySubject = subject.test(early);
   const earlyTension = tension.test(early);
-  const earlyValue = value.test(early);
+  const earlyValue = valueSignal.test(early);
   const earlyFiller = (early.match(filler) || []).length;
-  const middleValue = (middle.match(value) || []).length;
-  const lateValue = (late.match(value) || []).length;
+  const middleValue = (middle.match(valueSignal) || []).length;
+  const lateValue = (late.match(valueSignal) || []).length;
 
   let score = 0;
   if (earlySubject) score += 2;
