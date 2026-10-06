@@ -538,6 +538,28 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           ])),
         };
       });
+      const creatorMemory = await db.read((d) => {
+        const previousVideos = d.videos
+          .filter((item) => item.userId === user.id && item.id !== video.id && Array.isArray(item.transcript) && item.transcript.length)
+          .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")))
+          .slice(0, 8);
+        const memory = [];
+        for (const previousVideo of previousVideos) {
+          const transcript = previousVideo.transcript;
+          const step = Math.max(1, Math.ceil(transcript.length / 6));
+          for (let index = 0; index < transcript.length && memory.length < 48; index += step) {
+            const segment = transcript[index];
+            const text = String(segment?.text || "").replace(/\s+/g, " ").trim();
+            if (!text) continue;
+            memory.push({
+              videoId: previousVideo.id,
+              title: previousVideo.name || "Previous video",
+              text,
+            });
+          }
+        }
+        return memory;
+      });
       const analysis = await rankHighlightsWithAI(segments, {
         limit,
         minDuration: 15,
