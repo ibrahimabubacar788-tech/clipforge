@@ -584,3 +584,40 @@ test("AI highlight packs cover different speakers when quality is comparable", a
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+
+test("AI highlight ranking includes creator memory without allowing memory to become selectable candidates", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  let requestBody = "";
+  globalThis.fetch = async (_url, options) => {
+    requestBody = String(options?.body || "");
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({
+        selections: [{ id: 0, score: 94, reason: "Strong new angle", title: "New angle", type: "insight" }],
+      }),
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 20, text: "The new episode explains a better approach to the topic." },
+    ], {
+      limit: 1,
+      minDuration: 20,
+      maxDuration: 20,
+      creatorMemory: [
+        { videoId: "vid_old", title: "Older episode", text: "Last month we discussed the original approach and its limitations." },
+      ],
+    });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 1);
+    assert.match(requestBody, /Creator memory/);
+    assert.match(requestBody, /original approach and its limitations/);
+    assert.match(requestBody, /Do not select or invent moments from memory/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
