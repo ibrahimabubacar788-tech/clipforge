@@ -215,7 +215,7 @@ export class ClipQueue {
     });
     void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error));
   }
-  async enqueue(clip) { if (this.shuttingDown) throw new Error("Clip queue is shutting down."); const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
+  async enqueue(clip) { if (this.shuttingDown) throw new Error("Clip queue is shutting down."); const rawPriority = Number(clip?.highlightScore); const priority = Number.isFinite(rawPriority) ? Math.max(0, Math.min(100, rawPriority)) : 0; const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, priority, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
   async render(clip) {
     const { file: source, uploadsDir } = await sourcePath(this.storageDir, clip.sourceUrl);
     const sourceInfo = await lstat(source).catch(() => null);
@@ -316,7 +316,7 @@ export class ClipQueue {
       while (true) {
         if (this.shuttingDown) break;
         const job = await this.db.transaction((d) => {
-          const next = d.jobs.find((j) => j.status === "queued");
+          const next = d.jobs.filter((j) => j.status === "queued").sort((a, b) => { const priorityDifference = (Number(b.priority) || 0) - (Number(a.priority) || 0); if (priorityDifference) return priorityDifference; return String(a.createdAt || "").localeCompare(String(b.createdAt || "")); })[0];
           if (next) {
             next.status = "processing";
             next.progress = 15;
