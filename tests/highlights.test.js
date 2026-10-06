@@ -269,6 +269,18 @@ test("highlight engine prefers natural sentence boundaries over dangling fragmen
 });
 
 
+test("highlight engine rewards early retention signals", () => {
+  const strong = rankHighlights([
+    { start: 0, end: 25, text: "The key result is simple. Start with the problem, show the surprising result, and explain the method that worked." },
+  ], { limit: 1, minDuration: 15, maxDuration: 25 });
+  const weak = rankHighlights([
+    { start: 0, end: 25, text: "Welcome back everyone. Today we are going to talk about a few things. Basically, there are some ideas we can discuss before we get into the details." },
+  ], { limit: 1, minDuration: 15, maxDuration: 25 });
+  assert.equal(strong.length, 1);
+  assert.equal(weak.length, 1);
+  assert.ok(strong[0].score > weak[0].score);
+});
+
 test("highlight engine remains stable when evaluating speech pacing", () => {
   const candidates = rankHighlights([
     { start: 0, end: 20, text: "Here is the key lesson for creators. The result is simple and useful for your audience today." },
