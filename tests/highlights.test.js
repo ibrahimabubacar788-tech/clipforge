@@ -336,3 +336,20 @@ test("AI highlight ranking preserves novelty, replayability, and specificity sig
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+
+test("highlight engine understands transcript context beyond the selected window", () => {
+  const candidates = rankHighlights([
+    { start: 0, end: 5, text: "The company changed its pricing after losing important customers." },
+    { start: 5, end: 10, text: "This is why the new strategy worked better for them." },
+    { start: 10, end: 15, text: "It saved the team money and improved retention." },
+    { start: 15, end: 20, text: "The result was a clear improvement for the business." },
+    { start: 100, end: 105, text: "The key lesson is simple: define the problem clearly before choosing the solution." },
+    { start: 105, end: 110, text: "Then test the solution with real customers and measure the result carefully." },
+    { start: 110, end: 115, text: "That method gives you evidence instead of relying on guesses." },
+  ], { limit: 3, minDuration: 15, maxDuration: 15 });
+
+  assert.ok(candidates.length > 0);
+  assert.ok(candidates.every((item) => Number.isFinite(item.score)));
+  assert.equal(candidates.some((item) => /^This is why/i.test(item.transcript)), false);
+});
