@@ -396,3 +396,22 @@ test("highlight engine rewards belief reversal with a clear consequence", () => 
   assert.equal(assumption.length, 1);
   assert.ok(reversal[0].score > assumption[0].score);
 });
+
+
+test("highlight engine rewards tension that resolves into a clear release", () => {
+  const resolved = rankHighlights([
+    { start: 0, end: 6, text: "We were under huge pressure because the launch was almost failing." },
+    { start: 6, end: 12, text: "Then we discovered an unexpected problem in the process and had to change everything." },
+    { start: 12, end: 18, text: "But we fixed the issue, the launch worked, and the final result was much better." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  const unresolved = rankHighlights([
+    { start: 0, end: 6, text: "We were under huge pressure because the launch was almost failing." },
+    { start: 6, end: 12, text: "Then we discovered an unexpected problem in the process and had to change everything." },
+    { start: 12, end: 18, text: "We kept discussing the pressure, the process, and the problems around the launch." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  assert.equal(resolved.length, 1);
+  assert.equal(unresolved.length, 1);
+  assert.ok(resolved[0].score > unresolved[0].score);
+});
