@@ -621,3 +621,36 @@ test("AI highlight ranking includes creator memory without allowing memory to be
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+
+test("AI highlight candidates expose cross-video novelty intelligence", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  let requestBody = "";
+  globalThis.fetch = async (_url, options) => {
+    requestBody = String(options?.body || "");
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({
+        selections: [{ id: 0, score: 91, novelty: 88, reason: "Fresh angle", title: "Fresh angle", type: "insight" }],
+      }),
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    await rankHighlightsWithAI([
+      { start: 0, end: 20, text: "The episode explains a different framework for building audiences." },
+    ], {
+      limit: 1,
+      minDuration: 20,
+      maxDuration: 20,
+      creatorMemory: [
+        { videoId: "previous", title: "Earlier episode", text: "The earlier framework for building audiences focused on consistency." },
+      ],
+    });
+    assert.match(requestBody, /libraryNovelty/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
