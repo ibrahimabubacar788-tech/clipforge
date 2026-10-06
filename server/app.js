@@ -429,6 +429,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           requested: limit,
           language,
           captionLanguage,
+          format,
+          captions,
+          profile,
         };
       });
       void (async () => {
@@ -1111,6 +1114,52 @@ if (req.method === "POST" && pathname === "/api/uploads/chunk") {
       if (relativeCandidate.startsWith("..") || relativeCandidate.startsWith("/") || relativeCandidate.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); try { await access(candidate); const resolvedCandidate = await realpath(candidate); const resolvedRoot = await realpath(baseDir); const relativeResolved = requireRelative(resolvedRoot, resolvedCandidate); if (relativeResolved.startsWith("..") || relativeResolved.startsWith("/") || relativeResolved.startsWith("\\")) return json(res, 403, { error: "Forbidden" }); let handle; try { handle = await open(resolvedCandidate, O_RDONLY | O_NOFOLLOW); const openedInfo = await handle.stat(); if (!openedInfo.isFile()) return json(res, 403, { error: "Forbidden" }); res.writeHead(200, { "content-type": mime[extname(candidate)] || "application/octet-stream" }); handle.createReadStream({ autoClose: true }).pipe(res); handle = null; } finally { if (handle) await handle.close().catch(() => {}); } } catch (error) { if (error?.status === 403) throw error; if (!isStorage) { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); createReadStream(join(root, "index.html")).pipe(res); } } } catch (error) { const status = Number.isInteger(error?.status) && error.status >= 400 && error.status < 500 ? error.status : 500; if (status === 429 && Number.isInteger(error?.retryAfter)) res.setHeader("retry-after", String(error.retryAfter)); if (status >= 500) console.error("ClipForge request failed:", error); json(res, status, { error: status < 500 ? (error.message || "Request failed.") : "Internal server error." }); } });
   server.clipQueue = queue;
   server.database = db;
+  server.recoverAutoClipRuns = async () => {
+    await db.load();
+    const runs = await db.read((d) => d.videos
+      .filter((video) => video.autoClipStatus?.status === "processing")
+      .map((video) => ({ videoId: video.id, userId: video.userId, status: { ...video.autoClipStatus } })));
+    for (const run of runs) {
+      const token = await db.read((d) => d.sessions
+        .filter((session) => session.userId === run.userId && Date.parse(session.expiresAt) > Date.now())
+        .sort((a, b) => Date.parse(b.expiresAt) - Date.parse(a.expiresAt))[0]?.token || null);
+      if (!token) {
+        await db.transaction((d) => {
+          const video = d.videos.find((item) => item.id === run.videoId);
+          if (video?.autoClipStatus?.status === "processing") video.autoClipStatus = { ...video.autoClipStatus, status: "failed", finishedAt: now(), error: "Automatic clipping was interrupted by a server restart and could not be resumed because the account session had expired." };
+        });
+        continue;
+      }
+      const requestBody = {
+        limit: Number(run.status.requested) || 10,
+        format: ["9:16", "1:1", "16:9"].includes(run.status.format) ? run.status.format : "9:16",
+        captions: run.status.captions !== false,
+        profile: normalizeContentProfile(run.status.profile || "creator"),
+        language: run.status.language || "auto",
+        captionLanguage: run.status.captionLanguage || "original",
+      };
+      try {
+        const recoveryUrl = "http://127.0.0.1:" + (process.env.PORT || 4173) + "/api/videos/" + encodeURIComponent(run.videoId) + "/auto-clip";
+        const response = await fetch(recoveryUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: "Bearer " + token },
+          body: JSON.stringify(requestBody),
+        });
+        if (!response.ok && response.status !== 409) {
+          const detail = await response.text().catch(() => "");
+          throw new Error("Recovery request returned HTTP " + response.status + ": " + detail.slice(0, 300));
+        }
+        console.log("ClipForge recovered interrupted auto-clip run: video=" + run.videoId);
+      } catch (error) {
+        console.error("ClipForge auto-clip recovery failed: video=" + run.videoId + " error=" + error.message);
+        await db.transaction((d) => {
+          const video = d.videos.find((item) => item.id === run.videoId);
+          if (video?.autoClipStatus?.status === "processing") video.autoClipStatus = { ...video.autoClipStatus, status: "failed", finishedAt: now(), error: String(error?.message || "Automatic clipping recovery failed.").slice(0, 500) };
+        });
+      }
+    }
+    return runs.length;
+  };
   const originalClose = server.close.bind(server);
   server.close = (callback) => {
     void queue.shutdown().finally(() => originalClose(callback));
