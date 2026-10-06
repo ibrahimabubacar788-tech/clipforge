@@ -90,6 +90,8 @@ const identityKey = "clipforge-identity";
 const styleKey = "clipforge-caption-style";
 const favoriteKey = "clipforge-favorite-clips";
 const transcriptionLanguageKey = "clipforge-transcription-language";
+const transcriptionLanguage = document.querySelector("#transcription-language");
+const captionLanguageSelect = document.querySelector("#caption-language");
 const captionLanguageKey = "clipforge-caption-language";
 const safeStorageParse = (key, fallback) => {
   try {
