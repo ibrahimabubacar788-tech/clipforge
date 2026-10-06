@@ -1525,6 +1525,32 @@ function creatorLibraryNoveltyScore(text, creatorMemory = []) {
   return Math.max(0, Math.min(100, Math.round(100 - strongestOverlap * 100)));
 }
 
+function creatorLibraryRelationship(text, creatorMemory = []) {
+  const value = String(text || "").toLowerCase();
+  const words = value.match(/[a-z0-9']{4,}/g) || [];
+  if (!words.length || !Array.isArray(creatorMemory) || !creatorMemory.length) {
+    return { type: "new", score: 100, matchedMemory: 0 };
+  }
+  const stop = new Set(["this","that","with","from","have","were","they","them","then","than","when","what","your","you","for","are","was","but","not","into","about","just","really","very","there","their","would","could","should","because","also","some","more","been","being","were","will","what","where","which"]);
+  const unique = [...new Set(words.filter((word) => word.length >= 5 && !stop.has(word)))];
+  let best = { overlap: 0, memory: null };
+  for (const memoryItem of creatorMemory.slice(0, 48)) {
+    const memoryWords = new Set((String(memoryItem?.text || "").toLowerCase().match(/[a-z0-9']{4,}/g) || []).filter((word) => word.length >= 5 && !stop.has(word)));
+    if (!memoryWords.size) continue;
+    const shared = unique.filter((word) => memoryWords.has(word)).length;
+    const overlap = shared / Math.max(1, Math.min(unique.length, memoryWords.size));
+    if (overlap > best.overlap) best = { overlap, memory: memoryItem };
+  }
+  if (!best.memory || best.overlap < 0.12) return { type: "new", score: Math.round(100 - best.overlap * 40), matchedMemory: 0 };
+  const update = /\b(?:update|updated|now|today|this time|since then|new result|latest|changed|improved|worse|better|again)\b/i.test(value);
+  const reversal = /\b(?:but now|however|actually|turns out|changed my mind|changed our mind|i was wrong|we were wrong|opposite|instead)\b/i.test(value);
+  const continuation = /\b(?:again|next|continued|continuing|still|follow-up|follow up|another|more on|building on|after that)\b/i.test(value);
+  const repeat = best.overlap >= 0.55 && !update && !reversal && !continuation;
+  const type = reversal ? "reversal" : update ? "update" : continuation ? "continuation" : repeat ? "repeat" : "new-angle";
+  const score = Math.max(0, Math.min(100, Math.round((1 - best.overlap) * 70 + (reversal || update || continuation ? 30 : 8))));
+  return { type, score, matchedMemory: best.memory?.videoId || best.memory?.title || "memory" };
+}
+
 function buildGlobalTranscriptContext(segments, maxItems = 72) {
   const clean = Array.isArray(segments)
     ? segments
@@ -1641,6 +1667,8 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
     nearbyContext: candidateContext.find((entry) => entry.id === id)?.nearby || [],
     baselineScore: Math.round(Number(item.score) || 0),
     highlightType: item.highlightType || "insight",
+    libraryNovelty: creatorLibraryNoveltyScore(item.transcript, safeCreatorMemory),
+    libraryRelationship: creatorLibraryRelationship(item.transcript, safeCreatorMemory),
   }));
 
   const controller = new AbortController();
@@ -1657,7 +1685,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
             role: "system",
             content: [{
               type: "input_text",
-              text: `Select the strongest short-form video moments from these transcript windows.\nYou also receive a lightweight global conversation map below. Use it to understand the overall topic, story progression, repeated ideas, and where each candidate fits in the full conversation. Do not select from the map directly; only select supplied candidate IDs.\nYou may also receive a lightweight creator memory from earlier videos. Use it only to understand recurring topics, terminology, themes, and continuity across this creator's library. Do not select or invent moments from memory; only select supplied candidate IDs. If the current video revisits an earlier topic, favor moments that add a new angle, meaningful update, contradiction, continuation, or stronger payoff instead of repeating an old idea. Each candidate includes a libraryNovelty score estimating how different its language is from sampled earlier-video memory. Use it as a secondary signal only. Each candidate includes a libraryNovelty score estimating how different its language is from sampled earlier-video memory. Use it as a secondary signal only; do not reject a strong moment merely because it shares terminology with the creator's older content.\nCreator memory: ${JSON.stringify(safeCreatorMemory)} Each candidate also includes nearbyContext from the surrounding transcript. Use it to avoid cutting off setup or payoff, while scoring only the supplied candidate window.\nGlobal conversation map: ${JSON.stringify(globalConversationContext)}\n\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
+              text: `Select the strongest short-form video moments from these transcript windows.\nYou also receive a lightweight global conversation map below. Use it to understand the overall topic, story progression, repeated ideas, and where each candidate fits in the full conversation. Do not select from the map directly; only select supplied candidate IDs.\nYou may also receive a lightweight creator memory from earlier videos. Use it only to understand recurring topics, terminology, themes, and continuity across this creator's library. Do not select or invent moments from memory; only select supplied candidate IDs. If the current video revisits an earlier topic, favor moments that add a new angle, meaningful update, contradiction, continuation, or stronger payoff instead of repeating an old idea. Each candidate includes libraryNovelty plus libraryRelationship intelligence. libraryRelationship describes whether the candidate appears to be a new angle, continuation, update, reversal, repeat, or new topic relative to sampled earlier-video memory. Use these as secondary signals only. Favor meaningful updates, reversals, continuations, and genuinely new angles over near-repeats when quality is comparable. Never reject a strong moment solely because it shares terminology with older content.\nCreator memory: ${JSON.stringify(safeCreatorMemory)} Each candidate also includes nearbyContext from the surrounding transcript. Use it to avoid cutting off setup or payoff, while scoring only the supplied candidate window.\nGlobal conversation map: ${JSON.stringify(globalConversationContext)}\n\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.
 When returning several clips, prefer genuinely strong moments from different stages of the conversation when quality is comparable. Do not cluster the entire clip pack around one short section of the source.
 When the transcript has multiple speakers, also prefer genuinely strong moments that represent different speakers when quality is comparable.
