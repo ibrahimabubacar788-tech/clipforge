@@ -249,7 +249,7 @@ export class ClipQueue {
         throw new Error("FFmpeg completed but the rendered clip was not written correctly.");
       }
       try {
-        await run(this.ffmpegPath, ["-v", "error", "-i", output, "-map", "0:v:0", "-f", "null", "-"], {
+        await run(this.ffmpegPath, ["-v", "error", "-i", output, "-map", "0:v:0", "-map", "0:a:0?", "-f", "null", "-"], {
           activeProcesses: this.activeProcesses,
         });
       } catch (error) {
