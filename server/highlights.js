@@ -1030,30 +1030,28 @@ function earlyRetentionScore(text) {
 }
 
 function contextAwareWindowScore(items, allSegments, startIndex, endIndex) {
-  if (!Array.isArray(items) || !items.length || !Array.isArray(allSegments)) return 0;
+  if (!Array.isArray(items) || !items.length || !Array.isArray(allSegments) || allSegments.length <= items.length) return 0;
 
   const firstText = String(items[0]?.text || "").trim();
   const lastText = String(items[items.length - 1]?.text || "").trim();
-  const previous = allSegments[Math.max(0, startIndex - 2)]?.text
-    ? allSegments.slice(Math.max(0, startIndex - 2), startIndex).map((item) => item.text).join(" ")
-    : "";
+  const previous = allSegments.slice(Math.max(0, startIndex - 2), startIndex).map((item) => item.text).join(" ");
   const following = allSegments.slice(endIndex + 1, Math.min(allSegments.length, endIndex + 3))
     .map((item) => item.text).join(" ");
 
   const openingDependency = /^(?:this|that|these|those|they|them|he|she|it|there|here|and|but|so|because|which|then)\\b/i.test(firstText)
     || /\\b(?:as I said|as I mentioned|like I said|earlier|before this|the previous)\\b/i.test(firstText);
-  const openingSubject = /\\b(?:I|we|you|they|he|she|the|this|that|problem|challenge|goal|company|product|story|reason|result|lesson|business|project|game|money)\\b/i.test(firstText);
-  const previousSubject = /\\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|project|lesson|experience)\\b/i.test(previous);
+  const explicitSubject = /\\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|project|lesson|experience|strategy|method|result|answer|solution)\\b/i.test(firstText);
+  const previousSubject = /\\b(?:person|people|company|brand|product|place|city|country|story|problem|challenge|goal|mistake|reason|idea|business|money|price|customer|client|team|game|project|lesson|experience|strategy|method)\\b/i.test(previous);
   const unresolvedEnding = /(?:\\b(?:and|but|because|which|that|if|when|while|to|of|for|with)\\s*)$/i.test(lastText.replace(/[.!?,;:]+$/, ""));
   const followingResolution = /\\b(?:because|the reason|the answer|the result|solution|realized|learned|discovered|turns out|ended up|which is why|that means|finally|in the end|actually)\\b/i.test(following);
 
   let score = 0;
-  if (openingDependency && !openingSubject) score -= previousSubject ? 8 : 5;
-  if (!openingDependency && openingSubject) score += 3;
-  if (previousSubject && !openingSubject) score -= 3;
+  if (openingDependency && !explicitSubject) score -= previousSubject ? 8 : 5;
+  if (!openingDependency && explicitSubject) score += 3;
+  if (previousSubject && !explicitSubject) score -= 3;
   if (unresolvedEnding && followingResolution) score -= 8;
   if (!unresolvedEnding && /[.!?]["'”’)]?$/.test(lastText)) score += 3;
-  if (items.length >= 3 && previousSubject && openingSubject) score += 2;
+  if (items.length >= 3 && previousSubject && explicitSubject) score += 2;
 
   return Math.max(-12, Math.min(8, score));
 }
