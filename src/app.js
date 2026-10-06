@@ -736,7 +736,10 @@ function renderClipLibrary() {
     const hookLine = String(clip.hookLine || "").trim();
     const socialCaption = String(clip.socialCaption || "").trim();
     const intelligence = (aiReason || strategyLabel || highlightType || hookLine || socialCaption) ? `<div class="clip-intelligence"><span>${highlightType ? escapeHtml(highlightType) : "AI pick"}${strategyLabel ? " · " + escapeHtml(strategyLabel) : ""}</span>${hookLine ? `<p><strong>Hook:</strong> ${escapeHtml(hookLine)}</p>` : ""}${socialCaption ? `<p><strong>Caption:</strong> ${escapeHtml(socialCaption)}</p>` : ""}${aiReason ? `<p>${escapeHtml(aiReason)}</p>` : ""}</div>` : "";
-    return `<article class="clip-card${favoriteClipIds.has(clip.id) ? " is-favorite" : ""}"><label class="clip-select"><input type="checkbox" data-select-clip="${clipId}" ${selectedClipIds.has(clip.id) ? "checked" : ""} aria-label="Select ${title}" /></label><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3>${intelligence}<button class="text-button favorite-clip" type="button" data-favorite-clip="${clipId}" aria-pressed="${favoriteClipIds.has(clip.id)}">${favoriteClipIds.has(clip.id) ? "★ Favorited" : "☆ Favorite"}</button><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><button class="text-button details-clip" type="button" data-details-clip="${clipId}">Details</button><p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><button class="text-button clip-source-link" type="button" data-open-source="${clip.videoId}">Source: ${escapeHtml(sourceVideo?.id === clip.videoId ? sourceVideo.name : "Source video")}</button><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
+const packageButton = (hookLine || socialCaption || title !== "Untitled clip")
+  ? `<button class="text-button copy-package-clip" type="button" data-copy-package-clip="${clipId}">Copy content package</button>`
+  : "";
+    return `<article class="clip-card${favoriteClipIds.has(clip.id) ? " is-favorite" : ""}"><label class="clip-select"><input type="checkbox" data-select-clip="${clipId}" ${selectedClipIds.has(clip.id) ? "checked" : ""} aria-label="Select ${title}" /></label><div class="clip-card-art ${formatClass}"><span>${format}</span><p>${clip.captions ? "CC" : "No captions"}</p></div><div><h3>${title}</h3>${intelligence}<button class="text-button favorite-clip" type="button" data-favorite-clip="${clipId}" aria-pressed="${favoriteClipIds.has(clip.id)}">${favoriteClipIds.has(clip.id) ? "★ Favorited" : "☆ Favorite"}</button><button class="text-button rename-clip" type="button" data-rename-clip="${clipId}">Rename</button><button class="text-button details-clip" type="button" data-details-clip="${clipId}">Details</button>${packageButton}<p>${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} · ${formatTimestamp(clipDuration(clip.start, clip.end))}</p><button class="text-button clip-source-link" type="button" data-open-source="${clip.videoId}">Source: ${escapeHtml(sourceVideo?.id === clip.videoId ? sourceVideo.name : "Source video")}</button><small>Exported ${new Date(clip.createdAt).toLocaleDateString()}</small><div>${status}</div></div><button class="delete-clip" type="button" data-delete-clip="${clipId}" aria-label="Delete ${title}">×</button></article>`;
   }).join("");
   updateBulkClipControls();
   if (librarySelectionSummary) librarySelectionSummary.textContent = `${selectedClipIds.size} selected`;
@@ -1653,6 +1656,24 @@ selectAllClipsButton?.addEventListener("click", () => {
 downloadSelectedClipsButton?.addEventListener("click", downloadSelectedClips);
 
 clipLibrary.addEventListener("click", async (event) => {
+  const packageButton = event.target.closest("[data-copy-package-clip]");
+  if (packageButton) {
+    const clip = clips.find((item) => item.id === packageButton.dataset.copyPackageClip);
+    if (!clip) return;
+    const packageText = [
+      clip.title ? `Title: ${clip.title}` : "",
+      clip.hookLine ? `Hook: ${clip.hookLine}` : "",
+      clip.socialCaption ? `Caption: ${clip.socialCaption}` : "",
+      `Timing: ${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)}`,
+    ].filter(Boolean).join("\n");
+    try {
+      await navigator.clipboard.writeText(packageText);
+      showToast("Content package copied.");
+    } catch {
+      showToast("Could not copy the content package.");
+    }
+    return;
+  }
   const favoriteButton = event.target.closest("[data-favorite-clip]");
   if (favoriteButton) {
     const clipId = favoriteButton.dataset.favoriteClip;
