@@ -1511,6 +1511,44 @@ export function rankHighlights(segments, options = {}) {
 }
 
 
+function buildGlobalTranscriptContext(segments, maxItems = 72) {
+  const clean = Array.isArray(segments)
+    ? segments
+        .map((segment) => ({
+          start: Number(segment?.start),
+          end: Number(segment?.end),
+          text: String(segment?.text || "").replace(/\\s+/g, " ").trim(),
+          speaker: String(segment?.speaker || "").trim(),
+        }))
+        .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start && segment.text)
+    : [];
+  if (!clean.length) return [];
+  const safeMaxItems = Math.max(12, Math.min(120, Number(maxItems) || 72));
+  if (clean.length <= safeMaxItems) {
+    return clean.map((segment, index) => ({
+      index,
+      start: Number(segment.start.toFixed(2)),
+      end: Number(segment.end.toFixed(2)),
+      speaker: segment.speaker || undefined,
+      text: segment.text.slice(0, 220),
+    }));
+  }
+  const picked = [];
+  const step = (clean.length - 1) / (safeMaxItems - 1);
+  for (let i = 0; i < safeMaxItems; i += 1) {
+    const index = Math.min(clean.length - 1, Math.round(i * step));
+    const segment = clean[index];
+    picked.push({
+      index,
+      start: Number(segment.start.toFixed(2)),
+      end: Number(segment.end.toFixed(2)),
+      speaker: segment.speaker || undefined,
+      text: segment.text.slice(0, 220),
+    });
+  }
+  return picked;
+}
+
 export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator", targetTypes = [], performanceLearning = null } = {}) {
   const contentProfile = getContentProfile(normalizeContentProfile(profile));
   const learning = performanceLearning && typeof performanceLearning === "object" ? performanceLearning : {};
@@ -1544,6 +1582,9 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   // results proportionally, especially on 30–50 clip requests.
   const aiCandidateLimit = Math.min(60, Math.max(24, safeLimit * 2));
   const aiCandidates = baseline.slice(0, aiCandidateLimit);
+  // Give the model a lightweight view of the entire conversation so it can judge
+  // candidate windows against the broader story, not only the selected snippets.
+  const globalConversationContext = buildGlobalTranscriptContext(segments);
   const candidates = aiCandidates.map((item, id) => ({
     id,
     start: item.start,
@@ -1568,7 +1609,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
             role: "system",
             content: [{
               type: "input_text",
-              text: `Select the strongest short-form video moments from these transcript windows.\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
+              text: `Select the strongest short-form video moments from these transcript windows.\nYou also receive a lightweight global conversation map below. Use it to understand the overall topic, story progression, repeated ideas, and where each candidate fits in the full conversation. Do not select from the map directly; only select supplied candidate IDs.\nGlobal conversation map: ${JSON.stringify(globalConversationContext)}\n\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.
 ${hasLearning ? `Use this project's historical performance as a secondary signal, not a hard rule. Previously tracked clip-type engagement: ${JSON.stringify(learnedTypes.slice(0, 5).map(([type, value]) => ({ type, engagementRate: Number(value.toFixed(2)) })))}. Favor proven types modestly when the transcript quality is comparable, but still surface genuinely exceptional moments of other types.` : ""}
 Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
