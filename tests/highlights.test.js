@@ -377,3 +377,22 @@ test("highlight engine rewards promise fulfillment when the opening setup is res
   assert.equal(brokenPromise.length, 1);
   assert.ok(fulfilled[0].score > brokenPromise[0].score);
 });
+
+
+test("highlight engine rewards belief reversal with a clear consequence", () => {
+  const reversal = rankHighlights([
+    { start: 0, end: 6, text: "I thought the fastest way to grow was to post more videos every day." },
+    { start: 6, end: 12, text: "But I realized the real problem was that none of the videos had a clear hook." },
+    { start: 12, end: 18, text: "That means fewer stronger clips worked better, and retention improved." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  const assumption = rankHighlights([
+    { start: 0, end: 6, text: "I thought the fastest way to grow was to post more videos every day." },
+    { start: 6, end: 12, text: "Then I kept posting more videos and talked about the editing process." },
+    { start: 12, end: 18, text: "The schedule stayed busy and the workflow continued normally." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  assert.equal(reversal.length, 1);
+  assert.equal(assumption.length, 1);
+  assert.ok(reversal[0].score > assumption[0].score);
+});
