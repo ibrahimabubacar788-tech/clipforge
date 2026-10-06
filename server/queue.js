@@ -183,7 +183,7 @@ export class ClipQueue {
     });
     void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error));
   }
-  async enqueue(clip) { if (this.shuttingDown) throw new Error("Clip queue is shutting down."); const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
+  async enqueue(clip) { if (this.shuttingDown) throw new Error("Clip queue is shutting down."); const job = { id: id("job"), clipId: clip.id, status: "queued", progress: 0, attempts: 0, createdAt: now() }; await this.db.transaction((d) => d.jobs.push(job)); void this.work().catch((error) => console.error("ClipForge queue worker crashed:", error)); return job; }
   async render(clip) {
     const { file: source, uploadsDir } = await sourcePath(this.storageDir, clip.sourceUrl);
     const sourceInfo = await lstat(source).catch(() => null);
@@ -279,7 +279,7 @@ export class ClipQueue {
           await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "completed", progress: 100, completedAt: now() }); if (c) Object.assign(c, { status: "ready", renderProgress: 100, downloadUrl: `/storage/exports/${filename}`, updatedAt: now() }); });
         } catch (error) {
           console.error(`ClipForge render failed: job=${job.id} clip=${job.clipId} error=${error.message}`);
-          await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); if (j) Object.assign(j, { status: "failed", error: error.message, completedAt: now() }); if (c) Object.assign(c, { status: "failed", updatedAt: now() }); });
+          await this.db.transaction((d) => { const j = d.jobs.find((x) => x.id === job.id); const c = d.clips.find((x) => x.id === job.clipId); const attempts = Number(j?.attempts) || 0; if (j && attempts < 1) { Object.assign(j, { status: "queued", progress: 0, attempts: attempts + 1, lastError: error.message }); if (c) Object.assign(c, { status: "queued", renderProgress: 0, updatedAt: now(), lastRenderError: error.message }); } else { if (j) Object.assign(j, { status: "failed", error: error.message, completedAt: now(), attempts }); if (c) Object.assign(c, { status: "failed", updatedAt: now(), lastRenderError: error.message }); } });
         }
       }
     };
