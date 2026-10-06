@@ -451,3 +451,20 @@ test("highlight engine rewards memorable quote-worthy phrasing", () => {
   assert.equal(ordinary.length, 1);
   assert.ok(quotable[0].score > ordinary[0].score);
 });
+
+
+test("highlight engine rewards strong audience reaction cues", () => {
+  const reaction = rankHighlights([
+    { start: 0, end: 8, text: "Wait, seriously? We thought the launch had failed, but then the numbers jumped and the result was unbelievable." },
+    { start: 8, end: 16, text: "We reviewed the numbers and discussed the next steps with the team." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  const flat = rankHighlights([
+    { start: 0, end: 8, text: "We reviewed the launch numbers and discussed the process with the team before moving on to the next topic." },
+    { start: 8, end: 16, text: "We reviewed the numbers and discussed the next steps with the team." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  assert.equal(reaction.length, 1);
+  assert.equal(flat.length, 1);
+  assert.ok(reaction[0].score > flat[0].score);
+});
