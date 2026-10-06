@@ -1938,10 +1938,23 @@ async function pollAutoClipStatus(videoId) {
             : "Waiting for automatic AI analysis to begin…");
         }
         if (status.total > 0 && status.processing === 0) {
-          showToast(status.failed ? `Automatic clipping finished: ${status.ready} clips ready, ${status.failed} failed.` : `Automatic clipping finished: ${status.ready} clips are ready.`);
+          if (status.failed && status.ready === 0) {
+            showToast("Automatic clipping could not render any clips. You can retry failed clips from the library.");
+          } else {
+            showToast(status.failed ? `Automatic clipping finished: ${status.ready} clips ready, ${status.failed} failed.` : `Automatic clipping finished: ${status.ready} clips are ready.`);
+          }
           return;
         }
-      } catch {}
+        if (attempt > 0 && attempt % 15 === 0 && status.analysisInProgress) {
+          showToast(status.transcriptReady
+            ? "ClipForge is still analyzing the video and selecting the strongest moments…"
+            : "ClipForge is still preparing the transcript…");
+        }
+      } catch (error) {
+        if (attempt > 0 && attempt % 20 === 0 && error?.status >= 500) {
+          showToast("ClipForge is reconnecting to the automatic clipping pipeline…");
+        }
+      }
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
   } finally {
