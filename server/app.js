@@ -386,7 +386,8 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       });
       return json(res, 200, {
         videoId: video.id,
-        analysisInProgress: autoClipInFlight.has(video.id),
+        analysisInProgress: autoClipInFlight.has(video.id) || video.autoClipStatus?.status === "processing",
+        analysisStatus: video.autoClipStatus || null,
         transcriptReady: Array.isArray(video.transcript) && video.transcript.length > 0,
         total: clips.length,
         ready: counts.ready || 0,
@@ -418,6 +419,19 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         throw Object.assign(new Error("Automatic clipping is already running for this video."), { status: 409 });
       }
       autoClipInFlight.add(video.id);
+      await db.transaction((d) => {
+        const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+        if (item) item.autoClipStatus = {
+          status: "processing",
+          startedAt: now(),
+          finishedAt: null,
+          error: null,
+          requested: limit,
+          language,
+          captionLanguage,
+        };
+      });
+      void (async () => {
       try {
         const existingAutoClipsBeforeAnalysis = await db.read((d) => d.clips.filter((clip) =>
           clip.videoId === video.id &&
@@ -435,19 +449,20 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
             });
           }
           const existingJobMap = new Map(await db.read((d) => d.jobs.filter((job) => activeAutoClipsBeforeAnalysis.some((clip) => clip.id === job.clipId)).map((job) => [job.clipId, job])));
-          return json(res, 200, {
-            videoId: video.id,
-            engine: "clipforge-auto-existing",
-            aiEngine: activeAutoClipsBeforeAnalysis[0].aiEngine || null,
-            aiFallback: activeAutoClipsBeforeAnalysis[0].aiFallback === true,
-            aiError: activeAutoClipsBeforeAnalysis[0].aiError || null,
-            transcribed: false,
-            transcriptCount: Array.isArray(video.transcript) ? video.transcript.length : 0,
-            requested: limit,
-            generated: activeAutoClipsBeforeAnalysis.length,
-            clips: activeAutoClipsBeforeAnalysis.slice(0, limit).map((clip) => ({ clip, job: existingJobMap.get(clip.id) || null })),
-            reused: true,
+          await db.transaction((d) => {
+            const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+            if (item) item.autoClipStatus = {
+              status: "completed",
+              startedAt: item.autoClipStatus?.startedAt || now(),
+              finishedAt: now(),
+              error: null,
+              requested: limit,
+              generated: activeAutoClipsBeforeAnalysis.length,
+              reused: true,
+              aiEngine: activeAutoClipsBeforeAnalysis[0].aiEngine || null,
+            };
           });
+          return;
         }
         let segments = normalizeTranscript(Array.isArray(video.transcript) ? video.transcript : []);
         let transcribed = false;
@@ -497,22 +512,20 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
             });
           }
           const existingJobMap = new Map(await db.read((d) => d.jobs.filter((job) => activeAutoClips.some((clip) => clip.id === job.clipId)).map((job) => [job.clipId, job])));
-          return json(res, 200, {
-            videoId: video.id,
-            engine: "clipforge-auto-existing",
-            aiEngine: activeAutoClips[0].aiEngine || null,
-            aiFallback: activeAutoClips[0].aiFallback === true,
-            aiError: activeAutoClips[0].aiError || null,
-            transcribed,
-            transcriptCount: segments.length,
-            requested: limit,
-            generated: activeAutoClips.length,
-            clips: activeAutoClips.slice(0, limit).map((clip) => ({
-              clip,
-              job: existingJobMap.get(clip.id) || null,
-            })),
-            reused: true,
+          await db.transaction((d) => {
+            const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+            if (item) item.autoClipStatus = {
+              status: "completed",
+              startedAt: item.autoClipStatus?.startedAt || now(),
+              finishedAt: now(),
+              error: null,
+              requested: limit,
+              generated: activeAutoClips.length,
+              reused: true,
+              aiEngine: activeAutoClips[0].aiEngine || null,
+            };
           });
+          return;
         }
       if (existingAutoClips.length && activeAutoClips.length === 0) {
         await db.transaction((d) => {
@@ -672,23 +685,50 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         created.push({ clip, job });
       }
 
-      return json(res, 202, {
-        videoId: video.id,
-        engine: analysis.engine === "openai-highlights-v1" ? "clipforge-auto-v3" : "clipforge-auto-v2",
-        aiEngine: analysis.engine,
-        aiFallback: analysis.engine !== "openai-highlights-v1",
-        aiError: analysis.aiError || null,
-        transcribed,
-        transcriptCount: segments.length,
-        requested: limit,
-        profile,
-        profileLabel: contentProfile.label,
-        generated: created.length,
-        clips: created,
+      await db.transaction((d) => {
+        const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+        if (item) item.autoClipStatus = {
+          status: "completed",
+          startedAt: item.autoClipStatus?.startedAt || now(),
+          finishedAt: now(),
+          error: null,
+          requested: limit,
+          generated: created.length,
+          profile,
+          profileLabel: contentProfile.label,
+          aiEngine: analysis.engine,
+          aiFallback: analysis.engine !== "openai-highlights-v1",
+          aiError: analysis.aiError || null,
+          transcribed,
+          transcriptCount: segments.length,
+        };
       });
+      } catch (error) {
+        console.error("ClipForge automatic clipping failed:", error);
+        await db.transaction((d) => {
+          const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
+          if (item) item.autoClipStatus = {
+            status: "failed",
+            startedAt: item.autoClipStatus?.startedAt || now(),
+            finishedAt: now(),
+            error: String(error?.message || "Automatic clipping failed.").slice(0, 500),
+            requested: limit,
+            language,
+            captionLanguage,
+          };
+        }).catch((persistError) => console.error("ClipForge failed to persist auto-clip error:", persistError));
       } finally {
         autoClipInFlight.delete(video.id);
       }
+      })();
+      return json(res, 202, {
+        videoId: video.id,
+        status: "processing",
+        requested: limit,
+        profile,
+        profileLabel: contentProfile.label,
+        statusEndpoint: `/api/videos/${video.id}/auto-clip-status?language=${encodeURIComponent(language)}&captionLanguage=${encodeURIComponent(captionLanguage)}`,
+      });
     }
 
     const generateMatch = pathname.match(/^\/api\/videos\/([^/]+)\/generate-clips$/);
