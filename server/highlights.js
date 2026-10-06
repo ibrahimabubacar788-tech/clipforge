@@ -1792,6 +1792,14 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
         title: String(selection.title || base.title).replace(/\s+/g, " ").trim().slice(0, 100) || base.title,
         hookLine: String(selection.hookLine || "").replace(/\s+/g, " ").trim().slice(0, 160) || null,
         socialCaption: String(selection.socialCaption || "").replace(/\s+/g, " ").trim().slice(0, 320) || null,
+        libraryNovelty: Number.isFinite(Number(base.libraryNovelty)) ? Math.max(0, Math.min(100, Number(base.libraryNovelty))) : null,
+        libraryRelationship: base.libraryRelationship && typeof base.libraryRelationship === "object"
+          ? {
+              type: String(base.libraryRelationship.type || "new").trim().slice(0, 40) || "new",
+              score: Number.isFinite(Number(base.libraryRelationship.score)) ? Math.max(0, Math.min(100, Number(base.libraryRelationship.score))) : null,
+              matchedMemory: String(base.libraryRelationship.matchedMemory || "").trim().slice(0, 120) || null,
+            }
+          : null,
       };
     }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
 
