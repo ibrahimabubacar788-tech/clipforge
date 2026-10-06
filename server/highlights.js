@@ -1510,8 +1510,15 @@ export function rankHighlights(segments, options = {}) {
 }
 
 
-export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator", targetTypes = [] } = {}) {
+export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator", targetTypes = [], performanceLearning = null } = {}) {
   const contentProfile = getContentProfile(normalizeContentProfile(profile));
+  const learning = performanceLearning && typeof performanceLearning === "object" ? performanceLearning : {};
+  const learnedTypeWeights = learning.byType && typeof learning.byType === "object" ? learning.byType : {};
+  const learnedTypes = Object.entries(learnedTypeWeights)
+    .map(([type, value]) => [String(type).toLowerCase(), Number(value)])
+    .filter(([type, value]) => ["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"].includes(type) && Number.isFinite(value))
+    .sort((a, b) => b[1] - a[1]);
+  const hasLearning = learnedTypes.length > 0 && Number(learning.trackedClips) > 0;
   const safeTargetTypes = [...new Set((Array.isArray(targetTypes) ? targetTypes : String(targetTypes || "").split(",")).map((type) => String(type || "").trim().toLowerCase()).filter((type) => ["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"].includes(type)))].slice(0, 3);
   const apiKey = process.env.OPENAI_API_KEY;
   const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
@@ -1562,6 +1569,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
               type: "input_text",
               text: `Select the strongest short-form video moments from these transcript windows.\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.
+${hasLearning ? `Use this project's historical performance as a secondary signal, not a hard rule. Previously tracked clip-type engagement: ${JSON.stringify(learnedTypes.slice(0, 5).map(([type, value]) => ({ type, engagementRate: Number(value.toFixed(2)) })))}. Favor proven types modestly when the transcript quality is comparable, but still surface genuinely exceptional moments of other types.` : ""}
 Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
 ${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
 Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"context":90,"payoff":90,"emotion":78,"clarity":96,"novelty":90,"replayability":88,"specificity":92,"reason":"brief reason","title":"short title","type":"hook"}]}.
@@ -1635,9 +1643,13 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
           ? aiScore
           : Math.round(aiScore * 0.55 + dimensionScore * 0.45);
       const baselineScore = Math.max(0, Math.min(100, Number(base.score) * 0.8));
+      const learnedTypeEngagement = learnedTypeWeights[String(selection.type || base.highlightType || "insight").trim().toLowerCase()];
+      const learnedTypeBoost = hasLearning && Number.isFinite(Number(learnedTypeEngagement))
+        ? Math.max(-4, Math.min(4, Number(learnedTypeEngagement) * 0.18))
+        : 0;
       const blendedScore = effectiveAiScore === null
-        ? baselineScore
-        : Math.round(effectiveAiScore * 0.82 + baselineScore * 0.18);
+        ? baselineScore + learnedTypeBoost
+        : Math.round(effectiveAiScore * 0.82 + baselineScore * 0.18 + learnedTypeBoost);
       return {
         ...base,
         score: blendedScore,
