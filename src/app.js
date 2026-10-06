@@ -181,6 +181,7 @@ async function loadProject(projectId) {
   clips = result.clips.filter((clip) => clip.projectId === project.id);
   selectedClipIds.clear();
   renderClipLibrary();
+  if (sourceVideo?.autoClipStatus?.status === "processing") void pollAutoClipStatus(sourceVideo.id);
 }
 
 async function ensureWorkspace() {
@@ -230,6 +231,7 @@ async function ensureWorkspace() {
     if (loadVersion !== workspaceLoadVersion) return false;
     clips = clipResult.clips.filter((clip) => clip.projectId === currentProject?.id);
     renderClipLibrary();
+    if (sourceVideo?.autoClipStatus?.status === "processing") void pollAutoClipStatus(sourceVideo.id);
     return true;
   } catch (error) {
     if (error.status === 401) {
@@ -641,7 +643,6 @@ async function createProducerPriorityClips() {
         targetTypes,
       }),
     });
-    clips = [...(result.clips || []).map((item) => item.clip), ...clips.filter((clip) => !(result.clips || []).some((item) => item.clip.id === clip.id))];
     renderClipLibrary();
     void pollAutoClipStatus(videoId);
     showToast("Producer is creating a priority mix: " + targetTypes.join(", ") + ".");
@@ -774,6 +775,48 @@ async function refreshClipLibraryWhileRendering() {
     } catch {
       // Keep polling through temporary API/network failures; the next attempt can recover.
     }
+  }
+}
+
+async function pollAutoClipStatus(videoId) {
+  if (!videoId || automaticClipPolls.has(videoId)) return;
+  automaticClipPolls.add(videoId);
+  const pollingProjectId = currentProject?.id;
+  try {
+    for (let attempt = 0; attempt < 900; attempt += 1) {
+      if (currentProject?.id !== pollingProjectId || sourceVideo?.id !== videoId) return;
+      const language = transcriptionLanguage?.value || "auto";
+      const captionLanguage = captionLanguageSelect?.value || safeStorageParse(captionLanguageKey, "original");
+      try {
+        const result = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status?language=${encodeURIComponent(language)}&captionLanguage=${encodeURIComponent(captionLanguage)}`);
+        if (currentProject?.id !== pollingProjectId || sourceVideo?.id !== videoId) return;
+        if (Array.isArray(result.clips)) {
+          clips = [...result.clips, ...clips.filter((clip) => !result.clips.some((item) => item.id === clip.id))];
+          renderClipLibrary();
+        }
+        const status = result.analysisStatus?.status;
+        if (status === "completed") {
+          showToast(result.analysisStatus?.reused
+            ? "ClipForge restored your existing AI clips."
+            : `AI analysis finished: ${result.total || result.analysisStatus?.generated || 0} clips found. Rendering is continuing in My clips.`);
+          startClipStatusPolling();
+          return;
+        }
+        if (status === "failed") {
+          showToast(`AI clipping failed: ${result.analysisStatus?.error || "Automatic clipping could not complete."}`);
+          return;
+        }
+      } catch (error) {
+        if (error?.status === 404) return;
+        // Keep polling through temporary network failures.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    if (currentProject?.id === pollingProjectId && sourceVideo?.id === videoId) {
+      showToast("AI clipping is taking longer than expected. Your run is still saved and can continue in the background.");
+    }
+  } finally {
+    automaticClipPolls.delete(videoId);
   }
 }
 function stopPlayback() {
@@ -1050,13 +1093,19 @@ document.querySelector("#run-ai-generation")?.addEventListener("click", async (e
       throw new Error("The source video or project changed while generation was running. The generated clips were kept on the original source.");
     }
     transcriptDialog.close();
-    clips = [...result.clips.map((item) => item.clip), ...clips];
-    renderClipLibrary();
-    startClipStatusPolling();
-    showToast(result.aiFallback
-      ? `Built-in highlight analysis ranked ${result.generated} clips and queued them for rendering.`
-      : `AI highlight analysis ranked ${result.generated} clips and queued them for rendering.`);
-    void refreshClipLibraryWhileRendering();
+    if (endpoint === "auto-clip") {
+      showToast("AI analysis started. ClipForge is finding the strongest moments in the background.");
+      void pollAutoClipStatus(generationVideoId);
+    } else {
+      const generatedClips = Array.isArray(result.clips) ? result.clips.map((item) => item.clip).filter(Boolean) : [];
+      clips = [...generatedClips, ...clips];
+      renderClipLibrary();
+      startClipStatusPolling();
+      showToast(result.aiFallback
+        ? `Built-in highlight analysis ranked ${result.generated} clips and queued them for rendering.`
+        : `AI highlight analysis ranked ${result.generated} clips and queued them for rendering.`);
+      void refreshClipLibraryWhileRendering();
+    }
   } catch (error) {
     if (currentProject?.id === generationProjectId && sourceVideo?.id === generationVideoId) showToast(error.message);
   } finally {
@@ -1498,651 +1547,3 @@ async function copySelectedClipJson() {
   if (!selected.length) return;
   try {
     await navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
-    showToast(`Metadata for ${selected.length} clip${selected.length === 1 ? "" : "s"} copied.`);
-  } catch {
-    showToast("Could not copy clip metadata. Your browser may block clipboard access.");
-  }
-}
-
-async function copySelectedClipDuration() {
-  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
-  if (!selected.length) return;
-  const total = selected.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
-  try {
-    await navigator.clipboard.writeText(formatTimestamp(total));
-    showToast(`Total duration ${formatTimestamp(total)} copied.`);
-  } catch {
-    showToast("Could not copy duration. Your browser may block clipboard access.");
-  }
-}
-
-async function copySelectedClipTitles() {
-  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
-  if (!selected.length) return;
-  try {
-    await navigator.clipboard.writeText(selected.map((clip) => clip.title || "Untitled clip").join("\n"));
-    showToast(`${selected.length} clip${selected.length === 1 ? "" : "s"} title${selected.length === 1 ? "" : "s"} copied.`);
-  } catch {
-    showToast("Could not copy clip titles. Your browser may block clipboard access.");
-  }
-}
-
-function exportSelectedClipList() {
-  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
-  if (!selected.length) return;
-  const rows = [["Title", "Format", "Start", "End", "Duration", "Captions", "Download URL"], ...selected.map((clip) => [clip.title || "Untitled clip", clip.format || "9:16", clip.start, clip.end, clipDuration(clip.start, clip.end), clip.captions ? "Yes" : "No", new URL(`/api/clips/${encodeURIComponent(clip.id)}/download`, window.location.origin).href])];
-  const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, `""`)}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "clipforge-clips.csv";
-  anchor.click();
-  URL.revokeObjectURL(url);
-  showToast(`${selected.length} clip${selected.length === 1 ? "" : "s"} exported.`);
-}
-
-async function copySelectedClipLinks() {
-  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
-  if (!selected.length) return;
-  const links = selected.map((clip) => new URL(`/api/clips/${encodeURIComponent(clip.id)}/download`, window.location.origin).href).join("\n");
-  try {
-    await navigator.clipboard.writeText(links);
-    showToast(`${selected.length} clip link${selected.length === 1 ? "" : "s"} copied.`);
-  } catch {
-    showToast("Could not copy clip links. Your browser may block clipboard access.");
-  }
-}
-
-function updateBulkClipControls() {
-  const ready = clips.filter((clip) => clip.status === "ready");
-  const selectedReady = ready.filter((clip) => selectedClipIds.has(clip.id)).length;
-  const selectedFailed = clips.filter((clip) => clip.status === "failed" && selectedClipIds.has(clip.id)).length;
-  const selectedRenameable = clips.filter((clip) => ["ready", "failed"].includes(clip.status) && selectedClipIds.has(clip.id)).length;
-  const selectedTotal = selectedClipIds.size;
-  if (selectAllClipsButton) selectAllClipsButton.textContent = ready.length && selectedReady === ready.length ? "Clear selection" : "Select ready";
-  if (downloadSelectedClipsButton) {
-    downloadSelectedClipsButton.disabled = selectedReady === 0;
-    downloadSelectedClipsButton.textContent = selectedReady ? `Download selected (${selectedReady})` : "Download selected";
-  }
-  if (deleteSelectedClipsButton) {
-    deleteSelectedClipsButton.disabled = selectedReady === 0;
-    deleteSelectedClipsButton.textContent = selectedReady ? `Delete selected (${selectedReady})` : "Delete selected";
-  }
-  if (retryFailedClipsButton) {
-    retryFailedClipsButton.disabled = selectedFailed === 0;
-    retryFailedClipsButton.textContent = selectedFailed ? `Retry failed (${selectedFailed})` : "Retry failed";
-  }
-  if (batchRenameClipsButton) {
-    batchRenameClipsButton.disabled = selectedRenameable === 0;
-    batchRenameClipsButton.textContent = selectedRenameable ? `Batch rename (${selectedRenameable})` : "Batch rename";
-  }
-  if (deselectAllClipsButton) {
-    deselectAllClipsButton.disabled = selectedTotal === 0;
-    deselectAllClipsButton.textContent = selectedTotal ? `Deselect all (${selectedTotal})` : "Deselect all";
-  }
-}
-async function downloadSelectedClips() {
-  const selectedProjectId = currentProject?.id;
-  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
-  if (!selected.length) return;
-  downloadSelectedClipsButton.disabled = true;
-  try {
-    for (const clip of selected) {
-      if (currentProject?.id !== selectedProjectId) {
-        throw new Error("Workspace changed while downloading selected clips.");
-      }
-      const response = await fetch(`/api/clips/${encodeURIComponent(clip.id)}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
-      if (!response.ok) throw new Error(`Could not download ${clip.title || "clip"}.`);
-      const blob = await response.blob();
-      if (currentProject?.id !== selectedProjectId) {
-        throw new Error("Workspace changed while downloading selected clips.");
-      }
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = `${clip.title || "ClipForge clip"}.mp4`;
-      document.body.appendChild(link); link.click(); link.remove();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    showToast(`Downloaded ${selected.length} selected clip${selected.length === 1 ? "" : "s"}.`);
-  } catch (error) {
-    if (currentProject?.id === selectedProjectId) showToast(error.message);
-  }
-  finally { updateBulkClipControls(); }
-}
-async function deleteSelectedClips() {
-  const selectedProjectId = currentProject?.id;
-  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
-  if (!selected.length) return;
-  if (!window.confirm(`Delete ${selected.length} selected clip${selected.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
-  deleteSelectedClipsButton.disabled = true;
-  try {
-    const results = await Promise.allSettled(selected.map((clip) => api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "DELETE" })));
-    if (currentProject?.id !== selectedProjectId) {
-      showToast("Clips were deleted from the original project, but the workspace changed before the update finished.");
-      return;
-    }
-    const deletedIds = new Set();
-    let failed = 0;
-    results.forEach((result, index) => {
-      if (result.status === "fulfilled") deletedIds.add(selected[index].id);
-      else failed += 1;
-    });
-    for (const id of deletedIds) {
-      selectedClipIds.delete(id);
-      favoriteClipIds.delete(id);
-    }
-    if (deletedIds.size) {
-      window.localStorage.setItem(favoriteKey, JSON.stringify([...favoriteClipIds]));
-    }
-    clips = clips.filter((clip) => !deletedIds.has(clip.id));
-    renderClipLibrary();
-    showToast(failed ? `Deleted ${deletedIds.size}; ${failed} could not be deleted.` : `Deleted ${deletedIds.size} selected clip${deletedIds.size === 1 ? "" : "s"}.`);
-  } catch (error) {
-    if (currentProject?.id === selectedProjectId) showToast(`Could not delete selected clips: ${error.message}`);
-    updateBulkClipControls();
-  }
-}
-deleteSelectedClipsButton?.addEventListener("click", deleteSelectedClips);
-
-selectAllClipsButton?.addEventListener("click", () => {
-  const ready = clips.filter((clip) => clip.status === "ready");
-  const allSelected = ready.length > 0 && ready.every((clip) => selectedClipIds.has(clip.id));
-  if (allSelected) ready.forEach((clip) => selectedClipIds.delete(clip.id));
-  else ready.forEach((clip) => selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-downloadSelectedClipsButton?.addEventListener("click", downloadSelectedClips);
-
-clipLibrary.addEventListener("click", async (event) => {
-  const packageButton = event.target.closest("[data-copy-package-clip]");
-  if (packageButton) {
-    const clip = clips.find((item) => item.id === packageButton.dataset.copyPackageClip);
-    if (!clip) return;
-    const packageText = [
-      clip.title ? `Title: ${clip.title}` : "",
-      clip.hookLine ? `Hook: ${clip.hookLine}` : "",
-      clip.socialCaption ? `Caption: ${clip.socialCaption}` : "",
-      `Timing: ${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)}`,
-    ].filter(Boolean).join("\n");
-    try {
-      await navigator.clipboard.writeText(packageText);
-      showToast("Content package copied.");
-    } catch {
-      showToast("Could not copy the content package.");
-    }
-    return;
-  }
-  const favoriteButton = event.target.closest("[data-favorite-clip]");
-  if (favoriteButton) {
-    const clipId = favoriteButton.dataset.favoriteClip;
-    if (favoriteClipIds.has(clipId)) favoriteClipIds.delete(clipId);
-    else favoriteClipIds.add(clipId);
-    window.localStorage.setItem(favoriteKey, JSON.stringify([...favoriteClipIds]));
-    renderClipLibrary();
-    showToast(favoriteClipIds.has(clipId) ? "Clip added to favorites." : "Clip removed from favorites.");
-    return;
-  }
-  const detailsButton = event.target.closest("[data-details-clip]");
-  if (detailsButton) {
-    const clip = clips.find((item) => item.id === detailsButton.dataset.detailsClip);
-    if (!clip || !clipDetailsDialog || !clipDetailsList) return;
-    const duration = clipDuration(clip.start, clip.end);
-    const status = clip.status === "ready" ? "Ready" : clip.status === "failed" ? "Failed" : "Rendering";
-    const scoreFields = [
-      ["Hook", clip.hookScore],
-      ["Standalone", clip.standaloneScore],
-      ["Payoff", clip.payoffScore],
-      ["Emotion", clip.emotionScore],
-      ["Clarity", clip.clarityScore],
-    ];
-    const scoreBreakdown = scoreFields.some(([, value]) => Number.isFinite(Number(value)))
-      ? '<section class="clip-score-breakdown"><div class="clip-score-breakdown-head"><strong>Why this clip?</strong><span>AI score breakdown</span></div>' +
-        scoreFields.map(([label, value]) => { const score = Number.isFinite(Number(value)) ? Math.max(0, Math.min(100, Math.round(Number(value)))) : null; return '<div class="clip-score-row"><div><span>' + escapeHtml(label) + '</span><b>' + (score === null ? "—" : score + "/100") + '</b></div><div class="clip-score-track"><i style="width:' + (score === null ? 0 : score) + '%"></i></div></div>'; }).join("") +
-        "</section>"
-      : "";
-    clipDetailsTitle.textContent = clip.title || "Clip details";
-    clipDetailsList.innerHTML = [
-      ["Status", status],
-      ["Format", clip.format || "9:16"],
-      ["Duration", formatTimestamp(duration)],
-      ["Start", formatTimestamp(clip.start)],
-      ["End", formatTimestamp(clip.end)],
-      ["Captions", clip.captions ? "On" : "Off"],
-      ["Strategy", clip.contentProfileLabel || "Creator"],
-      ["Intelligence", clip.highlightType || "Insight"],
-      ["AI reason", clip.aiReason || "Built from ClipForge's strongest-moment ranking."],
-      ["AI score", Number.isFinite(Number(clip.highlightScore)) ? Math.round(Number(clip.highlightScore)) + "/100" : "Not scored"],
-      ["Created", new Date(clip.createdAt).toLocaleString()]
-    ].map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("") + scoreBreakdown;
-    if (clipContentPack) clipContentPack.hidden = true;
-    if (performanceLogSection) performanceLogSection.hidden = false;
-    document.querySelector("#performance-platform").value = clip.performance?.platform || "tiktok";
-    document.querySelector("#performance-views").value = clip.performance?.views ?? "";
-    document.querySelector("#performance-likes").value = clip.performance?.likes ?? "";
-    document.querySelector("#performance-comments").value = clip.performance?.comments ?? "";
-    document.querySelector("#performance-shares").value = clip.performance?.shares ?? "";
-    document.querySelector("#performance-completion").value = clip.performance?.completionRate ?? "";
-    if (clipContentPackList) clipContentPackList.innerHTML = "";
-    if (generateContentPackButton) generateContentPackButton.disabled = false;
-    detailsDownloadClipButton.disabled = clip.status !== "ready";
-    detailsDownloadClipButton.dataset.downloadClip = clip.id;
-    clipDetailsDialog.showModal();
-    return;
-  }
-  if (event.target.closest("#generate-content-pack")) {
-    const clipId = detailsDownloadClipButton?.dataset.downloadClip;
-    if (!clipId || !generateContentPackButton || !clipContentPack || !clipContentPackList) return;
-    generateContentPackButton.disabled = true;
-    generateContentPackButton.textContent = "Building…";
-    try {
-      const result = await api("/api/clips/" + encodeURIComponent(clipId) + "/content-packaging");
-      const platformNames = { tiktok: "TikTok", instagram: "Instagram Reels", youtube: "YouTube Shorts", linkedin: "LinkedIn", x: "X" };
-      clipContentPackList.innerHTML = Object.entries(result.packaging.platforms || {}).map(([key, item]) =>
-        "<article class=\"content-pack-card\"><strong>" + escapeHtml(platformNames[key] || item.platform) + "</strong>" +
-        "<p><b>Hook:</b> " + escapeHtml(item.hook) + "</p>" +
-        "<p><b>Title:</b> " + escapeHtml(item.title) + "</p>" +
-        "<p><b>Caption:</b> " + escapeHtml(item.caption) + "</p>" +
-        "<small>" + item.hashtags.map((tag) => escapeHtml(tag)).join(" ") + "</small></article>"
-      ).join("");
-      clipContentPack.hidden = false;
-      generateContentPackButton.textContent = "Refresh content pack";
-    } catch (error) {
-      showToast("Content pack could not be built: " + error.message);
-      generateContentPackButton.textContent = "Build content pack";
-    } finally {
-      generateContentPackButton.disabled = false;
-    }
-    return;
-  }
-  const retryButton = event.target.closest("[data-retry-clip]");
-  if (retryButton) {
-    if (retryButton.disabled) return;
-    retryButton.disabled = true;
-    retryButton.textContent = "Retrying…";
-    const retryProjectId = currentProject?.id;
-    try {
-      const result = await api(`/api/clips/${retryButton.dataset.retryClip}/retry`, { method: "POST" });
-      if (currentProject?.id !== retryProjectId) {
-        showToast("Retry was queued for the original project, but the workspace changed before the update finished.");
-        return;
-      }
-      clips = clips.map((clip) => clip.id === result.clip.id ? result.clip : clip);
-      renderClipLibrary();
-      showToast("Render retry queued.");
-      for (let attempt = 0; attempt < 1800; attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        if (currentProject?.id !== retryProjectId) return;
-        const jobResult = await api(`/api/jobs/${result.job.id}`);
-        if (currentProject?.id !== retryProjectId) return;
-        if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
-      }
-      if (currentProject?.id !== retryProjectId) return;
-      clips = (await api("/api/clips")).clips.filter((clip) => clip.projectId === retryProjectId);
-      renderClipLibrary();
-      const finished = clips.find((clip) => clip.id === result.clip.id);
-      if (finished?.status === "ready") showToast("Retry finished. Your clip is ready to download.");
-      else if (finished?.status === "failed") showToast(`Retry failed: ${finished.error || "FFmpeg could not render this clip."}`);
-      else showToast("Retry is still rendering. Check My clips for its current status.");
-    } catch (error) {
-      if (currentProject?.id === retryProjectId) {
-        showToast(error.message);
-        renderClipLibrary();
-      }
-    }
-    return;
-  }
-  const renameButton = event.target.closest("[data-rename-clip]");
-  if (renameButton) {
-    const renameProjectId = currentProject?.id;
-    const clip = clips.find((item) => item.id === renameButton.dataset.renameClip);
-    if (!clip) return;
-    const nextTitle = window.prompt("Rename clip", clip.title || "Untitled clip");
-    if (nextTitle === null) return;
-    const title = nextTitle.trim();
-    if (!title) { showToast("Clip title cannot be empty."); return; }
-    if (title.length > 160) { showToast("Clip title must be 160 characters or fewer."); return; }
-    try {
-      const result = await api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "PATCH", body: JSON.stringify({ title }) });
-      if (currentProject?.id !== renameProjectId) {
-        showToast("Clip renamed, but the workspace changed before the update finished.");
-        return;
-      }
-      clips = clips.map((item) => item.id === clip.id ? result.clip : item);
-      renderClipLibrary();
-      showToast("Clip renamed.");
-    } catch (error) {
-      if (currentProject?.id === renameProjectId) showToast(`Could not rename clip: ${error.message}`);
-    }
-    return;
-  }
-  const previewButton = event.target.closest("[data-preview-clip]");
-  if (previewButton) {
-    const previewProjectId = currentProject?.id;
-    const previewClipId = previewButton.dataset.previewClip;
-    const clip = clips.find((item) => item.id === previewClipId);
-    if (!clip) return;
-    if (clip.status !== "ready" || !clip.downloadUrl) { showToast("This clip is not ready for preview yet."); return; }
-    clipPreviewTitle.textContent = clip.title || "Clip preview";
-    clipPreviewVideo.pause();
-    clipPreviewVideo.removeAttribute("src");
-    clipPreviewVideo.load();
-    try {
-      const response = await fetch(`/api/clips/${encodeURIComponent(clip.id)}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
-      if (currentProject?.id !== previewProjectId) return;
-      if (!response.ok) throw new Error("The rendered clip is no longer available.");
-      const blobUrl = URL.createObjectURL(await response.blob());
-      if (currentProject?.id !== previewProjectId) {
-        URL.revokeObjectURL(blobUrl);
-        return;
-      }
-      clipPreviewVideo.dataset.previewBlobUrl = blobUrl;
-      clipPreviewVideo.src = blobUrl;
-      clipPreviewVideo.onloadedmetadata = () => clipPreviewVideo.play().catch(() => {});
-      clipPreviewVideo.ontimeupdate = null;
-      clipPreviewDialog.showModal();
-    } catch (error) {
-      if (currentProject?.id === previewProjectId) showToast(`Could not load clip preview: ${error.message}`);
-    }
-    return;
-  }
-  const sourceButton = event.target.closest("[data-open-source]");
-  if (sourceButton) {
-    const videoId = sourceButton.dataset.openSource;
-    const sourceProjectId = currentProject?.id;
-    if (videoId && sourceProjectId) {
-      try {
-        const videos = (await api("/api/videos?projectId=" + encodeURIComponent(sourceProjectId))).videos;
-        if (currentProject?.id !== sourceProjectId) {
-          showToast("Workspace changed while opening the source video.");
-          return;
-        }
-        const video = videos.find((item) => item.id === videoId);
-        if (video) {
-          sourceVideo = video;
-          restoreSourcePreview(video);
-          document.querySelector('[data-view="editor"]')?.click();
-          showToast("Source video opened in the editor.");
-        } else {
-          showToast("That source video is no longer available.");
-        }
-      } catch (error) {
-        if (currentProject?.id === sourceProjectId) showToast(`Could not open source video: ${error.message}`);
-      }
-    }
-    return;
-  }
-  const downloadButton = event.target.closest("[data-download-clip]");
-  if (downloadButton) {
-    const downloadProjectId = currentProject?.id;
-    const downloadClipId = downloadButton.dataset.downloadClip;
-    try {
-      const response = await fetch(`/api/clips/${encodeURIComponent(downloadClipId)}/download`, { headers: apiSession?.token ? { authorization: `Bearer ${apiSession.token}` } : {} });
-      if (currentProject?.id !== downloadProjectId) return;
-      if (!response.ok) throw new Error("Download failed.");
-      const blob = await response.blob();
-      if (currentProject?.id !== downloadProjectId) return;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const clip = clips.find((item) => item.id === downloadClipId);
-      const safeTitle = String(clip?.title || "ClipForge clip")
-        .replace(/[<>:"/\\|?*\\x00-\\x1F]/g, "_")
-        .replace(/\\s+/g, " ")
-        .trim()
-        .replace(/[. ]+$/, "")
-        .slice(0, 100) || "ClipForge clip";
-      link.download = `${safeTitle}.mp4`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      if (currentProject?.id === downloadProjectId) showToast(error.message);
-    }
-    return;
-  }
-  const button = event.target.closest("[data-delete-clip]");
-  if (!button) return;
-  const deleteProjectId = currentProject?.id;
-  const deletedClipId = button.dataset.deleteClip;
-  try {
-    await api(`/api/clips/${deletedClipId}`, { method: "DELETE" });
-    if (currentProject?.id !== deleteProjectId) {
-      showToast("Clip was deleted from the original project, but the workspace changed before the update finished.");
-      return;
-    }
-    clips = clips.filter((clip) => clip.id !== deletedClipId);
-    selectedClipIds.delete(deletedClipId);
-    favoriteClipIds.delete(deletedClipId);
-    window.localStorage.setItem(favoriteKey, JSON.stringify([...favoriteClipIds]));
-    saveClips();
-    renderClipLibrary();
-    showToast("Clip removed from your library.");
-  } catch (error) {
-    if (currentProject?.id === deleteProjectId) {
-      showToast(error.status === 409 ? "This clip is still rendering. Try again when rendering finishes." : `Could not remove clip: ${error.message}`);
-    }
-  }
-});
-
-renderClipLibrary();
-document.querySelector("#close-clip-details")?.addEventListener("click", () => clipDetailsDialog?.close());
-detailsDownloadClipButton?.addEventListener("click", () => {
-  const clipId = detailsDownloadClipButton.dataset.downloadClip;
-  if (!clipId || detailsDownloadClipButton.disabled) return;
-  clipLibrary?.querySelector(`[data-download-clip="${CSS.escape(clipId)}"]`)?.click();
-  clipDetailsDialog?.close();
-});
-document.querySelector("#close-clip-preview")?.addEventListener("click", () => { clipPreviewVideo.pause(); const blobUrl = clipPreviewVideo.dataset.previewBlobUrl; if (blobUrl) URL.revokeObjectURL(blobUrl); delete clipPreviewVideo.dataset.previewBlobUrl; clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); clipPreviewDialog.close(); });
-clipPreviewDialog?.addEventListener("close", () => { clipPreviewVideo.pause(); const blobUrl = clipPreviewVideo.dataset.previewBlobUrl; if (blobUrl) URL.revokeObjectURL(blobUrl); delete clipPreviewVideo.dataset.previewBlobUrl; clipPreviewVideo.removeAttribute("src"); clipPreviewVideo.load(); });
-updateRange();
-applyCaptionStyle();
-startClipStatusPolling();
-ensureWorkspace();
-
-window.addEventListener("keydown", (event) => {
-  if (event.key === "/" && !event.target.matches("input, select, textarea") && !event.metaKey && !event.ctrlKey && !event.altKey) {
-    event.preventDefault();
-    clipSearch?.focus();
-    clipSearch?.select();
-    return;
-  }
-  if (event.key === "Escape" && document.activeElement === clipSearch && clipSearch?.value) {
-    clipSearch.value = "";
-    libraryQuery = "";
-    renderClipLibrary();
-    return;
-  }
-  if (event.target.matches("input, select, textarea")) return;
-  if (event.key === " ") { event.preventDefault(); playbackButton.click(); }
-  if (event.key.toLowerCase() === "e") document.querySelector("#export-button").click();
-  if (event.key.toLowerCase() === "u") sourceUpload.click();
-  if (event.key === "Escape" && styleDialog.open) styleDialog.close();
-});
-
-async function pollAutoClipStatus(videoId) {
-  if (automaticClipPolls.has(videoId)) return;
-  automaticClipPolls.add(videoId);
-  const pollingProjectId = currentProject?.id;
-  try {
-    for (let attempt = 0; attempt < 450; attempt += 1) {
-      if (automaticClipFailures.has(videoId) || currentProject?.id !== pollingProjectId) return;
-      try {
-        const statusLanguage = transcriptionLanguage?.value || safeStorageParse(transcriptionLanguageKey, "auto");
-        const statusCaptionLanguage = captionLanguageSelect?.value || safeStorageParse(captionLanguageKey, "original");
-        const statusQuery = new URLSearchParams({ language: statusLanguage, captionLanguage: statusCaptionLanguage });
-        const status = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status?${statusQuery.toString()}`);
-        if (currentProject?.id !== pollingProjectId) return;
-        const scopedAutomaticClips = status.clips.filter((clip) => clip.projectId === pollingProjectId);
-        clips = [...scopedAutomaticClips, ...clips.filter((clip) => clip.projectId === currentProject?.id && (clip.videoId !== videoId || clip.generation !== "auto-ai"))];
-        renderClipLibrary();
-        if (status.total === 0) {
-          showToast(status.analysisInProgress
-            ? (status.transcriptReady
-              ? "Transcript ready. ClipForge is selecting the strongest moments…"
-              : "ClipForge is preparing the transcript and strongest moments…")
-            : "Waiting for automatic AI analysis to begin…");
-        }
-        if (status.total > 0 && status.processing === 0) {
-          if (status.failed && status.ready === 0) {
-            showToast("Automatic clipping could not render any clips. You can retry failed clips from the library.");
-          } else {
-            showToast(status.failed ? `Automatic clipping finished: ${status.ready} clips ready, ${status.failed} failed.` : `Automatic clipping finished: ${status.ready} clips are ready.`);
-          }
-          return;
-        }
-        if (attempt > 0 && attempt % 15 === 0 && status.analysisInProgress) {
-          showToast(status.transcriptReady
-            ? "ClipForge is still analyzing the video and selecting the strongest moments…"
-            : "ClipForge is still preparing the transcript…");
-        }
-      } catch (error) {
-        if (attempt > 0 && attempt % 20 === 0 && error?.status >= 500) {
-          showToast("ClipForge is reconnecting to the automatic clipping pipeline…");
-        }
-      }
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-  } finally {
-    automaticClipPolls.delete(videoId);
-  }
-}
-
-savePerformanceButton?.addEventListener("click", async () => {
-  const clipId = detailsDownloadClipButton?.dataset.downloadClip;
-  if (!clipId || !savePerformanceButton) return;
-  savePerformanceButton.disabled = true;
-  savePerformanceButton.textContent = "Saving…";
-  const number = (id) => Math.max(0, Number(document.querySelector(id)?.value) || 0);
-  try {
-    const result = await api("/api/clips/" + encodeURIComponent(clipId) + "/performance", {
-      method: "POST",
-      body: JSON.stringify({
-        platform: document.querySelector("#performance-platform")?.value || "unknown",
-        views: number("#performance-views"),
-        likes: number("#performance-likes"),
-        comments: number("#performance-comments"),
-        shares: number("#performance-shares"),
-        completionRate: Math.min(100, number("#performance-completion")),
-      }),
-    });
-    const clip = clips.find((item) => item.id === clipId);
-    if (clip) clip.performance = result.performance;
-    showToast("Performance saved. ClipForge can now learn from this result.");
-  } catch (error) {
-    showToast("Performance save failed: " + error.message);
-  } finally {
-    savePerformanceButton.disabled = false;
-    savePerformanceButton.textContent = "Save performance";
-  }
-});
-
-document.querySelector("#dashboard-new-project")?.addEventListener("click", () => newProjectButton?.click());
-const openAccountSettings = () => {
-  const dialog = document.querySelector("#account-dialog");
-  const emailField = document.querySelector("#account-email");
-  if (emailField) emailField.value = apiSession?.user?.email || "";
-  document.querySelector("#login-email")?.setAttribute("value", apiSession?.user?.email || "");
-  const count = document.querySelector("#settings-project-count");
-  const current = document.querySelector("#settings-current-project");
-  if (count) count.textContent = String(document.querySelectorAll("#project-grid .project-card").length);
-  if (current) current.textContent = currentProject?.name || "—";
-  document.querySelector("#settings-language").value = safeStorageParse(transcriptionLanguageKey, "auto");
-  document.querySelector("#settings-caption-language").value = safeStorageParse(captionLanguageKey, "original");
-  document.querySelector("#settings-captions").checked = safeStorageParse("clipforge-auto-captions", true);
-  showSettingsTab("account");
-  dialog?.showModal();
-};
-const showSettingsTab = (tab) => {
-  document.querySelectorAll("[data-settings-tab]").forEach((button) => {
-    const active = button.dataset.settingsTab === tab;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-  });
-  document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
-    panel.hidden = panel.dataset.settingsPanel !== tab;
-  });
-};
-document.querySelectorAll("[data-settings-tab]").forEach((button) => button.addEventListener("click", () => showSettingsTab(button.dataset.settingsTab)));
-document.querySelector("#account-button")?.addEventListener("click", openAccountSettings);
-document.querySelector("#dashboard-settings")?.addEventListener("click", openAccountSettings);
-document.querySelector("#dashboard-open-editor")?.addEventListener("click", () => { if (currentProject) openProject(currentProject.id); });
-document.querySelector("#dashboard-open-library")?.addEventListener("click", () => { if (currentProject) { switchView("clips"); history.replaceState(null, "", "#clips"); } });
-document.querySelector("#dashboard-open-settings")?.addEventListener("click", openAccountSettings);
-
-document.querySelector("#account-dialog-save")?.addEventListener("click", async () => {
-  const saveButton = document.querySelector("#account-dialog-save");
-  const email = document.querySelector("#account-email")?.value.trim().toLowerCase();
-  const password = document.querySelector("#account-password")?.value || "";
-  if (!email || password.length < 8) { showToast("Enter a valid email and a password with at least 8 characters."); return; }
-  saveButton.disabled = true; saveButton.textContent = "Saving…";
-  try {
-    const result = await api("/api/auth/update", { method: "PATCH", body: JSON.stringify({ email, password }) });
-    apiSession = { ...apiSession, user: result.user };
-    window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
-    window.localStorage.setItem(identityKey, JSON.stringify({ email }));
-    document.querySelector("#dashboard-account-email").textContent = email;
-    document.querySelector("#account-dialog-email").textContent = "Your ClipForge account is secured with this email.";
-    document.querySelector("#account-password").value = "";
-    showToast("Account settings saved.");
-  } catch (error) { showToast("Could not save account: " + error.message); }
-  finally { saveButton.disabled = false; saveButton.textContent = "Save account"; }
-});
-
-async function signInWithCredentials(email, password) {
-  if (!email || !password) throw new Error("Enter your email and password.");
-  const session = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
-  apiSession = session;
-  window.localStorage.setItem(sessionKey, JSON.stringify(session));
-  window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email }));
-  window.location.reload();
-}
-document.querySelector("#account-login-button")?.addEventListener("click", async () => {
-  const button = document.querySelector("#account-login-button");
-  try { button.disabled = true; button.textContent = "Logging in…"; await signInWithCredentials(document.querySelector("#login-email").value.trim(), document.querySelector("#login-password").value); }
-  catch (error) { showToast("Could not log in: " + error.message); }
-  finally { button.disabled = false; button.textContent = "Log in"; }
-});
-document.querySelector("#account-signup-button")?.addEventListener("click", async () => {
-  const button = document.querySelector("#account-signup-button");
-  try {
-    button.disabled = true; button.textContent = "Creating…";
-    const email = document.querySelector("#signup-email").value.trim();
-    const password = document.querySelector("#signup-password").value;
-    const session = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
-    apiSession = session;
-    window.localStorage.setItem(sessionKey, JSON.stringify(session));
-    window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email }));
-    window.location.reload();
-  } catch (error) { showToast("Could not create account: " + error.message); }
-  finally { button.disabled = false; button.textContent = "Create account"; }
-});
-document.querySelector("#settings-save-preferences")?.addEventListener("click", () => {
-  const language = document.querySelector("#settings-language").value;
-  window.localStorage.setItem(transcriptionLanguageKey, JSON.stringify(language || "auto"));
-  const captionLanguage = document.querySelector("#settings-caption-language").value || "original";
-  window.localStorage.setItem(captionLanguageKey, JSON.stringify(captionLanguage));
-  if (captionToggle) captionToggle.checked = document.querySelector("#settings-captions").checked;
-  window.localStorage.setItem("clipforge-auto-captions", JSON.stringify(Boolean(captionToggle?.checked)));
-  showToast("Preferences saved.");
-});
-document.querySelector("#settings-change-password")?.addEventListener("click", () => {
-  showSettingsTab("account");
-  document.querySelector("#account-password")?.focus();
-  showToast("Enter your new password, then save account.");
-});
-document.querySelector("#settings-signout")?.addEventListener("click", async () => {
-  try { await api("/api/auth/logout", { method: "POST" }); } catch {}
-  apiSession = null;
-  window.localStorage.removeItem(sessionKey);
-  window.localStorage.removeItem(identityKey);
-  window.location.reload();
-});
-document.querySelector("#dashboard-logout")?.addEventListener("click", async () => {
-  try { await api("/api/auth/logout", { method: "POST" }); } catch {}
-  apiSession = null;
-  window.localStorage.removeItem(sessionKey);
-  window.localStorage.removeItem(identityKey);
-  window.location.reload();
-});
