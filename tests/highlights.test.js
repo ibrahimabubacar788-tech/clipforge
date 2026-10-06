@@ -356,3 +356,24 @@ test("highlight engine understands transcript context beyond the selected window
   if (dependent && standalone) assert.ok(standalone.score > dependent.score);
   assert.ok(candidates.some((item) => /key lesson|clear improvement|method gives/i.test(item.transcript)));
 });
+
+
+test("highlight engine rewards promise fulfillment when the opening setup is resolved later", () => {
+  const fulfilled = rankHighlights([
+    { start: 0, end: 6, text: "You will learn the exact method creators use to keep viewers watching." },
+    { start: 6, end: 12, text: "First we define one clear problem and remove the unnecessary setup." },
+    { start: 12, end: 18, text: "The reason it works is that the viewer understands the value immediately." },
+    { start: 18, end: 24, text: "The result is stronger retention and a much clearer clip." },
+  ], { limit: 1, minDuration: 15, maxDuration: 25 });
+
+  const brokenPromise = rankHighlights([
+    { start: 0, end: 6, text: "You will learn the exact method creators use to keep viewers watching." },
+    { start: 6, end: 12, text: "Then we discuss several unrelated examples from different projects and topics." },
+    { start: 12, end: 18, text: "There are also some general comments about editing and production." },
+    { start: 18, end: 24, text: "It is interesting to see how different people approach their work." },
+  ], { limit: 1, minDuration: 15, maxDuration: 25 });
+
+  assert.equal(fulfilled.length, 1);
+  assert.equal(brokenPromise.length, 1);
+  assert.ok(fulfilled[0].score > brokenPromise[0].score);
+});
