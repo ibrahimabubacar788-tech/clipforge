@@ -243,6 +243,11 @@ export class ClipQueue {
         },
       });
       await rename(tempOutput, output);
+      const renderedInfo = await lstat(output).catch(() => null);
+      if (!renderedInfo?.isFile() || renderedInfo.isSymbolicLink() || renderedInfo.size <= 0) {
+        await safeUnlinkExportFile(exportDir, output);
+        throw new Error("FFmpeg completed but the rendered clip was not written correctly.");
+      }
     } catch (error) {
       await safeUnlinkExportFile(exportDir, tempOutput);
       throw error;
