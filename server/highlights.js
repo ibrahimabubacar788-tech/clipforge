@@ -1,4 +1,5 @@
 import { getContentProfile, normalizeContentProfile } from "./content-strategy.js";
+// Performance learning is blended into AI ranking after transcript analysis.
 const HOOKS = [
   /\bhere'?s the thing\b/i, /\byou need to know\b/i, /\bthe truth is\b/i,
   /\bthe biggest\b/i, /\bsecret\b/i, /\bmistake\b/i, /\bnever\b/i,
