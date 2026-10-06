@@ -152,7 +152,25 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "GET" && pathname === "/api/ready") {
       await db.load();
       const mediaPersistent = String(process.env.MEDIA_STORAGE_PERSISTENT || "").toLowerCase() === "true";
-      return json(res, 200, { ok: true, service: "clipforge", mediaStorage: { mode: "local", persistent: mediaPersistent } });
+      const openAiConfigured = Boolean(String(process.env.OPENAI_API_KEY || "").trim());
+      return json(res, 200, {
+        ok: true,
+        service: "clipforge",
+        ai: {
+          configured: openAiConfigured,
+          highlightModel: openAiConfigured ? (process.env.OPENAI_HIGHLIGHT_MODEL || "gpt-6-luna") : null,
+          transcription: openAiConfigured,
+        },
+        ffmpeg: {
+          subtitles: queue.subtitleSupport === true,
+          pathConfigured: Boolean(String(process.env.FFMPEG_PATH || "").trim()),
+        },
+        mediaStorage: {
+          mode: "local",
+          persistent: mediaPersistent,
+          warning: mediaPersistent ? null : "Local media storage is ephemeral on Render and should not be treated as durable production storage.",
+        },
+      });
     }
     if (req.method === "POST" && pathname === "/api/auth/register") {
       checkAuthLimit(req);
