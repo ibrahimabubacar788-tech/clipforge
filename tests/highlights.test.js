@@ -654,3 +654,39 @@ test("AI highlight candidates expose cross-video novelty intelligence", async ()
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+
+test("AI highlight candidates expose cross-video continuity intelligence", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  let requestBody = "";
+  globalThis.fetch = async (_url, options) => {
+    requestBody = String(options?.body || "");
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({
+        selections: [{ id: 0, score: 94, reason: "Meaningful update", title: "The update", type: "insight" }],
+      }),
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 20, text: "The new framework is better now because we changed the audience strategy and improved the result." },
+    ], {
+      limit: 1,
+      minDuration: 20,
+      maxDuration: 20,
+      creatorMemory: [
+        { videoId: "previous", title: "Earlier strategy", text: "The framework for the audience strategy focused on consistency." },
+      ],
+    });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.match(requestBody, /libraryRelationship/);
+    assert.match(requestBody, /update/);
+    assert.match(requestBody, /meaningful updates, reversals, continuations/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
