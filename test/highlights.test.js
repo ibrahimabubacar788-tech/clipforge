@@ -72,3 +72,23 @@ test("highlight scoring penalizes filler and promotional boilerplate", () => {
   assert.match(clips[0].transcript, /(?:result|lesson)/i);
   assert.equal(clips.some((clip) => /promo code/i.test(clip.transcript)), false);
 });
+
+
+test("highlight ranking rewards meaningful speaker interaction", () => {
+  const dialogue = rankHighlights([
+    { start: 0, end: 6, speaker: "host", text: "Why did the strategy fail for so many creators?" },
+    { start: 6, end: 12, speaker: "guest", text: "Because the opening gave viewers no reason to keep watching." },
+    { start: 12, end: 18, speaker: "host", text: "So the fix is to show the value before the explanation?" },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  const monologue = rankHighlights([
+    { start: 0, end: 6, text: "Why did the strategy fail for so many creators?" },
+    { start: 6, end: 12, text: "Because the opening gave viewers no reason to keep watching." },
+    { start: 12, end: 18, text: "So the fix is to show the value before the explanation." },
+  ], { limit: 1, minDuration: 15, maxDuration: 20 });
+
+  assert.equal(dialogue.length, 1);
+  assert.equal(monologue.length, 1);
+  assert.ok(dialogue[0].score > monologue[0].score);
+  assert.deepEqual(dialogue[0].speakers, ["host", "guest"]);
+});
