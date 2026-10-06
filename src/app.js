@@ -421,45 +421,68 @@ async function uploadSource(file) {
   uploadProgress?.removeAttribute("hidden");
   if (uploadProgressBar) uploadProgressBar.value = 0;
   if (uploadProgressPercent) uploadProgressPercent.textContent = "0%";
-  const upload = await new Promise((resolve, reject) => {
-    let attempts = 0;
+  const upload = await new Promise(async (resolve, reject) => {
     const uploadId = crypto.randomUUID();
-    const send = () => {
-      attempts += 1;
-      const request = new XMLHttpRequest();
-      activeUploadRequest = request;
-      request.open("POST", "/api/uploads");
-      request.timeout = 15 * 60 * 1000;
-      request.setRequestHeader("content-type", contentType);
-      request.setRequestHeader("x-filename", file.name);
-      request.setRequestHeader("x-upload-id", uploadId);
-      if (apiSession?.token) request.setRequestHeader("authorization", "Bearer " + apiSession.token);
-      request.upload.onprogress = (event) => {
-        if (!event.lengthComputable) return;
-        const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+    const chunkSize = 10 * 1024 * 1024;
+    const totalChunks = Math.ceil(file.size / chunkSize);
+    let completedBytes = 0;
+    try {
+      for (let index = 0; index < totalChunks; index += 1) {
+        const chunk = file.slice(index * chunkSize, Math.min(file.size, (index + 1) * chunkSize));
+        let attempts = 0;
+        let uploaded = false;
+        while (!uploaded && attempts < 3) {
+          attempts += 1;
+          const result = await new Promise((chunkResolve, chunkReject) => {
+            const request = new XMLHttpRequest();
+            activeUploadRequest = request;
+            request.open("POST", "/api/uploads/chunk");
+            request.timeout = 15 * 60 * 1000;
+            request.setRequestHeader("content-type", contentType);
+            request.setRequestHeader("x-filename", file.name);
+            request.setRequestHeader("x-upload-id", uploadId);
+            request.setRequestHeader("x-upload-index", String(index));
+            request.setRequestHeader("x-upload-total", String(totalChunks));
+            request.setRequestHeader("x-upload-size", String(file.size));
+            if (apiSession?.token) request.setRequestHeader("authorization", "Bearer " + apiSession.token);
+            request.upload.onprogress = (event) => {
+              if (!event.lengthComputable) return;
+              const percent = Math.min(100, Math.round(((completedBytes + event.loaded) / file.size) * 100));
+              if (uploadProgressBar) uploadProgressBar.value = percent;
+              if (uploadProgressPercent) uploadProgressPercent.textContent = percent + "%";
+              if (uploadProgressLabel) uploadProgressLabel.textContent = "Uploading video…";
+            };
+            request.onload = () => {
+              let data = {};
+              try { data = JSON.parse(request.responseText || "{}"); } catch {}
+              if (request.status >= 200 && request.status < 300) chunkResolve(data);
+              else chunkReject(new Error(data.error || "Upload chunk failed (HTTP " + request.status + ")."));
+            };
+            request.onerror = () => chunkReject(new Error("Upload chunk failed: network connection was interrupted."));
+            request.ontimeout = () => chunkReject(new Error("Upload chunk timed out."));
+            request.onabort = () => chunkReject(new Error("Upload was cancelled."));
+            request.send(chunk);
+          }).catch((error) => {
+            if (attempts >= 3) throw error;
+            showToast("Connection interrupted. Retrying this upload section…");
+            return null;
+          });
+          if (result !== null) uploaded = true;
+        }
+        completedBytes += chunk.size;
+        const percent = Math.min(100, Math.round((completedBytes / file.size) * 100));
         if (uploadProgressBar) uploadProgressBar.value = percent;
         if (uploadProgressPercent) uploadProgressPercent.textContent = percent + "%";
         if (uploadProgressLabel) uploadProgressLabel.textContent = "Uploading video…";
-        showToast("Uploading video… " + percent + "%");
-      };
-      request.onload = () => {
-        let result = {};
-        try { result = JSON.parse(request.responseText || "{}"); } catch {}
-        if (request.status >= 200 && request.status < 300) resolve(result);
-        else reject(new Error(result.error || "Upload failed (HTTP " + request.status + ")."));
-      };
-      request.onerror = () => {
-        if (attempts < 2) { showToast("Connection interrupted. Retrying upload…"); send(); }
-        else reject(new Error("Upload failed: network connection was interrupted."));
-      };
-      request.ontimeout = () => {
-        if (attempts < 2) { showToast("Upload timed out. Retrying…"); send(); }
-        else reject(new Error("Upload timed out. Please try a smaller video or a stronger connection."));
-      };
-      request.onabort = () => reject(new Error("Upload was cancelled."));
-      request.send(file);
-    };
-    send();
+      }
+      const completed = await api("/api/uploads/complete", {
+        method: "POST",
+        body: JSON.stringify({ uploadId, filename: file.name, totalChunks, totalSize: file.size })
+      });
+      resolve(completed);
+    } catch (error) {
+      reject(error);
+    }
   });
   activeUploadRequest = null;
   const uploadedVideo = (await api("/api/videos", { method: "POST", body: JSON.stringify({ projectId: uploadProjectId, name: file.name, sourceUrl: upload.url }) })).video;
