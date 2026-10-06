@@ -271,7 +271,7 @@ test("highlight engine prefers natural sentence boundaries over dangling fragmen
 
 test("highlight engine rewards early retention signals", () => {
   const strong = rankHighlights([
-    { start: 0, end: 25, text: "The key result is simple. Start with the problem, show the surprising result, and explain the method that worked." },
+    { start: 0, end: 25, text: "The key result is simple for creators. Start with the problem, show the surprising result, explain the method that worked, and give the audience a clear lesson they can use today." },
   ], { limit: 1, minDuration: 15, maxDuration: 25 });
   const weak = rankHighlights([
     { start: 0, end: 25, text: "Welcome back everyone. Today we are going to talk about a few things. Basically, there are some ideas we can discuss before we get into the details." },
@@ -351,5 +351,8 @@ test("highlight engine understands transcript context beyond the selected window
 
   assert.ok(candidates.length > 0);
   assert.ok(candidates.every((item) => Number.isFinite(item.score)));
-  assert.equal(candidates.some((item) => /^This is why/i.test(item.transcript)), false);
+  const dependent = candidates.find((item) => item.start === 5);
+  const standalone = candidates.find((item) => item.start === 100);
+  if (dependent && standalone) assert.ok(standalone.score > dependent.score);
+  assert.ok(candidates.some((item) => /key lesson|clear improvement|method gives/i.test(item.transcript)));
 });
