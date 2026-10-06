@@ -768,7 +768,87 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         duration = await probeVideoDuration(source);
       }
       const video = { id: id("vid"), userId: user.id, projectId: project.id, name: (() => { const value = String(payload.name ?? "").trim(); if (value.length > 160) throw Object.assign(new Error("Video name must be 160 characters or fewer."), { status: 422 }); return value || "Untitled video"; })(), duration, sourceUrl, createdAt: now() }; try { await db.transaction((d) => d.videos.push(video)); } catch (error) { if (source) { const stillReferenced = await db.read((d) => d.videos.some((item) => item.sourceUrl === sourceUrl)); if (!stillReferenced) await safeUnlinkStorageFile(storageDir, sourceUrl); } throw error; } return json(res, 201, { video }); }
-if (req.method === "POST" && pathname === "/api/uploads") {
+if (req.method === "POST" && pathname === "/api/uploads/chunk") {
+      const user = await requireUser(req, db);
+      const filename = String(req.headers["x-filename"] || "video.mp4").slice(0, 120).replace(/[^a-zA-Z0-9._-]/g, "_");
+      const uploadMime = mime[extname(filename).toLowerCase()];
+      const contentType = String(req.headers["content-type"] || "").toLowerCase();
+      if (!uploadMime?.startsWith("video/")) throw Object.assign(new Error("Upload filename must use a supported video extension."), { status: 415 });
+      if (!contentType.startsWith("video/") || contentType.split(";")[0].trim() !== uploadMime.split(";")[0].trim()) throw Object.assign(new Error("Upload content type does not match its filename extension."), { status: 415 });
+      const uploadId = String(req.headers["x-upload-id"] || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 100);
+      const index = Number(req.headers["x-upload-index"]);
+      const total = Number(req.headers["x-upload-total"]);
+      const totalSize = Number(req.headers["x-upload-size"]);
+      const chunkSize = 10 * 1024 * 1024;
+      const maxUploadBytes = 250 * 1024 * 1024;
+      if (!uploadId || !Number.isInteger(index) || !Number.isInteger(total) || index < 0 || total < 1 || index >= total || !Number.isInteger(totalSize) || totalSize <= 0 || totalSize > maxUploadBytes) {
+        throw Object.assign(new Error("Invalid resumable upload metadata."), { status: 400 });
+      }
+      if (total > Math.ceil(maxUploadBytes / chunkSize)) throw Object.assign(new Error("Upload has too many chunks."), { status: 413 });
+      const partDir = join(storageDir, "uploads", ".parts", user.id, uploadId);
+      await mkdir(partDir, { recursive: true });
+      const partPath = join(partDir, String(index).padStart(4, "0") + ".part");
+      const existing = await lstat(partPath).catch(() => null);
+      if (existing?.isSymbolicLink()) throw Object.assign(new Error("Unsafe upload part target."), { status: 409 });
+      let bytes = 0;
+      const limited = async function* () {
+        for await (const chunk of req) {
+          bytes += chunk.length;
+          if (bytes > chunkSize) throw Object.assign(new Error("Upload chunk is too large."), { status: 413 });
+          yield chunk;
+        }
+        if (bytes === 0) throw Object.assign(new Error("Upload chunk is empty."), { status: 400 });
+      };
+      if (existing?.isFile()) {
+        const info = await stat(partPath);
+        if (info.size === bytes) return json(res, 200, { uploadId, index, reused: true });
+      }
+      await pipeline(limited(), createWriteStream(partPath, { flags: "w" }));
+      return json(res, 201, { uploadId, index, bytes });
+    }
+    if (req.method === "POST" && pathname === "/api/uploads/complete") {
+      const user = await requireUser(req, db);
+      const filename = String(payload.filename || "video.mp4").slice(0, 120).replace(/[^a-zA-Z0-9._-]/g, "_");
+      const uploadMime = mime[extname(filename).toLowerCase()];
+      const uploadId = String(payload.uploadId || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 100);
+      const total = Number(payload.totalChunks);
+      const totalSize = Number(payload.totalSize);
+      const maxUploadBytes = 250 * 1024 * 1024;
+      if (!uploadMime?.startsWith("video/") || !uploadId || !Number.isInteger(total) || total < 1 || !Number.isInteger(totalSize) || totalSize <= 0 || totalSize > maxUploadBytes) {
+        throw Object.assign(new Error("Invalid resumable upload completion request."), { status: 400 });
+      }
+      const partDir = join(storageDir, "uploads", ".parts", user.id, uploadId);
+      const targetName = `${user.id}-${uploadId}-${filename}`;
+      const target = join(storageDir, "uploads", targetName);
+      const existingTarget = await lstat(target).catch(() => null);
+      if (existingTarget?.isSymbolicLink()) throw Object.assign(new Error("Unsafe upload target."), { status: 409 });
+      if (existingTarget?.isFile()) return json(res, 200, { url: `/storage/uploads/${targetName}`, reused: true });
+      await mkdir(join(storageDir, "uploads"), { recursive: true });
+      let written = 0;
+      const output = createWriteStream(target, { flags: "wx" });
+      try {
+        for (let index = 0; index < total; index += 1) {
+          const part = join(partDir, String(index).padStart(4, "0") + ".part");
+          const info = await stat(part).catch(() => null);
+          if (!info?.isFile() || info.size <= 0) throw Object.assign(new Error(`Upload chunk ${index + 1} of ${total} is missing. Please retry the upload.`), { status: 409 });
+          written += info.size;
+          if (written > maxUploadBytes) throw Object.assign(new Error("Upload is too large. Maximum size is 250 MB."), { status: 413 });
+          await pipeline(createReadStream(part), output, { end: false });
+        }
+        await new Promise((resolve, reject) => { output.once("finish", resolve); output.once("error", reject); output.end(); });
+      } catch (error) {
+        output.destroy();
+        await safeUnlinkStorageFile(storageDir, `/storage/uploads/${targetName}`);
+        throw error;
+      }
+      if (written !== totalSize) {
+        await safeUnlinkStorageFile(storageDir, `/storage/uploads/${targetName}`);
+        throw Object.assign(new Error("Uploaded file size does not match the original video."), { status: 409 });
+      }
+      for (let index = 0; index < total; index += 1) await unlink(join(partDir, String(index).padStart(4, "0") + ".part")).catch(() => {});
+      return json(res, 201, { url: `/storage/uploads/${targetName}` });
+    }
+    if (req.method === "POST" && pathname === "/api/uploads") {
       const user = await requireUser(req, db);
       const filename = String(req.headers["x-filename"] || "video.mp4").slice(0, 120).replace(/[^a-zA-Z0-9._-]/g, "_");
       const uploadMime = mime[extname(filename).toLowerCase()];
