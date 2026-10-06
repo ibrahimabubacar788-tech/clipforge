@@ -1635,6 +1635,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
               text: `Select the strongest short-form video moments from these transcript windows.\nYou also receive a lightweight global conversation map below. Use it to understand the overall topic, story progression, repeated ideas, and where each candidate fits in the full conversation. Do not select from the map directly; only select supplied candidate IDs. Each candidate also includes nearbyContext from the surrounding transcript. Use it to avoid cutting off setup or payoff, while scoring only the supplied candidate window.\nGlobal conversation map: ${JSON.stringify(globalConversationContext)}\n\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
 Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.
 When returning several clips, prefer genuinely strong moments from different stages of the conversation when quality is comparable. Do not cluster the entire clip pack around one short section of the source.
+When the transcript has multiple speakers, also prefer genuinely strong moments that represent different speakers when quality is comparable.
 ${hasLearning ? `Use this project's historical performance as a secondary signal, not a hard rule. Previously tracked clip-type engagement: ${JSON.stringify(learnedTypes.slice(0, 5).map(([type, value]) => ({ type, engagementRate: Number(value.toFixed(2)) })))}. Favor proven types modestly when the transcript quality is comparable, but still surface genuinely exceptional moments of other types.` : ""}
 Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
 ${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
@@ -1765,6 +1766,7 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
     // from the same opening section when equally strong moments exist later.
     const seenTypes = new Set();
     const selectedStoryChapters = new Set();
+    const selectedSpeakers = new Set();
     const timelineStart = Number(segments?.[0]?.start);
     const timelineEnd = Array.isArray(segments) && segments.length
       ? Math.max(...segments.map((segment) => Number(segment?.end)).filter(Number.isFinite))
@@ -1799,8 +1801,14 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         const storyCoverageBonus = storyChapter !== null && !selectedStoryChapters.has(storyChapter)
           ? 12
           : 0;
+        const candidateSpeakers = Array.isArray(candidate.speakers)
+          ? candidate.speakers.map((speaker) => String(speaker || "").trim()).filter(Boolean)
+          : [];
+        const speakerCoverageBonus = candidateSpeakers.length && candidateSpeakers.some((speaker) => !selectedSpeakers.has(speaker))
+          ? 8
+          : 0;
         const utility = Number(candidate.score || 0) + requestedBonus + noveltyBonus
-          + temporalCoverageBonus + storyCoverageBonus
+          + temporalCoverageBonus + storyCoverageBonus + speakerCoverageBonus
           - weakContextPenalty - weakStandalonePenalty;
         if (utility > bestUtility) {
           bestUtility = utility;
@@ -1814,6 +1822,9 @@ Use only supplied IDs. Score each selection from 0 to 100. Do not invent timesta
         if (type) seenTypes.add(type);
         const storyChapter = getStoryChapter(candidate);
         if (storyChapter !== null) selectedStoryChapters.add(storyChapter);
+        if (Array.isArray(candidate.speakers)) {
+          candidate.speakers.map((speaker) => String(speaker || "").trim()).filter(Boolean).forEach((speaker) => selectedSpeakers.add(speaker));
+        }
       }
     }
 
