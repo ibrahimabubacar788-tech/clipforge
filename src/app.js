@@ -1547,3 +1547,7 @@ async function copySelectedClipJson() {
   if (!selected.length) return;
   try {
     await navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
+  } catch {
+    showToast("Could not copy clip JSON. Your browser may block clipboard access.");
+  }
+}
