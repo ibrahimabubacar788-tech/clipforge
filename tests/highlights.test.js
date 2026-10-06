@@ -267,3 +267,13 @@ test("highlight engine prefers natural sentence boundaries over dangling fragmen
   assert.equal(/^(?:and|but|or|because|which|that|if|when|while|although|yet|then)\b/i.test(candidates[0].transcript), false);
   assert.equal(candidates.some((item) => item.start === 0), false);
 });
+
+
+test("highlight engine remains stable when evaluating speech pacing", () => {
+  const candidates = rankHighlights([
+    { start: 0, end: 20, text: "Here is the key lesson for creators. The result is simple and useful for your audience today." },
+    { start: 100, end: 120, text: "Here is another useful explanation for creators. The result is clear and practical." },
+  ], { limit: 2, minDuration: 15, maxDuration: 25 });
+  assert.equal(candidates.length, 2);
+  assert.ok(candidates.every((item) => Number.isFinite(item.score)));
+});

@@ -976,6 +976,20 @@ function speakerTurnContinuityScore(text) {
   return Math.max(-6, Math.min(4, score));
 }
 
+function speechPaceScore(text, duration) {
+  const value = String(text || "").trim();
+  const safeDuration = Number(duration);
+  if (!value || !Number.isFinite(safeDuration) || safeDuration <= 0) return 0;
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 10) return 0;
+  const wordsPerMinute = (words.length / safeDuration) * 60;
+  if (wordsPerMinute >= 125 && wordsPerMinute <= 190) return 6;
+  if (wordsPerMinute >= 105 && wordsPerMinute <= 215) return 3;
+  if (wordsPerMinute >= 85 && wordsPerMinute <= 235) return 1;
+  if (wordsPerMinute < 65 || wordsPerMinute > 260) return -5;
+  return -2;
+}
+
 function scoreWindow(text, duration) {
   let score = boundaryQualityScore(text) + standaloneContextScore(text) + payoffPlacementScore(text) + questionResolutionScore(text) + unresolvedTeaserScore(text) + outcomeCompletionScore(text) + narrativeProgressionScore(text) + storyPhaseCoverageScore(text) + questionPayoffCoherenceScore(text) + progressionMomentumScore(text) + openingContextDensityScore(text) + unresolvedReferencePenaltyScore(text) + endingClosureScore(text) + semanticShiftScore(text) + informationGainScore(text) + payoffSpecificityScore(text) + audienceCuriosityArcScore(text) + narrativePayoffDistanceScore(text) + emotionalArcScore(text) + claimEvidenceScore(text) + topicConsistencyScore(text) + sentenceRhythmScore(text) + payoffConcretenessScore(text) + noveltyProgressionScore(text) + payoffBridgeScore(text) + timeToValueScore(text) + payoffEscalationScore(text) + replayDependencyScore(text) + payoffNoveltyScore(text) + audienceValueProgressionScore(text) + speakerTurnContinuityScore(text) + repetitionPenaltyScore(text) + speechQualityScore(text) + valueDensityScore(text) + temporalFlowScore(text) + concreteEntityScore(text) + fillerRatioPenaltyScore(text) + contrastSignalScore(text) + hookPayoffAlignmentScore(text);
   const words = text.split(/\s+/).filter(Boolean).length;
