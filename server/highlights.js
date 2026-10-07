@@ -1853,8 +1853,11 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
       for (let i = 0; i < selectionPool.length; i += 1) {
         const candidate = selectionPool[i];
         const type = String(candidate.highlightType || "").trim().toLowerCase();
-        const requestedBonus = safeTargetTypes.includes(type) && !seenTypes.has(type) ? 8 : 0;
-        const noveltyBonus = type && !seenTypes.has(type) ? 12 : 0;
+        const topScore = Number(selectionPool[0]?.score);
+        const scoreGap = Number.isFinite(topScore) ? Math.max(0, topScore - Number(candidate.score || 0)) : 0;
+        const coverageEligible = scoreGap <= 8;
+        const requestedBonus = coverageEligible && safeTargetTypes.includes(type) && !seenTypes.has(type) ? 8 : 0;
+        const noveltyBonus = coverageEligible && type && !seenTypes.has(type) ? 12 : 0;
         const weakContextPenalty = Number.isFinite(candidate.contextScore) && candidate.contextScore < 55
           ? (55 - candidate.contextScore) * 0.55
           : 0;
