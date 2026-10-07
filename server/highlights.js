@@ -1589,6 +1589,33 @@ function buildGlobalTranscriptContext(segments, maxItems = 72) {
   return picked;
 }
 
+export function selectNearbyContext(segments, start, end, maxItems = 8) {
+  const safeStart = Number(start);
+  const safeEnd = Number(end);
+  const limit = Math.max(1, Math.min(12, Number(maxItems) || 8));
+  if (!Number.isFinite(safeStart) || !Number.isFinite(safeEnd) || safeEnd <= safeStart) return [];
+  const nearby = (Array.isArray(segments) ? segments : [])
+    .map((segment, index) => ({
+      index,
+      start: Number(segment?.start),
+      end: Number(segment?.end),
+      text: String(segment?.text || "").replace(/\s+/g, " ").trim(),
+      speaker: String(segment?.speaker || "").trim(),
+    }))
+    .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start && segment.text)
+    .filter((segment) => segment.end >= safeStart - 18 && segment.start <= safeEnd + 18)
+    .sort((a, b) => a.start - b.start)
+    .reduce((picked, segment) => {
+      if (segment.start < safeEnd && segment.end > safeStart) picked.inside.push(segment);
+      else if (segment.end <= safeStart) picked.before.push(segment);
+      else if (segment.start >= safeEnd) picked.after.push(segment);
+      return picked;
+    }, { inside: [], before: [], after: [] });
+  const insideBudget = Math.max(1, limit - 4);
+  return [...nearby.before.slice(-2), ...nearby.inside.slice(0, insideBudget), ...nearby.after.slice(0, 2)]
+    .sort((a, b) => a.start - b.start).slice(0, limit);
+}
+
 export async function rankHighlightsWithAI(segments, { limit = 12, minDuration = 15, maxDuration = 75, profile = "creator", targetTypes = [], performanceLearning = null, creatorMemory = [] } = {}) {
   const contentProfile = getContentProfile(normalizeContentProfile(profile));
   const learning = performanceLearning && typeof performanceLearning === "object" ? performanceLearning : {};
@@ -1636,44 +1663,16 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
         }))
     : [];
 
-  const candidateContext = aiCandidates.map((item, id) => {
-    const nearby = (Array.isArray(segments) ? segments : [])
-      .map((segment, index) => ({
-        index,
-        start: Number(segment?.start),
-        end: Number(segment?.end),
-        text: String(segment?.text || "").replace(/\s+/g, " ").trim(),
-        speaker: String(segment?.speaker || "").trim(),
-      }))
-      .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start && segment.text)
-      .filter((segment) => segment.end >= item.start - 18 && segment.start <= item.end + 18)
-      .sort((a, b) => a.start - b.start)
-      .reduce((picked, segment) => {
-        const inside = segment.start < item.end && segment.end > item.start;
-        const before = segment.end <= item.start;
-        const after = segment.start >= item.end;
-        if (inside) picked.inside.push(segment);
-        else if (before) picked.before.push(segment);
-        else if (after) picked.after.push(segment);
-        return picked;
-      }, { inside: [], before: [], after: [] });
-    const insideBudget = 4;
-    const nearbySegments = [
-      ...nearby.before.slice(-2),
-      ...nearby.inside.slice(0, insideBudget),
-      ...nearby.after.slice(0, 2),
-    ]
-      .sort((a, b) => a.start - b.start)
-      .slice(0, 8);
-    const nearbyContext = nearbySegments.map((segment) => ({
+  const candidateContext = aiCandidates.map((item, id) => ({
+    id,
+    nearby: selectNearbyContext(segments, item.start, item.end, 8).map((segment) => ({
       index: segment.index,
       start: Number(segment.start.toFixed(2)),
       end: Number(segment.end.toFixed(2)),
       speaker: segment.speaker || undefined,
       text: segment.text.slice(0, 260),
-    }));
-    return { id, nearby: nearbyContext };
-  });
+    })),
+  }));
 
   const candidates = aiCandidates.map((item, id) => ({
     id,
