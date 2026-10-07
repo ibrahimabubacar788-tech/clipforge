@@ -1611,8 +1611,16 @@ export function selectNearbyContext(segments, start, end, maxItems = 8) {
       else if (segment.start >= safeEnd) picked.after.push(segment);
       return picked;
     }, { inside: [], before: [], after: [] });
-  const insideBudget = Math.max(1, limit - 4);
-  return [...nearby.before.slice(-2), ...nearby.inside.slice(0, insideBudget), ...nearby.after.slice(0, 2)]
+  const beforeBudget = Math.min(2, nearby.before.length);
+  const afterBudget = Math.min(2, nearby.after.length);
+  const insideBudget = Math.max(1, limit - beforeBudget - afterBudget);
+  const inside = nearby.inside.length <= insideBudget
+    ? nearby.inside
+    : [
+        ...nearby.inside.slice(0, Math.ceil(insideBudget / 2)),
+        ...nearby.inside.slice(-Math.floor(insideBudget / 2)),
+      ];
+  return [...nearby.before.slice(-beforeBudget), ...inside, ...nearby.after.slice(0, afterBudget)]
     .sort((a, b) => a.start - b.start).slice(0, limit);
 }
 
