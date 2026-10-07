@@ -497,5 +497,4 @@ test("failed clip retry rejects an active queued render job", async () => {
       },
       body: JSON.stringify({ projectId: project.id, name: "Retry Guard Video", duration: 20 }),
     });
-    assert.equal(videoResponse.status, 201);
-    const video = (await videoResponse.json()).video;
+    assert.equal(videoResponse.status, 201);    const video = (await videoResponse.json()).video;
