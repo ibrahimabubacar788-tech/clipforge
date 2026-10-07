@@ -446,7 +446,9 @@ test("readiness verifies database availability", async (t) => {
   const body = await response.json();
   assert.equal(body.ok, true);
   assert.equal(body.service, "clipforge");
-  assert.deepEqual(body.mediaStorage, { mode: "local", persistent: false });
+  assert.equal(body.mediaStorage?.mode, "local");
+  assert.equal(body.mediaStorage?.persistent, false);
+  assert.equal(typeof body.mediaStorage?.warning, "string");
   assert.ok(body.ai && typeof body.ai.configured === "boolean");
   assert.ok(body.ffmpeg && typeof body.ffmpeg.pathConfigured === "boolean");
 });
@@ -497,8 +499,7 @@ test("clip downloads reject export symlinks that escape storage", async (t) => {
   const exportsDir = join(server.clipQueue.storageDir, "exports");
   await mkdir(exportsDir, { recursive: true });
   const outside = join(dir, "outside-export.mp4");
-  const target = join(exportsDir, "unsafe.mp4");
-  await writeFile(outside, Buffer.from("not-a-video"));
+  const target = join(exportsDir, "unsafe.mp4");  await writeFile(outside, Buffer.from("not-a-video"));
   await symlink(outside, target);
   await server.database.transaction((d) => d.clips.push({
     id: "clip-download-symlink",
