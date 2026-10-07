@@ -1686,8 +1686,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
             content: [{
               type: "input_text",
               text: `Select the strongest short-form video moments from these transcript windows.\nYou also receive a lightweight global conversation map below. Use it to understand the overall topic, story progression, repeated ideas, and where each candidate fits in the full conversation. Do not select from the map directly; only select supplied candidate IDs.\nYou may also receive a lightweight creator memory from earlier videos. Use it only to understand recurring topics, terminology, themes, and continuity across this creator's library. Do not select or invent moments from memory; only select supplied candidate IDs. If the current video revisits an earlier topic, favor moments that add a new angle, meaningful update, contradiction, continuation, or stronger payoff instead of repeating an old idea. Each candidate includes libraryNovelty plus libraryRelationship intelligence. libraryRelationship describes whether the candidate appears to be a new angle, continuation, update, reversal, repeat, or new topic relative to sampled earlier-video memory. Use these as secondary signals only. Favor meaningful updates, reversals, continuations, and genuinely new angles over near-repeats when quality is comparable. Never reject a strong moment solely because it shares terminology with older content.\nCreator memory: ${JSON.stringify(safeCreatorMemory)} Each candidate also includes nearbyContext from the surrounding transcript. Use it to avoid cutting off setup or payoff, while scoring only the supplied candidate window.\nGlobal conversation map: ${JSON.stringify(globalConversationContext)}\n\nContent strategy: ${contentProfile.label}. Prioritize ${contentProfile.focus}. Reject ${contentProfile.reject}.
-Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.
-When returning several clips, prefer genuinely strong moments from different stages of the conversation when quality is comparable. Do not cluster the entire clip pack around one short section of the source.
+Prefer standalone hooks, surprising insights, emotion, humor, conflict, story payoffs, useful information, or memorable statements.\nJudge whether a viewer can understand what is happening without the original long-form video: reward enough setup to identify the subject, then a meaningful payoff, answer, realization, or useful takeaway.When returning several clips, prefer genuinely strong moments from different stages of the conversation when quality is comparable. Do not cluster the entire clip pack around one short section of the source.
 When the transcript has multiple speakers, also prefer genuinely strong moments that represent different speakers when quality is comparable.
 ${hasLearning ? `Use this project's historical performance as a secondary signal, not a hard rule. Previously tracked clip-type engagement: ${JSON.stringify(learnedTypes.slice(0, 5).map(([type, value]) => ({ type, engagementRate: Number(value.toFixed(2)) })))}. Favor proven types modestly when the transcript quality is comparable, but still surface genuinely exceptional moments of other types.` : ""}
 Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
@@ -1801,7 +1800,18 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
             }
           : null,
       };
-    }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
+    }).filter(Boolean).filter((candidate) => {
+      // Deterministic post-AI quality gate: a model can overvalue a flashy
+      // sentence even when the window cannot stand alone. Reject only severe
+      // failures here; softer weaknesses are already handled by the selector.
+      const standalone = Number(candidate.standaloneScore);
+      const context = Number(candidate.contextScore);
+      const clarity = Number(candidate.clarityScore);
+      if (Number.isFinite(standalone) && standalone < 35) return false;
+      if (Number.isFinite(context) && context < 30) return false;
+      if (Number.isFinite(clarity) && clarity < 35) return false;
+      return true;
+    }).sort((a, b) => b.score - a.score || a.start - b.start);
 
     const selected = [];
     const tokenize = (value) => new Set(String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((word) => word.length > 2));
@@ -1812,8 +1822,7 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
       let shared = 0;
       for (const word of a) if (b.has(word)) shared += 1;
       return shared / (a.size + b.size - shared);
-    };
-    const addIfDistinct = (candidate) => {
+    };    const addIfDistinct = (candidate) => {
       if (!candidate || selected.length >= safeLimit) return false;
       const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
       if (overlaps) return false;
