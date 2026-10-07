@@ -82,6 +82,10 @@ const fullscreenButton = document.querySelector("#fullscreen-button");
 const accountButton = document.querySelector("#account-button");
 const dashboardSettingsButton = document.querySelector("#dashboard-settings");
 const dashboardLogoutButton = document.querySelector("#dashboard-logout");
+const dashboardNewProjectButton = document.querySelector("#dashboard-new-project");
+const dashboardOpenEditorButton = document.querySelector("#dashboard-open-editor");
+const dashboardOpenLibraryButton = document.querySelector("#dashboard-open-library");
+const dashboardOpenSettingsButton = document.querySelector("#dashboard-open-settings");
 const settingsSignoutButton = document.querySelector("#settings-signout");
 const accountDialog = document.querySelector("#account-dialog");
 const accountDialogSave = document.querySelector("#account-dialog-save");
@@ -251,10 +255,7 @@ async function ensureWorkspace() {
       apiSession = null;
       window.localStorage.removeItem(sessionKey);
       try {
-        const savedIdentity = safeStorageParse(identityKey, null);
-        if (!savedIdentity?.email || !savedIdentity?.password) throw new Error("Your ClipForge workspace identity is missing from this browser.");
-        apiSession = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: savedIdentity.email, password: savedIdentity.password }) });
-        window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+        throw new Error("Your ClipForge session expired. Please log in again.");
         const { projects } = await api("/api/projects");
         if (loadVersion !== workspaceLoadVersion) return false;
         if (projects.length) currentProject = projects[0];
@@ -1219,15 +1220,19 @@ projectSelect?.addEventListener("change", async () => {
   }
 });
 
-newProjectButton?.addEventListener("click", async () => {
-  if (newProjectButton.disabled) return;
+async function createNewProject() {
+  if (newProjectButton?.disabled) return;
   newProjectButton.disabled = true;
   const originalLabel = newProjectButton.textContent;
   newProjectButton.textContent = "Creating…";
   stopPlayback();
   const creationLoadVersion = ++workspaceLoadVersion;
   try {
-    if (!apiSession || !currentProject) {
+    if (!apiSession) {
+      showAccountDialog("signup");
+      return;
+    }
+    if (!currentProject) {
       const ready = await ensureWorkspace();
       if (!ready || creationLoadVersion !== workspaceLoadVersion) return;
     }
@@ -1260,6 +1265,7 @@ newProjectButton?.addEventListener("click", async () => {
     endInput.value = 24;
     updateRange();
     switchView("editor");
+    history.replaceState(null, "", "#editor");
     showToast("New project created.");
   } catch (error) {
     if (creationLoadVersion === workspaceLoadVersion) showToast(`Could not create project: ${error.message}`);
@@ -1267,414 +1273,19 @@ newProjectButton?.addEventListener("click", async () => {
     newProjectButton.disabled = false;
     newProjectButton.textContent = originalLabel;
   }
-});
-
-
-function showAccountDialog(tab = "account") {
-  if (!accountDialog) return;
-  settingsMenuItems.forEach((item) => item.classList.toggle("active", item.dataset.settingsTab === tab));
-  settingsPanels.forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== tab; });
-  if (accountDialogEmail) accountDialogEmail.textContent = apiSession?.user?.email || "Sign in or create your ClipForge account.";
-  if (loginEmailInput && !loginEmailInput.value) loginEmailInput.value = safeStorageParse(identityKey, null)?.email || "";
-  if (signupEmailInput && !signupEmailInput.value) signupEmailInput.value = safeStorageParse(identityKey, null)?.email || "";
-  if (accountEmailInput) accountEmailInput.value = apiSession?.user?.email || "";
-  accountDialog.showModal();
-}
-async function completeAuthentication(session) {
-  apiSession = session;
-  window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
-  if (session?.user?.email) window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email }));
-  const ready = await ensureWorkspace();
-  if (ready) switchView("dashboard");
-}
-async function performLogin() {
-  const email = loginEmailInput?.value.trim().toLowerCase();
-  const password = loginPasswordInput?.value || "";
-  if (!email || !password) { showToast("Enter your email and password."); return; }
-  accountLoginButton.disabled = true;
-  try {
-    await completeAuthentication(await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }));
-    loginPasswordInput.value = "";
-    accountDialog?.close();
-    showToast("Welcome back to ClipForge.");
-  } catch (error) {
-    showToast(error.message);
-  } finally {
-    accountLoginButton.disabled = false;
-  }
-}
-async function performSignup() {
-  const email = signupEmailInput?.value.trim().toLowerCase();
-  const password = signupPasswordInput?.value || "";
-  if (!email || !password) { showToast("Enter an email and password."); return; }
-  accountSignupButton.disabled = true;
-  try {
-    await completeAuthentication(await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }));
-    signupPasswordInput.value = "";
-    accountDialog?.close();
-    showToast("Your ClipForge account is ready.");
-  } catch (error) {
-    showToast(error.message);
-  } finally {
-    accountSignupButton.disabled = false;
-  }
-}
-async function saveAccount() {
-  if (!apiSession) { showAccountDialog("signup"); return; }
-  const email = accountEmailInput?.value.trim().toLowerCase();
-  const password = accountPasswordInput?.value || "";
-  if (!email || !password) { showToast("Enter your email and a new password."); return; }
-  accountDialogSave.disabled = true;
-  try {
-    const result = await api("/api/auth/update", { method: "PATCH", body: JSON.stringify({ email, password }) });
-    apiSession.user = result.user;
-    window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
-    window.localStorage.setItem(identityKey, JSON.stringify({ email: result.user.email }));
-    accountPasswordInput.value = "";
-    if (accountDialogEmail) accountDialogEmail.textContent = result.user.email;
-    showToast("Account updated.");
-  } catch (error) {
-    showToast(error.message);
-  } finally {
-    accountDialogSave.disabled = false;
-  }
-}
-async function signOut() {
-  try { if (apiSession) await api("/api/auth/logout", { method: "POST" }); } catch {}
-  apiSession = null;
-  currentProject = undefined;
-  sourceVideo = undefined;
-  clips = [];
-  selectedClipIds.clear();
-  window.localStorage.removeItem(sessionKey);
-  accountDialog?.close();
-  switchView("dashboard");
-  showAccountDialog("login");
-  showToast("You have been signed out.");
-}
-settingsMenuItems.forEach((item) => item.addEventListener("click", () => showAccountDialog(item.dataset.settingsTab)));
-accountButton?.addEventListener("click", () => showAccountDialog("account"));
-dashboardSettingsButton?.addEventListener("click", () => showAccountDialog("account"));
-dashboardLogoutButton?.addEventListener("click", () => void signOut());
-settingsSignoutButton?.addEventListener("click", () => void signOut());
-accountLoginButton?.addEventListener("click", () => void performLogin());
-accountSignupButton?.addEventListener("click", () => void performSignup());
-accountDialogSave?.addEventListener("click", () => void saveAccount());
-accountDialog?.addEventListener("close", () => {
-  if (!apiSession) showAccountDialog("signup");
-});
-[loginPasswordInput, signupPasswordInput].forEach((input) => input?.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter") return;
-  event.preventDefault();
-  if (input === loginPasswordInput) void performLogin();
-  else void performSignup();
-}));
-
-document.querySelector("#export-button").addEventListener("click", async () => {
-  const selected = document.querySelector(".format-option.selected").dataset.format;
-  const exportButton = document.querySelector("#export-button");
-  if (exportButton.disabled) return;
-  exportButton.disabled = true;
-  const exportProjectId = currentProject?.id;
-  const exportVideoId = sourceVideo?.id;
-  if (exportStatus) { exportStatus.hidden = false; exportStatus.textContent = "Preparing export…"; }
-  try {
-    if (!sourceVideo || !exportProjectId || !exportVideoId) throw new Error("Upload a source video before exporting.");
-    const result = await api("/api/clips", { method: "POST", body: JSON.stringify({ videoId: exportVideoId, title: `Midnight Session · Clip ${clips.length + 1}`, start: Number(startInput.value), end: Number(endInput.value), format: selected, captions: captionToggle.checked, style: { color: document.querySelector("#highlight-color").value, weight: document.querySelector("#caption-weight").value } }) });
-    if (currentProject?.id !== exportProjectId || sourceVideo?.id !== exportVideoId) {
-      showToast("Export was queued for the original source, but the workspace changed before the update finished.");
-      return;
-    }
-    clips.unshift(result.clip);
-    renderClipLibrary();
-    if (exportStatus) exportStatus.textContent = "Rendering clip…";
-    showToast("Export queued. Your rendered clip will be ready shortly.");
-    for (let attempt = 0; attempt < 1800; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      if (currentProject?.id !== exportProjectId || sourceVideo?.id !== exportVideoId) return;
-      const jobResult = await api(`/api/jobs/${result.job.id}`);
-      if (currentProject?.id !== exportProjectId || sourceVideo?.id !== exportVideoId) return;
-      if (jobResult.job.status === "completed" || jobResult.job.status === "failed") break;
-    }
-    if (currentProject?.id !== exportProjectId || sourceVideo?.id !== exportVideoId) return;
-    const resultClips = await api("/api/clips");
-    if (currentProject?.id !== exportProjectId || sourceVideo?.id !== exportVideoId) return;
-    clips = resultClips.clips.filter((clip) => clip.projectId === exportProjectId);
-    renderClipLibrary();
-    const finished = clips.find((clip) => clip.id === result.clip.id);
-    if (finished?.status === "ready") { if (exportStatus) exportStatus.textContent = "Export ready"; showToast("Your clip is ready to download."); }
-    else if (finished?.status === "failed") { if (exportStatus) exportStatus.textContent = "Export failed"; showToast("Clip render failed: " + (finished.error || "FFmpeg could not render this clip.")); }
-    else { if (exportStatus) exportStatus.textContent = "Still rendering"; showToast("Clip is still rendering. Check My clips for its current status."); }
-  } catch (error) {
-    if (currentProject?.id === exportProjectId && sourceVideo?.id === exportVideoId) {
-      if (exportStatus) exportStatus.textContent = "Export failed";
-      showToast(error.message);
-    }
-  } finally {
-    exportButton.disabled = false;
-  }
-});
-
-clipSearch?.addEventListener("input", () => { libraryQuery = clipSearch.value; renderClipLibrary(); });
-clearClipSearchButton?.addEventListener("click", () => {
-  if (!clipSearch?.value) return;
-  clipSearch.value = "";
-  libraryQuery = "";
-  renderClipLibrary();
-  clipSearch.focus();
-});
-clipFilter?.addEventListener("change", () => { libraryFilter = clipFilter.value; renderClipLibrary(); });
-clearClipFiltersButton?.addEventListener("click", () => {
-  libraryQuery = "";
-  libraryFilter = "all";
-  librarySort = "newest";
-  if (clipSearch) clipSearch.value = "";
-  if (clipFilter) clipFilter.value = "all";
-  if (clipSort) clipSort.value = "newest";
-  renderClipLibrary();
-  clipSearch?.focus();
-});
-clipSort?.addEventListener("change", () => { librarySort = clipSort.value; renderClipLibrary(); });
-
-libraryProducerPlanButton?.addEventListener("click", loadProducerPlan);
-libraryProducerCreateButton?.addEventListener("click", () => { void createProducerPriorityClips(); });
-copyClipLinksButton?.addEventListener("click", () => { void copySelectedClipLinks(); });
-exportClipListButton?.addEventListener("click", exportSelectedClipList);
-copyClipTitlesButton?.addEventListener("click", () => { void copySelectedClipTitles(); });
-copyClipDurationButton?.addEventListener("click", () => { void copySelectedClipDuration(); });
-copyClipJsonButton?.addEventListener("click", () => { void copySelectedClipJson(); });
-copyClipSummaryButton?.addEventListener("click", () => { void copySelectedClipSummary(); });
-batchRenameClipsButton?.addEventListener("click", () => { void batchRenameClips(); });
-deselectAllClipsButton?.addEventListener("click", () => {
-  if (!selectedClipIds.size) return;
-  selectedClipIds.clear();
-  renderClipLibrary();
-});
-selectFailedClipsButton?.addEventListener("click", () => {
-  const failed = clips.filter((clip) => clip.status === "failed");
-  const allSelected = failed.length > 0 && failed.every((clip) => selectedClipIds.has(clip.id));
-  failed.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-selectRenderingClipsButton?.addEventListener("click", () => {
-  const rendering = clips.filter((clip) => !["ready", "failed"].includes(clip.status));
-  const allSelected = rendering.length > 0 && rendering.every((clip) => selectedClipIds.has(clip.id));
-  rendering.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-selectAllStatusClipsButton?.addEventListener("click", () => {
-  const allSelected = clips.length > 0 && clips.every((clip) => selectedClipIds.has(clip.id));
-  clips.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-invertClipSelectionButton?.addEventListener("click", () => {
-  clips.forEach((clip) => selectedClipIds.has(clip.id) ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-selectVisibleClipsButton?.addEventListener("click", () => {
-  const query = libraryQuery.trim().toLowerCase();
-  const visible = clips.filter((clip) => {
-    const title = String(clip.title || "");
-    const matchesQuery = !query || title.toLowerCase().includes(query);
-    const matchesFilter = libraryFilter === "all" || (libraryFilter === "rendering" ? !["ready", "failed"].includes(clip.status) : clip.status === libraryFilter);
-    return matchesQuery && matchesFilter;
-  });
-  const allVisibleSelected = visible.length > 0 && visible.every((clip) => selectedClipIds.has(clip.id));
-  visible.forEach((clip) => allVisibleSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-selectReadyClipsButton?.addEventListener("click", () => {
-  const ready = clips.filter((clip) => clip.status === "ready");
-  const allSelected = ready.length > 0 && ready.every((clip) => selectedClipIds.has(clip.id));
-  ready.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-selectUntaggedClipsButton?.addEventListener("click", () => {
-  const uncaptioned = clips.filter((clip) => !clip.captions);
-  const allSelected = uncaptioned.length > 0 && uncaptioned.every((clip) => selectedClipIds.has(clip.id));
-  uncaptioned.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-selectCaptionedClipsButton?.addEventListener("click", () => {
-  const captioned = clips.filter((clip) => Boolean(clip.captions));
-  const allSelected = captioned.length > 0 && captioned.every((clip) => selectedClipIds.has(clip.id));
-  captioned.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-selectLongClipsButton?.addEventListener("click", () => {
-  const longClips = clips.filter((clip) => clipDuration(clip.start, clip.end) >= 60);
-  const allSelected = longClips.length > 0 && longClips.every((clip) => selectedClipIds.has(clip.id));
-  longClips.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-selectShortClipsButton?.addEventListener("click", () => {
-  const shortClips = clips.filter((clip) => clipDuration(clip.start, clip.end) < 60);
-  const allSelected = shortClips.length > 0 && shortClips.every((clip) => selectedClipIds.has(clip.id));
-  shortClips.forEach((clip) => allSelected ? selectedClipIds.delete(clip.id) : selectedClipIds.add(clip.id));
-  renderClipLibrary();
-});
-retryFailedClipsButton?.addEventListener("click", async () => {
-  const retryProjectId = currentProject?.id;
-  const failed = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "failed");
-  if (!failed.length || !retryProjectId) return;
-  retryFailedClipsButton.disabled = true;
-  let retried = 0;
-  try {
-    for (const clip of failed) {
-      if (currentProject?.id !== retryProjectId) {
-        showToast("Workspace changed while retries were running. Remaining clips were left unchanged.");
-        return;
-      }
-      try {
-        const result = await api(`/api/clips/${encodeURIComponent(clip.id)}/retry`, { method: "POST" });
-        if (currentProject?.id !== retryProjectId) {
-          showToast("Retry was queued for the original project, but the workspace changed before the update finished.");
-          return;
-        }
-        const updated = result.clip || result;
-        const target = clips.find((item) => item.id === clip.id);
-        if (target) Object.assign(target, updated, { status: updated.status || "queued" });
-        retried += 1;
-      } catch (error) {
-        if (currentProject?.id === retryProjectId) showToast(error.message);
-      }
-    }
-    if (currentProject?.id !== retryProjectId) return;
-    renderClipLibrary();
-    showToast(`${retried} of ${failed.length} failed clip${failed.length === 1 ? "" : "s"} retried.`);
-  } finally {
-    retryFailedClipsButton.disabled = false;
-  }
-});
-refreshClipsButton?.addEventListener("click", async () => {
-  if (!apiSession || !currentProject) return;
-  const refreshProjectId = currentProject.id;
-  refreshClipsButton.disabled = true;
-  refreshClipsButton.textContent = "Refreshing…";
-  try {
-    await refreshClipStatuses({ showReadyToast: true });
-    if (currentProject?.id === refreshProjectId) showToast("Clip library refreshed.");
-  } catch (error) {
-    if (currentProject?.id === refreshProjectId) showToast(`Could not refresh clips: ${error.message}`);
-  } finally {
-    refreshClipsButton.disabled = false;
-    refreshClipsButton.textContent = "Refresh";
-  }
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-  const target = event.target;
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable) return;
-  if (event.code === "Space") {
-    event.preventDefault();
-    playbackButton?.click();
-  } else if (event.key === "ArrowLeft") {
-    event.preventDefault();
-    startInput.value = Math.max(0, Number(startInput.value) - 1);
-    endInput.value = Math.max(Number(startInput.value) + 1, Number(endInput.value));
-    updateRange();
-  } else if (event.key === "ArrowRight") {
-    event.preventDefault();
-    endInput.value = Math.min(timelineMaximum, Number(endInput.value) + 1);
-    startInput.value = Math.min(Number(startInput.value), Number(endInput.value) - 1);
-    updateRange();
-  } else if (event.key.toLowerCase() === "f") {
-    fullscreenButton?.click();
-  } else if (event.key === "escape" && document.fullscreenElement) {
-    void document.exitFullscreen();
-  }
-});
-
-fullscreenButton?.addEventListener("click", async () => {
-  try {
-    if (!document.fullscreenElement) await videoStage.requestFullscreen();
-    else await document.exitFullscreen();
-  } catch { showToast("Full screen is not available on this device."); }
-});
-
-document.addEventListener("fullscreenchange", () => {
-  fullscreenButton.textContent = document.fullscreenElement ? "Exit full screen" : "Full screen";
-});
-
-document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("click", (event) => { event.preventDefault(); switchView(link.dataset.view); }));
-document.querySelectorAll("[data-go-editor]").forEach((button) => button.addEventListener("click", () => switchView("editor")));
-
-clipLibrary.addEventListener("change", (event) => {
-  const checkbox = event.target.closest("[data-select-clip]");
-  if (!checkbox) return;
-  if (checkbox.checked) selectedClipIds.add(checkbox.dataset.selectClip);
-  else selectedClipIds.delete(checkbox.dataset.selectClip);
-  updateBulkClipControls();
-});
-async function batchRenameClips() {
-  const renameProjectId = currentProject?.id;
-  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && ["ready", "failed"].includes(clip.status));
-  if (!selected.length) return;
-  const prefix = window.prompt("Enter a title prefix for the selected clips:", "Clip");
-  if (prefix === null) return;
-  const cleanPrefix = prefix.trim();
-  if (!cleanPrefix) { showToast("Enter a title prefix."); return; }
-  let renamed = 0;
-  for (const [index, clip] of selected.entries()) {
-    if (currentProject?.id !== renameProjectId) {
-      showToast("Workspace changed while batch rename was running. Remaining clips were left unchanged.");
-      return;
-    }
-    try {
-      const result = await api(`/api/clips/${encodeURIComponent(clip.id)}`, { method: "PATCH", body: JSON.stringify({ title: `${cleanPrefix} ${index + 1}` }) });
-      if (currentProject?.id !== renameProjectId) {
-        showToast("Workspace changed while batch rename was running. Remaining clips were left unchanged.");
-        return;
-      }
-      const updated = result.clip || result;
-      const target = clips.find((item) => item.id === clip.id);
-      if (target) target.title = updated.title || `${cleanPrefix} ${index + 1}`;
-      renamed += 1;
-    } catch (error) {
-      if (currentProject?.id === renameProjectId) showToast(error.message);
-    }
-  }
-  if (currentProject?.id !== renameProjectId) return;
-  renderClipLibrary();
-  showToast(`${renamed} of ${selected.length} clip${selected.length === 1 ? "" : "s"} renamed.`);
 }
 
-async function copySelectedClipSummary() {
-  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
-  if (!selected.length) return;
-  const total = selected.reduce((sum, clip) => sum + clipDuration(clip.start, clip.end), 0);
-  const summary = selected.map((clip, index) => `${index + 1}. ${clip.title || "Untitled clip"} — ${clip.format || "9:16"} — ${formatTimestamp(clip.start)}–${formatTimestamp(clip.end)} — ${formatTimestamp(clipDuration(clip.start, clip.end))}`).join("\n");
-  const text = `ClipForge selected clips (${selected.length})\nTotal duration: ${formatTimestamp(total)}\n\n${summary}`;
-  try {
-    await navigator.clipboard.writeText(text);
-    showToast("Clip summary copied.");
-  } catch {
-    showToast("Could not copy clip summary. Your browser may block clipboard access.");
-  }
-}
-
-async function copySelectedClipJson() {
-  const selected = clips.filter((clip) => selectedClipIds.has(clip.id) && clip.status === "ready");
-  if (!selected.length) return;
-  try {
-    await navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
-  } catch {
-    showToast("Could not copy clip JSON. Your browser may block clipboard access.");
-  }
-}
-
-
-async function initializeClipForge() {
-  if (apiSession) {
-    try {
-      if (await ensureWorkspace()) {
-        switchView(window.location.hash === "#editor" ? "editor" : "dashboard");
-        return;
-      }
-    } catch {}
-  }
-  showAccountDialog(safeStorageParse(identityKey, null)?.email ? "login" : "signup");
-}
-void initializeClipForge();
+newProjectButton?.addEventListener("click", () => void createNewProject());
+dashboardNewProjectButton?.addEventListener("click", () => void createNewProject());
+dashboardOpenEditorButton?.addEventListener("click", async () => {
+  if (!apiSession) { showAccountDialog("login"); return; }
+  if (!currentProject) await ensureWorkspace();
+  if (currentProject) { switchView("editor"); history.replaceState(null, "", "#editor"); }
+});
+dashboardOpenLibraryButton?.addEventListener("click", async () => {
+  if (!apiSession) { showAccountDialog("login"); return; }
+  if (!currentProject) await ensureWorkspace();
+  if (currentProject) { switchView("clips"); history.replaceState(null, "", "#clips"); }
+});
+dashboardOpenSettingsButton?.addEventListener("click", () => showAccountDialog("preferences"));
 
