@@ -102,7 +102,7 @@ test("AI nearby context keeps setup, clip content, and payoff balanced", () => {
     { start: 24, end: 28, text: "Inside five." },
     { start: 28, end: 32, text: "Inside six." },
     { start: 32, end: 36, text: "Payoff detail." },
-    { start: 32, end: 36, text: "Later context." },
+    { start: 36, end: 40, text: "Later context." },
   ], 10, 26, 8);
 
   assert.deepEqual(context.map((item) => item.text), [
