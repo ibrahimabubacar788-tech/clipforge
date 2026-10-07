@@ -1660,14 +1660,14 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
     const nearbySegments = [...nearby.before.slice(-3), ...nearby.inside, ...nearby.after.slice(0, 3)]
       .slice(-8)
       .sort((a, b) => a.start - b.start);
-    return { id, nearby: nearbySegments.map((segment) => ({
-        index: segment.index,
-        start: Number(segment.start.toFixed(2)),
-        end: Number(segment.end.toFixed(2)),
-        speaker: segment.speaker || undefined,
-        text: segment.text.slice(0, 260),
-      }));
-    return { id, nearby };
+    const nearbyContext = nearbySegments.map((segment) => ({
+      index: segment.index,
+      start: Number(segment.start.toFixed(2)),
+      end: Number(segment.end.toFixed(2)),
+      speaker: segment.speaker || undefined,
+      text: segment.text.slice(0, 260),
+    }));
+    return { id, nearby: nearbyContext };
   });
 
   const candidates = aiCandidates.map((item, id) => ({
