@@ -497,4 +497,486 @@ test("failed clip retry rejects an active queued render job", async () => {
       },
       body: JSON.stringify({ projectId: project.id, name: "Retry Guard Video", duration: 20 }),
     });
-    assert.equal(videoResponse.status, 201);    const video = (await videoResponse.json()).video;
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+    const clip = {
+      id: "clip_retry_guard",
+      userId: auth.user.id,
+      videoId: video.id,
+      projectId: project.id,
+      sourceUrl: null,
+      title: "Retry guard clip",
+      start: 0,
+      end: 20,
+      format: "9:16",
+      captions: false,
+      captionSegments: [],
+      style: { color: "lime", weight: "bold" },
+      status: "failed",
+      error: "Previous render failed.",
+      createdAt: new Date().toISOString(),
+    };
+    const job = {
+      id: "job_retry_guard",
+      clipId: clip.id,
+      status: "queued",
+      progress: 0,
+      createdAt: new Date().toISOString(),
+    };
+    await ctx.app.database.transaction((d) => {
+      d.clips.push(clip);
+      d.jobs.push(job);
+    });
+
+    const retry = await fetch(`${ctx.base}/api/clips/${clip.id}/retry`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+    });
+    assert.equal(retry.status, 409);
+
+    const state = await ctx.app.database.read((d) => ({
+      clip: d.clips.find((item) => item.id === clip.id),
+      job: d.jobs.find((item) => item.id === job.id),
+    }));
+    assert.equal(state.clip.status, "failed");
+    assert.equal(state.clip.error, "Previous render failed.");
+    assert.equal(state.job.status, "queued");
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
+
+test("projects and clips can be renamed with validation", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "rename-feature@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Original Project" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const renameProject = await fetch(`${ctx.base}/api/projects/${project.id}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Renamed Project" }),
+    });
+    assert.equal(renameProject.status, 200);
+    assert.equal((await renameProject.json()).project.name, "Renamed Project");
+
+    const emptyProject = await fetch(`${ctx.base}/api/projects/${project.id}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ name: "   " }),
+    });
+    assert.equal(emptyProject.status, 422);
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ projectId: project.id, name: "Rename Feature Video", duration: 20 }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const clip = {
+      id: "clip_rename_feature",
+      userId: auth.user.id,
+      videoId: video.id,
+      projectId: project.id,
+      sourceUrl: null,
+      title: "Original Clip",
+      start: 0,
+      end: 10,
+      format: "9:16",
+      captions: false,
+      captionSegments: [],
+      style: { color: "lime", weight: "bold" },
+      status: "ready",
+      createdAt: new Date().toISOString(),
+    };
+    await ctx.app.database.transaction((d) => d.clips.push(clip));
+
+    const renameClip = await fetch(`${ctx.base}/api/clips/${clip.id}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ title: "Renamed Clip" }),
+    });
+    assert.equal(renameClip.status, 200);
+    assert.equal((await renameClip.json()).clip.title, "Renamed Clip");
+
+    const emptyClip = await fetch(`${ctx.base}/api/clips/${clip.id}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ title: "" }),
+    });
+    assert.equal(emptyClip.status, 422);
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
+test("project and video deletion reject queued render jobs", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "delete-guard@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "Delete Guard Project" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ projectId: project.id, name: "Delete Guard Video", duration: 20 }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const clip = {
+      id: "clip_delete_guard",
+      userId: auth.user.id,
+      videoId: video.id,
+      projectId: project.id,
+      sourceUrl: null,
+      title: "Queued guard clip",
+      start: 0,
+      end: 20,
+      format: "9:16",
+      captions: false,
+      captionSegments: [],
+      style: { color: "lime", weight: "bold" },
+      status: "queued",
+      createdAt: new Date().toISOString(),
+    };
+    await ctx.app.database.transaction((d) => {
+      d.clips.push(clip);
+      d.jobs.push({
+        id: "job_delete_guard",
+        clipId: clip.id,
+        status: "queued",
+        progress: 0,
+        createdAt: new Date().toISOString(),
+      });
+    });
+
+    const deleteVideo = await fetch(`${ctx.base}/api/videos/${video.id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(deleteVideo.status, 409);
+
+    const deleteProject = await fetch(`${ctx.base}/api/projects/${project.id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(deleteProject.status, 409);
+
+    const remaining = await ctx.app.database.read((d) => ({
+      project: d.projects.some((item) => item.id === project.id),
+      video: d.videos.some((item) => item.id === video.id),
+      clip: d.clips.some((item) => item.id === clip.id),
+      job: d.jobs.some((item) => item.id === "job_delete_guard"),
+    }));
+    assert.deepEqual(remaining, { project: true, video: true, clip: true, job: true });
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
+
+
+test("clip deletion rejects an active queued render job", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "clip-delete-guard@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "Clip Delete Guard Project" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ projectId: project.id, name: "Clip Delete Guard Video", duration: 20 }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const clip = {
+      id: "clip_delete_active_guard",
+      userId: auth.user.id,
+      videoId: video.id,
+      projectId: project.id,
+      sourceUrl: null,
+      title: "Active queued clip",
+      start: 0,
+      end: 20,
+      format: "9:16",
+      captions: false,
+      captionSegments: [],
+      style: { color: "lime", weight: "bold" },
+      status: "queued",
+      createdAt: new Date().toISOString(),
+    };
+    await ctx.app.database.transaction((d) => {
+      d.clips.push(clip);
+      d.jobs.push({
+        id: "job_clip_delete_active_guard",
+        clipId: clip.id,
+        status: "queued",
+        progress: 0,
+        createdAt: new Date().toISOString(),
+      });
+    });
+
+    const response = await fetch(`${ctx.base}/api/clips/${clip.id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(response.status, 409);
+
+    const state = await ctx.app.database.read((d) => ({
+      clip: d.clips.find((item) => item.id === clip.id),
+      job: d.jobs.find((item) => item.id === "job_clip_delete_active_guard"),
+    }));
+    assert.equal(state.clip.status, "queued");
+    assert.equal(state.job.status, "queued");
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
+test("clip deletion rejects an active processing render job", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "clip-processing-delete@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Processing Delete Guard Project" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ projectId: project.id, name: "Processing Delete Guard Video", duration: 20 }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const clip = {
+      id: "clip_processing_delete_guard",
+      userId: auth.user.id,
+      videoId: video.id,
+      projectId: project.id,
+      sourceUrl: null,
+      title: "Processing guard clip",
+      start: 0,
+      end: 20,
+      format: "9:16",
+      captions: false,
+      captionSegments: [],
+      style: { color: "lime", weight: "bold" },
+      status: "processing",
+      createdAt: new Date().toISOString(),
+    };
+
+    await ctx.app.database.transaction((d) => {
+      d.clips.push(clip);
+      d.jobs.push({
+        id: "job_processing_delete_guard",
+        clipId: clip.id,
+        status: "processing",
+        progress: 35,
+        startedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      });
+    });
+
+    const response = await fetch(`${ctx.base}/api/clips/${clip.id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(response.status, 409);
+
+    const state = await ctx.app.database.read((d) => ({
+      clip: d.clips.find((item) => item.id === clip.id),
+      job: d.jobs.find((item) => item.id === "job_processing_delete_guard"),
+    }));
+    assert.equal(state.clip.status, "processing");
+    assert.equal(state.job.status, "processing");
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
+
+test("upload, queue, FFmpeg render, and clip download work end to end", async () => {
+  const ctx = await startTestApp();
+  const fixtureDir = await mkdtemp(join(tmpdir(), "clipforge-fixture-"));
+  const fixture = join(fixtureDir, "source.mp4");
+  try {
+    await createTestVideo(fixture);
+    const sourceBuffer = await import("node:fs/promises").then(({ readFile }) => readFile(fixture));
+
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "render@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const upload = await fetch(`${ctx.base}/api/uploads`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "video/mp4",
+        "content-length": String(sourceBuffer.length),
+        "x-filename": "source.mp4",
+      },
+      body: sourceBuffer,
+    });
+    assert.equal(upload.status, 201);
+    const sourceUrl = (await upload.json()).url;
+
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "Render Test" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        projectId: project.id,
+        name: "Render fixture",
+        duration: 20,
+        sourceUrl,
+      }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const clipResponse = await fetch(`${ctx.base}/api/clips`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        videoId: video.id,
+        title: "Render smoke clip",
+        start: 0,
+        end: 20,
+        format: "9:16",
+        captions: false,
+      }),
+    });
+    assert.equal(clipResponse.status, 202);
+    const queued = await clipResponse.json();
+    assert.equal(queued.clip.status, "queued");
+
+    let job = queued.job;
+    for (let attempt = 0; attempt < 240 && !["completed", "failed"].includes(job.status); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const jobResponse = await fetch(`${ctx.base}/api/jobs/${job.id}`, {
+        headers: { authorization: `Bearer ${auth.token}` },
+      });
+      assert.equal(jobResponse.status, 200);
+      job = (await jobResponse.json()).job;
+    }
+
+    assert.equal(job.status, "completed", job.error || "Render job did not complete.");
+    assert.ok(job.progress >= 100);
+
+    const clipsResponse = await fetch(`${ctx.base}/api/clips`, {
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(clipsResponse.status, 200);
+    const clips = (await clipsResponse.json()).clips;
+    const rendered = clips.find((clip) => clip.id === queued.clip.id);
+    assert.equal(rendered.status, "ready");
+    assert.ok(rendered.downloadUrl);
+
+    const download = await fetch(`${ctx.base}/api/clips/${rendered.id}/download`, {
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(download.status, 200);
+    assert.equal(download.headers.get("content-type"), "video/mp4");
+    const contentDisposition = download.headers.get("content-disposition") || "";
+    assert.match(contentDisposition, /attachment;\s*filename="Render smoke clip\.mp4"/i);
+    const downloaded = Buffer.from(await download.arrayBuffer());
+    assert.ok(downloaded.length > 0);
+
+    const exportPath = join(ctx.storageDir, rendered.downloadUrl.slice("/storage/".length));
+    const exportInfo = await stat(exportPath);
+    assert.ok(exportInfo.isFile());
+    assert.ok(exportInfo.size > 0);
+  } finally {
+    await stopTestApp(ctx);
+    await rm(fixtureDir, { recursive: true, force: true });
+  }
+});
