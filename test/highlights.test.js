@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { rankHighlights } from "../server/highlights.js";
+import { rankHighlights, selectNearbyContext } from "../server/highlights.js";
 
 test("highlight engine assembles transcript windows without injected placeholder text", () => {
   const clips = rankHighlights([
@@ -91,4 +91,30 @@ test("highlight ranking rewards meaningful speaker interaction", () => {
   assert.equal(monologue.length, 1);
   assert.ok(dialogue[0].score > monologue[0].score);
   assert.deepEqual(dialogue[0].speakers, ["host", "guest"]);
+});
+
+
+test("AI nearby context keeps setup, clip content, and payoff balanced", () => {
+  const context = selectNearbyContext([
+    { start: 0, end: 4, text: "Earlier setup." },
+    { start: 4, end: 8, text: "Key setup detail." },
+    { start: 8, end: 12, text: "Inside one." },
+    { start: 12, end: 16, text: "Inside two." },
+    { start: 16, end: 20, text: "Inside three." },
+    { start: 20, end: 24, text: "Inside four." },
+    { start: 24, end: 28, text: "Inside five." },
+    { start: 28, end: 32, text: "Payoff detail." },
+    { start: 32, end: 36, text: "Later context." },
+  ], 10, 26, 8);
+
+  assert.deepEqual(context.map((item) => item.text), [
+    "Key setup detail.",
+    "Inside one.",
+    "Inside two.",
+    "Inside three.",
+    "Inside four.",
+    "Payoff detail.",
+    "Later context.",
+  ]);
+  assert.equal(context.length, 7);
 });
