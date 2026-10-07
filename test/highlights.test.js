@@ -110,9 +110,9 @@ test("AI nearby context keeps setup, clip content, and payoff balanced", () => {
     "Key setup detail.",
     "Inside one.",
     "Inside two.",
-    "Inside three.",
     "Inside four.",
-    "Payoff detail.",
+    "Inside five.",
+    "Inside six.",
     "Later context.",
   ]);
   assert.equal(context.length, 8);
