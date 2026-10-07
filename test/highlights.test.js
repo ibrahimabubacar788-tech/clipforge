@@ -14,7 +14,6 @@ test("highlight engine assembles transcript windows without injected placeholder
   assert.equal(clips[0].transcript.includes("[native code]"), false);
 });
 
-
 test("highlight selection reduces near-time duplicates", () => {
   const clips = rankHighlights([
     { start: 0, end: 8, text: "The big lesson is to focus on your audience." },
@@ -73,7 +72,6 @@ test("highlight scoring penalizes filler and promotional boilerplate", () => {
   assert.equal(clips.some((clip) => /promo code/i.test(clip.transcript)), false);
 });
 
-
 test("highlight ranking rewards meaningful speaker interaction", () => {
   const dialogue = rankHighlights([
     { start: 0, end: 6, speaker: "host", text: "Why did the strategy fail for so many creators?" },
@@ -93,7 +91,6 @@ test("highlight ranking rewards meaningful speaker interaction", () => {
   assert.deepEqual(dialogue[0].speakers, ["host", "guest"]);
 });
 
-
 test("AI nearby context keeps setup, clip content, and payoff balanced", () => {
   const context = selectNearbyContext([
     { start: 0, end: 4, text: "Earlier setup." },
@@ -108,6 +105,7 @@ test("AI nearby context keeps setup, clip content, and payoff balanced", () => {
   ], 10, 26, 8);
 
   assert.deepEqual(context.map((item) => item.text), [
+    "Earlier setup.",
     "Key setup detail.",
     "Inside one.",
     "Inside two.",
@@ -116,5 +114,5 @@ test("AI nearby context keeps setup, clip content, and payoff balanced", () => {
     "Payoff detail.",
     "Later context.",
   ]);
-  assert.equal(context.length, 7);
+  assert.equal(context.length, 8);
 });
