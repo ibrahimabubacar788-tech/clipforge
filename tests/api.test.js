@@ -497,8 +497,7 @@ test("clip downloads reject export symlinks that escape storage", async (t) => {
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "download-symlink@example.com", password: "password-123" });
   const exportsDir = join(server.clipQueue.storageDir, "exports");
-  await mkdir(exportsDir, { recursive: true });  const outside = join(dir, "outside-export.mp4");
-  const target = join(exportsDir, "unsafe.mp4");  await writeFile(outside, Buffer.from("not-a-video"));
+  await mkdir(exportsDir, { recursive: true });  const outside = join(dir, "outside-export.mp4");  const target = join(exportsDir, "unsafe.mp4");  await writeFile(outside, Buffer.from("not-a-video"));
   await symlink(outside, target);
   await server.database.transaction((d) => d.clips.push({
     id: "clip-download-symlink",
@@ -710,7 +709,7 @@ test("AI highlight analyzer falls back when the model returns invalid JSON", asy
 
 test("automatic AI clipping creates multiple ranked clips from a stored transcript", async (t) => {
   const { server, base } = await app();
-  server.clipQueue.enqueue = async (clip) => ({ id: `job_${clip.id}`, clipId: clip.id, status: "queued", progress: 0 });
+  server.clipQueue.render = async (clip) => ({ filename: `${clip.id}.mp4` });
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "auto-clip@example.com", password: "password-123" });
   const project = await request(base, "/api/projects", "POST", { name: "Automatic clips" }, user.body.token);
@@ -879,7 +878,7 @@ test("automatic AI clipping rejects concurrent runs for the same video", async (
 
 test("automatic AI clipping reuses an existing auto batch instead of duplicating clips", async (t) => {
   const { server, base } = await app();
-  server.clipQueue.enqueue = async (clip) => ({ id: `job_${clip.id}`, clipId: clip.id, status: "queued", progress: 0 });
+  server.clipQueue.render = async (clip) => ({ filename: `${clip.id}.mp4` });
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "auto-dedupe@example.com", password: "password-123" });
   const project = await request(base, "/api/projects", "POST", { name: "Auto dedupe" }, user.body.token);
