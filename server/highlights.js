@@ -1880,8 +1880,8 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
           ? Math.max(0, Math.min(6, (libraryNovelty - 55) * 0.12))
           : 0;
         const repeatPenalty = libraryRelationshipType === "repeat"
-          ? 4
-          : libraryRelationshipType === "new angle" || libraryRelationshipType === "update" || libraryRelationshipType === "reversal"
+          ? -4
+          : libraryRelationshipType === "new-angle" || libraryRelationshipType === "update" || libraryRelationshipType === "reversal"
             ? 2
             : 0;
         const utility = Number(candidate.score || 0) + requestedBonus + noveltyBonus
