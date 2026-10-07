@@ -100,7 +100,8 @@ test("AI nearby context keeps setup, clip content, and payoff balanced", () => {
     { start: 16, end: 20, text: "Inside three." },
     { start: 20, end: 24, text: "Inside four." },
     { start: 24, end: 28, text: "Inside five." },
-    { start: 28, end: 32, text: "Payoff detail." },
+    { start: 28, end: 32, text: "Inside six." },
+    { start: 32, end: 36, text: "Payoff detail." },
     { start: 32, end: 36, text: "Later context." },
   ], 10, 26, 8);
 
