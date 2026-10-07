@@ -987,7 +987,7 @@ document.querySelectorAll(".handle").forEach((handle) => {
   });
 });
 
-document.querySelector("#apply-hook").addEventListener("click", () => {
+document.querySelector("#apply-hook")?.addEventListener("click", () => {
   const duration = Math.max(1, timelineMaximum);
   const preferredStart = Math.min(124, Math.max(0, duration - 24));
   const preferredEnd = Math.min(duration, preferredStart + Math.min(24, duration));
