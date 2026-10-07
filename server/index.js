@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { createApp } from "./app.js";
+import { getMediaStorageConfig } from "./media-storage.js";
 const port = Number(process.env.PORT || 4173);
 const dataDir = process.env.CLIPFORGE_DATA_DIR || join(process.cwd(), "data");
 const storageDir = process.env.CLIPFORGE_STORAGE_DIR || join(dataDir, "storage");
@@ -9,6 +10,8 @@ app.listen(port, async () => {
   try {
     await app.clipQueue.recover();
     const recoveredAutoClipRuns = await app.recoverAutoClipRuns();
+    const mediaStorage = getMediaStorageConfig();
+    console.log(`ClipForge media storage backend: ${mediaStorage.mode}`);
     const databaseUrl = String(process.env.DATABASE_URL || "").trim();
     console.log(`ClipForge database backend: ${databaseUrl ? "postgres" : "local-json"}`);
     if (databaseUrl) {
