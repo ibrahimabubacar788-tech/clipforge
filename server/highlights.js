@@ -1647,14 +1647,20 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
       }))
       .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start && segment.text)
       .filter((segment) => segment.end >= item.start - 18 && segment.start <= item.end + 18)
-      .sort((a, b) => {
-        const aDistance = Math.max(0, Math.max(item.start - a.end, a.start - item.end));
-        const bDistance = Math.max(0, Math.max(item.start - b.end, b.start - item.end));
-        return aDistance - bDistance || a.start - b.start;
-      })
-      .slice(0, 8)
       .sort((a, b) => a.start - b.start)
-      .map((segment) => ({
+      .reduce((picked, segment) => {
+        const inside = segment.start < item.end && segment.end > item.start;
+        const before = segment.end <= item.start;
+        const after = segment.start >= item.end;
+        if (inside) picked.inside.push(segment);
+        else if (before) picked.before.push(segment);
+        else if (after) picked.after.push(segment);
+        return picked;
+      }, { inside: [], before: [], after: [] });
+    const nearbySegments = [...nearby.before.slice(-3), ...nearby.inside, ...nearby.after.slice(0, 3)]
+      .slice(-8)
+      .sort((a, b) => a.start - b.start);
+    return { id, nearby: nearbySegments.map((segment) => ({
         index: segment.index,
         start: Number(segment.start.toFixed(2)),
         end: Number(segment.end.toFixed(2)),
