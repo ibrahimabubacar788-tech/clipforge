@@ -13,7 +13,7 @@ function command(binary, args) { return new Promise((resolve, reject) => { const
 async function app() { const dir = await mkdtemp(join(tmpdir(), "clipforge-")); const server = createApp({ root: process.cwd(), dbFile: join(dir, "db.json"), storageDir: join(dir, "storage") }); await new Promise((resolve) => server.listen(0, resolve)); return { dir, server, base: `http://127.0.0.1:${server.address().port}` }; }
 async function request(base, path, method = "GET", body, token) { const response = await fetch(`${base}${path}`, { method, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body && JSON.stringify(body) }); return { status: response.status, body: response.status === 204 ? null : await response.json() }; }
 async function waitForClip(base, token) { for (let i = 0; i < 100; i += 1) { const result = await request(base, "/api/clips", "GET", undefined, token); const clip = result.body.clips[0]; if (clip?.status !== "queued" && clip?.status !== "processing") return clip; await new Promise((resolve) => setTimeout(resolve, 50)); } throw new Error("Timed out waiting for render"); }
-async function waitForAutoClip(base, videoId, token) { for (let i = 0; i < 200; i += 1) { const result = await request(base, `/api/videos/${videoId}/auto-clip-status`, "GET", undefined, token); if (result.status === 200 && ["completed", "failed"].includes(result.body.analysisStatus)) return result.body; await new Promise((resolve) => setTimeout(resolve, 50)); } throw new Error("Timed out waiting for automatic clipping analysis"); }
+async function waitForAutoClip(base, videoId, token) { for (let i = 0; i < 200; i += 1) { const result = await request(base, `/api/videos/${videoId}/auto-clip-status`, "GET", undefined, token); if (result.status === 200 && ["completed", "failed"].includes(result.body.analysisStatus?.status)) return result.body; await new Promise((resolve) => setTimeout(resolve, 50)); } throw new Error("Timed out waiting for automatic clipping analysis"); }
 async function uploadFixture(base, token, dir) { const source = join(dir, "source.mp4"); await command(ffmpegStatic, ["-y", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=24", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=44100", "-t", "3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", source]); const data = await readFile(source); const response = await fetch(`${base}/api/uploads`, { method: "POST", headers: { "content-type": "video/mp4", "x-filename": "source.mp4", authorization: `Bearer ${token}` }, body: data }); const upload = { status: response.status, body: await response.json() }; assert.equal(upload.status, 201); return upload.body.url; }
 async function uploadPlaceholder(base, token) { const response = await fetch(`${base}/api/uploads`, { method: "POST", headers: { "content-type": "video/mp4", "x-filename": "placeholder.mp4", authorization: `Bearer ${token}` }, body: Buffer.alloc(64, 0) }); const upload = { status: response.status, body: await response.json() }; assert.equal(upload.status, 201); return upload.body.url; }
 
@@ -741,7 +741,7 @@ test("automatic AI clipping creates multiple ranked clips from a stored transcri
   assert.equal(generated.status, 202);
   assert.equal(generated.body.status, "processing");
   const completed = await waitForAutoClip(base, video.body.video.id, user.body.token);
-  assert.equal(completed.analysisStatus, "completed");
+  assert.equal(completed.analysisStatus?.status, "completed");
   assert.equal(completed.transcriptReady, true);
   assert.ok(completed.total >= 2);
   assert.ok(completed.clips.every((item) => item.clip.videoId === video.body.video.id && item.job));
@@ -798,7 +798,7 @@ test("automatic AI clipping forwards the requested transcription language", { sk
     assert.equal(generated.status, 202);
     assert.equal(generated.body.status, "processing");
     const firstStatus = await waitForAutoClip(base, video.body.video.id, user.body.token);
-    assert.equal(firstStatus.analysisStatus, "completed");
+    assert.equal(firstStatus.analysisStatus?.status, "completed");
     assert.deepEqual(transcriptionLanguages, ["yo"]);
 
     const regenerated = await request(base, `/api/videos/${video.body.video.id}/auto-clip`, "POST", {
@@ -809,7 +809,7 @@ test("automatic AI clipping forwards the requested transcription language", { sk
     assert.equal(regenerated.status, 202);
     assert.equal(regenerated.body.status, "processing");
     const secondStatus = await waitForAutoClip(base, video.body.video.id, user.body.token);
-    assert.equal(secondStatus.analysisStatus, "completed");
+    assert.equal(secondStatus.analysisStatus?.status, "completed");
     assert.deepEqual(transcriptionLanguages, ["yo", "en"]);
   } finally {
     globalThis.fetch = previousFetch;
@@ -901,7 +901,7 @@ test("automatic AI clipping reuses an existing auto batch instead of duplicating
   assert.equal(first.status, 202);
   assert.equal(first.body.status, "processing");
   const firstStatus = await waitForAutoClip(base, video.body.video.id, user.body.token);
-  assert.equal(firstStatus.analysisStatus, "completed");
+  assert.equal(firstStatus.analysisStatus?.status, "completed");
   assert.equal(firstStatus.total, 2);
   const second = await request(base, `/api/videos/${video.body.video.id}/auto-clip`, "POST", { limit: 2 }, user.body.token);
   assert.equal(second.status, 200);
