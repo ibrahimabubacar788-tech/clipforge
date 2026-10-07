@@ -365,7 +365,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const video = await db.read((d) => d.videos.find((item) => item.id === autoClipStatusMatch[1] && item.userId === user.id));
       if (!video) throw Object.assign(new Error("Video not found."), { status: 404 });
       const effectiveStatusLanguage = statusLanguage === "auto"
-        ? String(video.transcriptLanguage || "en").trim().toLowerCase()
+        ? String(video.autoClipStatus?.language || video.transcriptLanguage || "auto").trim().toLowerCase()
         : statusLanguage;
       const result = await db.read((d) => {
         const clips = d.clips.filter((item) =>
@@ -497,8 +497,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       const existingAutoClips = await db.read((d) => d.clips.filter((clip) =>
           clip.videoId === video.id &&
           clip.userId === user.id &&
-          clip.generation === "auto-ai" &&
-          (clip.transcriptLanguage || video.transcriptLanguage || "en") === language && (clip.captionLanguage || "original") === captionLanguage
+          clip.generation === "auto-ai" &&          (clip.transcriptLanguage || video.transcriptLanguage || "en") === language && (clip.captionLanguage || "original") === captionLanguage
         ));
         const activeAutoClips = existingAutoClips.filter((clip) => clip.status !== "failed");
         if (activeAutoClips.length > 0) {
@@ -997,8 +996,7 @@ if (req.method === "POST" && pathname === "/api/uploads/chunk") {
           if (!existing.isFile()) throw Object.assign(new Error("Upload retry target already exists and is not a regular file."), { status: 409 });
           const incoming = await hashStream(req);
           if (existing.size === incoming.bytes) {
-            const existingHash = createHash("sha256");
-            let existingHandle;
+            const existingHash = createHash("sha256");            let existingHandle;
             try {
               existingHandle = await open(target, O_RDONLY | O_NOFOLLOW);
               const openedInfo = await existingHandle.stat();
