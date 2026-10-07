@@ -1647,7 +1647,13 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
       }))
       .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start && segment.text)
       .filter((segment) => segment.end >= item.start - 18 && segment.start <= item.end + 18)
+      .sort((a, b) => {
+        const aDistance = Math.max(0, Math.max(item.start - a.end, a.start - item.end));
+        const bDistance = Math.max(0, Math.max(item.start - b.end, b.start - item.end));
+        return aDistance - bDistance || a.start - b.start;
+      })
       .slice(0, 8)
+      .sort((a, b) => a.start - b.start)
       .map((segment) => ({
         index: segment.index,
         start: Number(segment.start.toFixed(2)),
