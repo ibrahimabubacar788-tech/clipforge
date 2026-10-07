@@ -497,8 +497,7 @@ test("clip downloads reject export symlinks that escape storage", async (t) => {
   t.after(() => server.close());
   const user = await request(base, "/api/auth/register", "POST", { email: "download-symlink@example.com", password: "password-123" });
   const exportsDir = join(server.clipQueue.storageDir, "exports");
-  await mkdir(exportsDir, { recursive: true });  const outside = join(dir, "outside-export.mp4");  const target = join(exportsDir, "unsafe.mp4");  await writeFile(outside, Buffer.from("not-a-video"));  await symlink(outside, target);
-  await server.database.transaction((d) => d.clips.push({
+  await mkdir(exportsDir, { recursive: true });  const outside = join(dir, "outside-export.mp4");  const target = join(exportsDir, "unsafe.mp4");  await writeFile(outside, Buffer.from("not-a-video"));  await symlink(outside, target);  await server.database.transaction((d) => d.clips.push({
     id: "clip-download-symlink",
     userId: user.body.user.id,
     title: "Unsafe export",
@@ -905,10 +904,13 @@ test("automatic AI clipping reuses an existing auto batch instead of duplicating
   assert.equal(firstStatus.analysisStatus?.status, "completed");
   assert.equal(firstStatus.total, 2);
   const second = await request(base, `/api/videos/${video.body.video.id}/auto-clip`, "POST", { limit: 2 }, user.body.token);
-  assert.equal(second.status, 200);
-  assert.equal(second.body.reused, true);
-  assert.equal(second.body.generated, 2);
-  assert.equal(second.body.clips.length, 2);
+  assert.equal(second.status, 202);
+  assert.equal(second.body.status, "processing");
+  const secondStatus = await waitForAutoClip(base, video.body.video.id, user.body.token);
+  assert.equal(secondStatus.analysisStatus?.status, "completed");
+  assert.equal(secondStatus.analysisStatus?.reused, true);
+  assert.equal(secondStatus.analysisStatus?.generated, 2);
+  assert.equal(secondStatus.total, 2);
   const listed = await request(base, "/api/clips", "GET", undefined, user.body.token);
   assert.equal(listed.body.clips.filter((clip) => clip.generation === "auto-ai").length, 2);
 });
