@@ -9,6 +9,15 @@ app.listen(port, async () => {
   try {
     await app.clipQueue.recover();
     const recoveredAutoClipRuns = await app.recoverAutoClipRuns();
+    const databaseUrl = String(process.env.DATABASE_URL || "").trim();
+    console.log(`ClipForge database backend: ${databaseUrl ? "postgres" : "local-json"}`);
+    if (databaseUrl) {
+      try {
+        console.log(`ClipForge database host: ${new URL(databaseUrl).hostname}`);
+      } catch {
+        console.log("ClipForge database host: configured");
+      }
+    }
     if (recoveredAutoClipRuns) console.log(`ClipForge checked ${recoveredAutoClipRuns} interrupted auto-clip run(s) for recovery.`);
     console.log(`ClipForge API and web app listening on port ${port}`);
   } catch (error) {
