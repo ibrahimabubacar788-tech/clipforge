@@ -1872,11 +1872,13 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
       };
     }).filter(Boolean).filter((candidate) => {
       const aiQuality = Number(candidate.aiScore);
-      const standalone = Number(candidate.standaloneScore);
-      const context = Number(candidate.contextScore);
+      const standaloneValue = candidate.standaloneScore;
+      const contextValue = candidate.contextScore;
+      const standalone = Number(standaloneValue);
+      const context = Number(contextValue);
       if (Number.isFinite(aiQuality) && aiQuality < 42) return false;
-      if (Number.isFinite(standalone) && standalone < 45) return false;
-      if (Number.isFinite(context) && context < 42) return false;
+      if (standaloneValue !== null && standaloneValue !== undefined && Number.isFinite(standalone) && standalone < 45) return false;
+      if (contextValue !== null && contextValue !== undefined && Number.isFinite(context) && context < 42) return false;
       return true;
     }).sort((a, b) => b.score - a.score || a.start - b.start);
 
