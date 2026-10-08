@@ -1945,10 +1945,17 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
     if (!selected.length) throw new Error("AI returned no usable highlight selections.");
     return { candidates: selected.map((item, index) => ({ ...item, rank: index + 1 })), engine: "openai-highlights-v1" };
   } catch (error) {
+    const aiError = error?.name === "AbortError"
+      ? "Highlight analysis timed out."
+      : String(error?.message || "Highlight analysis failed.");
+    // Once an API key is configured, do not silently downgrade a real AI run
+    // to heuristics. A silent downgrade makes the product report an AI result
+    // even when the model failed. Surface the failure so the caller can show
+    // the real engine status and the run can be retried cleanly.
     return {
-      candidates: fallback(),
-      engine: "heuristic-fallback",
-      aiError: error?.name === "AbortError" ? "Highlight analysis timed out." : String(error?.message || "Highlight analysis failed."),
+      candidates: [],
+      engine: "openai-highlights-error",
+      aiError,
     };
   } finally {
     clearTimeout(timer);
