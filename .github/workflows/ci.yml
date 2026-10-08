@@ -34,6 +34,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Run tests with bounded concurrency
+        env:
+          NODE_ENV: test
         run: npm test -- --test-concurrency=1 --test-timeout=60000
 
   docker:
