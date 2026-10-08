@@ -204,16 +204,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       checkAuthLimit(req);
       try {
         const user = await verifyEmail(db, payload.email, payload.code);
-        const session = await login(db, user.email, "__verified_without_password__").catch(async (error) => {
-          if (error?.status !== 401) throw error;
-          const token = cryptoSessionToken();
-          const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString();
-          await db.transaction((data) => {
-            data.sessions = data.sessions.filter((item) => Date.parse(item.expiresAt) > Date.now());
-            data.sessions.push({ id: id("ses"), token, userId: user.id, expiresAt });
-          });
-          return { token, user };
-        });
+        const session = await createSession(db, user);
         clearAuthFailures(req);
         res.setHeader("set-cookie", sessionCookie(session.token));
         return json(res, 200, { token: session.token, user: publicUser(session.user) });
