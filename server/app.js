@@ -656,6 +656,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         performanceLearning,
         creatorMemory,
       });
+      if (analysis.engine === "openai-highlights-error") {
+        throw Object.assign(new Error(String(analysis.aiError || "AI highlight analysis failed.")), { status: 502, code: "AI_HIGHLIGHT_ANALYSIS_FAILED" });
+      }
       const candidates = analysis.candidates.filter((candidate) => {
         const start = Number(candidate.start);
         const end = Number(candidate.end);
