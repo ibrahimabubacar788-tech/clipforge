@@ -685,7 +685,7 @@ test("AI highlight analyzer accepts nested Responses API output text", async () 
   }
 });
 
-test("AI highlight analyzer falls back when the model returns invalid JSON", async () => {
+test("AI highlight analyzer reports an AI error when the model returns invalid JSON", async () => {
   const previousKey = process.env.OPENAI_API_KEY;
   const previousFetch = globalThis.fetch;
   process.env.OPENAI_API_KEY = "test-key";
@@ -699,9 +699,9 @@ test("AI highlight analyzer falls back when the model returns invalid JSON", asy
       { start: 8, end: 16, text: "You need to know why this changed everything." },
       { start: 24, end: 32, text: "But the result surprised everyone." }
     ], { limit: 1 });
-    assert.equal(result.engine, "heuristic-fallback");
+    assert.equal(result.engine, "openai-highlights-error");
     assert.ok(result.aiError);
-    assert.ok(result.candidates.length >= 1);
+    assert.equal(result.candidates.length, 0);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
