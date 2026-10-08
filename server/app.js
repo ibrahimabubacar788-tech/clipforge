@@ -9,7 +9,7 @@ import { O_NOFOLLOW, O_RDONLY } from "node:constants";
 import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
-import { deleteUnverifiedUser, login, loginWithGoogle, logout, publicUser, register, requireUser, sendVerificationCode, updateAccount, verifyEmail } from "./auth.js";
+import { createSession, deleteUnverifiedUser, login, loginWithGoogle, logout, publicUser, register, requireUser, sendVerificationCode, updateAccount, verifyEmail } from "./auth.js";
 const execFileAsync = promisify(execFile);
 
 async function probeVideoDuration(source) {
