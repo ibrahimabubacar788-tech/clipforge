@@ -9,7 +9,7 @@ import { O_NOFOLLOW, O_RDONLY } from "node:constants";
 import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
-import { login, logout, publicUser, register, requireUser, updateAccount } from "./auth.js";
+import { login, loginWithGoogle, logout, publicUser, register, requireUser, updateAccount } from "./auth.js";
 const execFileAsync = promisify(execFile);
 
 async function probeVideoDuration(source) {
@@ -148,7 +148,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       throw Object.assign(new Error("Method not allowed."), { status: 405 });
     }
     let payload = {};
-    if (["POST", "PATCH"].includes(req.method) && ["/api/auth/register", "/api/auth/login", "/api/auth/update"].includes(pathname)) payload = await body(req);
+    if (["POST", "PATCH"].includes(req.method) && ["/api/auth/register", "/api/auth/login", "/api/auth/update", "/api/auth/google"].includes(pathname)) payload = await body(req);
     if (req.method === "GET" && pathname === "/api/ready") {
       await db.load();
       const mediaPersistent = String(process.env.MEDIA_STORAGE_PERSISTENT || "").toLowerCase() === "true";
@@ -175,11 +175,24 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
     if (req.method === "POST" && pathname === "/api/auth/register") {
       checkAuthLimit(req);
       try {
-        const user = await register(db, payload.email, payload.password);
+        const user = await register(db, payload.firstName, payload.lastName, payload.email, payload.password);
         const session = await login(db, payload.email, payload.password);
         clearAuthFailures(req);
         res.setHeader("set-cookie", sessionCookie(session.token));
         return json(res, 201, { token: session.token, user: publicUser(user) });
+      } catch (error) {
+        recordAuthFailure(req);
+        throw error;
+      }
+    }
+    if (req.method === "GET" && pathname === "/api/auth/google/config") return json(res, 200, { configured: Boolean(String(process.env.GOOGLE_CLIENT_ID || "").trim()), clientId: String(process.env.GOOGLE_CLIENT_ID || "").trim() || null });
+    if (req.method === "POST" && pathname === "/api/auth/google") {
+      checkAuthLimit(req);
+      try {
+        const session = await loginWithGoogle(db, payload.credential);
+        clearAuthFailures(req);
+        res.setHeader("set-cookie", sessionCookie(session.token));
+        return json(res, 200, { token: session.token, user: publicUser(session.user) });
       } catch (error) {
         recordAuthFailure(req);
         throw error;
@@ -1098,7 +1111,7 @@ if (req.method === "POST" && pathname === "/api/uploads/chunk") {
     res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
     res.setHeader("x-frame-options", "SAMEORIGIN");
     res.setHeader("permissions-policy", "camera=(), microphone=(), geolocation=()");
-    res.setHeader("cross-origin-opener-policy", "same-origin");
+    res.setHeader("cross-origin-opener-policy", "same-origin-allow-popups");
     res.setHeader("cross-origin-resource-policy", "same-origin");
     if (process.env.NODE_ENV === "production") res.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
     res.setHeader("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
