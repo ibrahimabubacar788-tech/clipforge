@@ -164,6 +164,16 @@ export async function loginWithGoogle(db, credential) {
   return { token: sessionToken, user };
 }
 
+export async function createSession(db, user) {
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString();
+  await db.transaction((data) => {
+    data.sessions = data.sessions.filter((session) => Date.parse(session.expiresAt) > Date.now());
+    data.sessions.push({ id: id("ses"), token, userId: user.id, expiresAt });
+  });
+  return { token, user };
+}
+
 export async function login(db, email, password) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const user = await db.read((d) => d.users.find((u) => u.email === normalizedEmail));
