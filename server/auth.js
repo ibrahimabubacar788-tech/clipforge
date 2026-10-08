@@ -8,7 +8,90 @@ const matchesDigest = (password, salt, stored) => {
   const b = Buffer.from(stored, "hex");
   return a.length === b.length && timingSafeEqual(a, b);
 };
-export function publicUser(user) { return { id: user.id, email: user.email, createdAt: user.createdAt }; }
+export function publicUser(user) { return { id: user.id, email: user.email, createdAt: user.createdAt, emailVerified: user.emailVerified !== false }; }
+const verificationDigest = (email, code) => createHash("sha256").update(`${email}:${code}:${process.env.APP_SECRET || "clipforge-verification"}`).digest("hex");
+const verificationCode = () => String(100000 + (randomBytes(4).readUInt32BE(0) % 900000));
+export async function sendVerificationCode(db, user, { force = false } = {}) {
+  const apiKey = String(process.env.RESEND_API_KEY || "").trim();
+  const from = String(process.env.RESEND_FROM || "").trim();
+  if (!apiKey || !from) throw Object.assign(new Error("Email verification is not configured yet."), { status: 503 });
+  const current = await db.read((data) => data.users.find((item) => item.id === user.id));
+  if (!current) throw Object.assign(new Error("Account not found."), { status: 404 });
+  const sentAt = Date.parse(current.verificationSentAt || "");
+  if (!force && Number.isFinite(sentAt) && Date.now() - sentAt < 60_000) {
+    throw Object.assign(new Error("Please wait a minute before requesting another code."), { status: 429 });
+  }
+  const code = verificationCode();
+  const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+  await db.transaction((data) => {
+    const item = data.users.find((entry) => entry.id === user.id);
+    if (!item) throw Object.assign(new Error("Account not found."), { status: 404 });
+    item.emailVerified = false;
+    item.verificationCodeHash = verificationDigest(item.email, code);
+    item.verificationExpiresAt = expiresAt;
+    item.verificationAttempts = 0;
+    item.verificationSentAt = now();
+  });
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      from,
+      to: [current.email],
+      subject: "Your ClipForge verification code",
+      text: `Your ClipForge verification code is ${code}. It expires in 10 minutes. If you did not create this account, you can ignore this email.`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:32px;color:#171827"><h1>ClipForge</h1><p>Verify your email to finish creating your account.</p><div style="font-size:32px;font-weight:700;letter-spacing:8px;padding:18px 20px;background:#f4f2ff;border-radius:12px;text-align:center">${code}</div><p>This code expires in 10 minutes. If you did not create this account, ignore this email.</p></div>`
+    })
+  });
+  if (!response.ok) {
+    await db.transaction((data) => {
+      const item = data.users.find((entry) => entry.id === user.id);
+      if (item) {
+        item.verificationCodeHash = null;
+        item.verificationExpiresAt = null;
+      }
+    });
+    throw Object.assign(new Error("We could not send the verification email. Please try again."), { status: 502 });
+  }
+  return { expiresAt };
+}
+export async function verifyEmail(db, email, code) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const cleanCode = String(code || "").trim();
+  const user = await db.read((data) => data.users.find((item) => item.email === normalizedEmail));
+  if (!user) throw Object.assign(new Error("Verification request not found."), { status: 404 });
+  if (user.emailVerified !== false) return user;
+  if (!/^\d{6}$/.test(cleanCode)) throw Object.assign(new Error("Enter the 6-digit verification code."), { status: 422 });
+  if (!user.verificationExpiresAt || Date.parse(user.verificationExpiresAt) <= Date.now()) throw Object.assign(new Error("That verification code has expired. Request a new one."), { status: 410 });
+  if ((Number(user.verificationAttempts) || 0) >= 5) throw Object.assign(new Error("Too many incorrect codes. Request a new code."), { status: 429 });
+  const expected = verificationDigest(normalizedEmail, cleanCode);
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(String(user.verificationCodeHash || ""), "hex");
+  const valid = a.length === b.length && timingSafeEqual(a, b);
+  if (!valid) {
+    await db.transaction((data) => {
+      const item = data.users.find((entry) => entry.id === user.id);
+      if (item) item.verificationAttempts = (Number(item.verificationAttempts) || 0) + 1;
+    });
+    throw Object.assign(new Error("That verification code is incorrect."), { status: 422 });
+  }
+  return db.transaction((data) => {
+    const item = data.users.find((entry) => entry.id === user.id);
+    if (!item) throw Object.assign(new Error("Account not found."), { status: 404 });
+    item.emailVerified = true;
+    item.emailVerifiedAt = now();
+    item.verificationCodeHash = null;
+    item.verificationExpiresAt = null;
+    item.verificationAttempts = 0;
+    item.verificationSentAt = null;
+    return item;
+  });
+}
+export async function deleteUnverifiedUser(db, userId) {
+  await db.transaction((data) => {
+    data.users = data.users.filter((item) => item.id !== userId || item.emailVerified !== false);
+  });
+}
 export async function register(db, firstName, lastName, email, password) {
   // Backward-compatible API: register(db, email, password). The current UI
   // sends the full first/last-name profile explicitly.
@@ -85,6 +168,7 @@ export async function login(db, email, password) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const user = await db.read((d) => d.users.find((u) => u.email === normalizedEmail));
   if (!user || typeof password !== "string" || !matchesDigest(password, user.salt, user.passwordHash)) throw Object.assign(new Error("Invalid email or password."), { status: 401 });
+  if (user.emailVerified === false) throw Object.assign(new Error("Please verify your email before logging in."), { status: 403 });
   if (user.passwordHash.length !== 128) {
     await db.transaction((d) => {
       const current = d.users.find((u) => u.id === user.id);
