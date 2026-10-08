@@ -232,6 +232,7 @@ async function loadProject(projectId) {
 
 async function ensureWorkspace() {
   const loadVersion = ++workspaceLoadVersion;
+  const workspaceAuthenticationGeneration = authenticationGeneration;
   try {
     if (!apiSession) {
       const savedIdentity = safeStorageParse(identityKey, null);
@@ -274,6 +275,7 @@ async function ensureWorkspace() {
     return true;
   } catch (error) {
     if (error.status === 401) {
+      if (workspaceAuthenticationGeneration !== authenticationGeneration || apiSession?.user) return false;
       apiSession = null;
       window.localStorage.removeItem(sessionKey);
       setAppAccess(false);
