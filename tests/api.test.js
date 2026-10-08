@@ -257,7 +257,7 @@ test("production responses include HSTS", async (t) => {
   const response = await fetch(base + "/api/ready");
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("strict-transport-security"), "max-age=31536000; includeSubDomains");
-  assert.equal(response.headers.get("cross-origin-opener-policy"), "same-origin");
+  assert.equal(response.headers.get("cross-origin-opener-policy"), "same-origin-allow-popups");
   assert.equal(response.headers.get("cross-origin-resource-policy"), "same-origin");
 });
 
@@ -435,7 +435,7 @@ test("responses include baseline security headers", async (t) => {
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("referrer-policy"), "strict-origin-when-cross-origin");
   assert.equal(response.headers.get("x-frame-options"), "SAMEORIGIN");
-  assert.equal(response.headers.get("content-security-policy"), "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
+  assert.equal(response.headers.get("content-security-policy"), "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.googleusercontent.com; media-src 'self'; connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com; frame-src 'self' https://accounts.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
 });
 
 test("readiness verifies database availability", async (t) => {
