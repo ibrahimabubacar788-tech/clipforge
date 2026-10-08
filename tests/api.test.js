@@ -636,6 +636,41 @@ test("AI highlight analyzer parses a valid Responses API JSON result", async () 
   }
 });
 
+test("AI highlight context stays compact for large candidate batches", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async (_url, init) => {
+    const payload = JSON.parse(init.body);
+    const userMessage = payload.input.find((item) => item.role === "user");
+    const request = JSON.parse(userMessage.content[0].text);
+    assert.ok(request.candidates.length >= 24);
+    assert.ok(request.candidates.every((candidate) => candidate.nearbyContext.length <= 6));
+    assert.ok(request.candidates.every((candidate) =>
+      candidate.nearbyContext.every((segment) => segment.text.length <= 180)
+    ));
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({
+        selections: [{ id: 0, score: 90, title: "Compact context test", reason: "Context payload remains focused" }]
+      })
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const segments = Array.from({ length: 80 }, (_, index) => ({
+      start: index * 8,
+      end: (index + 1) * 8,
+      text: `Here is the biggest lesson number ${index}, but the result surprised everyone and this changed everything.`,
+    }));
+    const result = await rankHighlightsWithAI(segments, { limit: 10 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 1);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
 test("AI highlight selections map back to the exact submitted long-video candidate", async () => {
   const previousKey = process.env.OPENAI_API_KEY;
   const previousFetch = globalThis.fetch;
