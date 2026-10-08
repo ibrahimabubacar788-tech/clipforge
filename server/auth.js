@@ -33,6 +33,38 @@ export async function updateAccount(db, currentUser, email, password) {
     return user;
   });
 }
+export async function loginWithGoogle(db, credential) {
+  const token = String(credential || "").trim();
+  if (!token || token.length > 4096) throw Object.assign(new Error("Google sign-in could not be verified."), { status: 401 });
+  const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
+  if (!response.ok) throw Object.assign(new Error("Google sign-in could not be verified."), { status: 401 });
+  const profile = await response.json();
+  const clientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
+  if (!clientId) throw Object.assign(new Error("Google sign-in is not configured yet."), { status: 503 });
+  if (profile.aud !== clientId || profile.email_verified !== "true" || !profile.sub || !profile.email) {
+    throw Object.assign(new Error("Google sign-in could not be verified."), { status: 401 });
+  }
+  const normalizedEmail = String(profile.email).trim().toLowerCase();
+  const user = await db.transaction((data) => {
+    let existing = data.users.find((item) => item.email === normalizedEmail);
+    if (!existing) {
+      existing = { id: id("usr"), email: normalizedEmail, salt: "", passwordHash: "", createdAt: now(), authProvider: "google", googleSubject: profile.sub };
+      data.users.push(existing);
+    } else {
+      existing.authProvider = existing.authProvider || "google";
+      existing.googleSubject = existing.googleSubject || profile.sub;
+    }
+    return existing;
+  });
+  const sessionToken = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString();
+  await db.transaction((data) => {
+    data.sessions = data.sessions.filter((session) => Date.parse(session.expiresAt) > Date.now());
+    data.sessions.push({ id: id("ses"), token: sessionToken, userId: user.id, expiresAt });
+  });
+  return { token: sessionToken, user };
+}
+
 export async function login(db, email, password) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const user = await db.read((d) => d.users.find((u) => u.email === normalizedEmail));
