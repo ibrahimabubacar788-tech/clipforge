@@ -23,7 +23,8 @@ test("register normalizes email and stores a password hash", async () => {
   assert.deepEqual(publicUser(user), {
     id: user.id,
     email: "user@example.com",
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    emailVerified: true
   });
 
   await db.close();
