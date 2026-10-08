@@ -1530,7 +1530,17 @@ async function setupGoogleAuth() {
       if (!window.google?.accounts?.id) return false;
       window.google.accounts.id.initialize({
         client_id: googleClientId,
-        callback: (response) => void performGoogleLogin(response?.credential)
+        callback: (response) => void performGoogleLogin(response?.credential),
+        error_callback: (error) => {
+          const type = String(error?.type || "");
+          if (type === "popup_failed_to_open") {
+            showToast("Google sign-in could not open. Please allow pop-ups and try again.");
+          } else if (type === "popup_closed") {
+            showToast("Google sign-in was cancelled.");
+          } else {
+            showToast("Google sign-in is unavailable right now. You can use email instead.");
+          }
+        }
       });
       googleInitialized = true;
       renderGoogleButtons();
