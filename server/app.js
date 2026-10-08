@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import ffmpegPath from "ffmpeg-static";
@@ -9,7 +9,7 @@ import { O_NOFOLLOW, O_RDONLY } from "node:constants";
 import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
-import { login, loginWithGoogle, logout, publicUser, register, requireUser, updateAccount } from "./auth.js";
+import { deleteUnverifiedUser, login, loginWithGoogle, logout, publicUser, register, requireUser, sendVerificationCode, updateAccount, verifyEmail } from "./auth.js";
 const execFileAsync = promisify(execFile);
 
 async function probeVideoDuration(source) {
@@ -35,6 +35,7 @@ async function probeVideoDuration(source) {
   }
 }
 
+const cryptoSessionToken = () => randomBytes(32).toString("base64url");
 const sessionCookie = (token, maxAge = 60 * 60 * 24 * 14) => `clipforge_session=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 import { ClipQueue } from "./queue.js";
 import { rankHighlights, rankHighlightsWithAI } from "./highlights.js";
@@ -148,7 +149,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       throw Object.assign(new Error("Method not allowed."), { status: 405 });
     }
     let payload = {};
-    if (["POST", "PATCH"].includes(req.method) && ["/api/auth/register", "/api/auth/login", "/api/auth/update", "/api/auth/google"].includes(pathname)) payload = await body(req);
+    if (["POST", "PATCH"].includes(req.method) && ["/api/auth/register", "/api/auth/login", "/api/auth/update", "/api/auth/google", "/api/auth/verify-email", "/api/auth/resend-verification"].includes(pathname)) payload = await body(req);
     if (req.method === "GET" && pathname === "/api/ready") {
       await db.load();
       const mediaPersistent = String(process.env.MEDIA_STORAGE_PERSISTENT || "").toLowerCase() === "true";
@@ -176,10 +177,50 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       checkAuthLimit(req);
       try {
         const user = await register(db, payload.firstName, payload.lastName, payload.email, payload.password);
-        const session = await login(db, payload.email, payload.password);
+        try {
+          await sendVerificationCode(db, user);
+        } catch (error) {
+          await deleteUnverifiedUser(db, user.id);
+          throw error;
+        }
+        clearAuthFailures(req);
+        return json(res, 202, { verificationRequired: true, email: user.email });
+      } catch (error) {
+        recordAuthFailure(req);
+        throw error;
+      }
+    }
+    if (req.method === "POST" && pathname === "/api/auth/verify-email") {
+      checkAuthLimit(req);
+      try {
+        const user = await verifyEmail(db, payload.email, payload.code);
+        const session = await login(db, user.email, "__verified_without_password__").catch(async (error) => {
+          if (error?.status !== 401) throw error;
+          const token = cryptoSessionToken();
+          const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString();
+          await db.transaction((data) => {
+            data.sessions = data.sessions.filter((item) => Date.parse(item.expiresAt) > Date.now());
+            data.sessions.push({ id: id("ses"), token, userId: user.id, expiresAt });
+          });
+          return { token, user };
+        });
         clearAuthFailures(req);
         res.setHeader("set-cookie", sessionCookie(session.token));
-        return json(res, 201, { token: session.token, user: publicUser(user) });
+        return json(res, 200, { token: session.token, user: publicUser(session.user) });
+      } catch (error) {
+        recordAuthFailure(req);
+        throw error;
+      }
+    }
+    if (req.method === "POST" && pathname === "/api/auth/resend-verification") {
+      checkAuthLimit(req);
+      try {
+        const email = String(payload.email || "").trim().toLowerCase();
+        const user = await db.read((data) => data.users.find((item) => item.email === email));
+        if (!user || user.emailVerified !== false) return json(res, 200, { ok: true });
+        await sendVerificationCode(db, user);
+        clearAuthFailures(req);
+        return json(res, 200, { ok: true, email });
       } catch (error) {
         recordAuthFailure(req);
         throw error;
