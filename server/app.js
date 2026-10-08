@@ -9,7 +9,7 @@ import { O_NOFOLLOW, O_RDONLY } from "node:constants";
 import { extname, join, normalize, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { JsonDatabase, id, now } from "./database.js";
-import { createSession, deleteUnverifiedUser, login, loginWithGoogle, logout, publicUser, register, requireUser, sendVerificationCode, updateAccount, verifyEmail } from "./auth.js";
+import { createSession, deleteUnverifiedUser, login, loginWithGoogle, logout, normalizeGoogleClientId, publicUser, register, requireUser, sendVerificationCode, updateAccount, verifyEmail } from "./auth.js";
 const execFileAsync = promisify(execFile);
 
 async function probeVideoDuration(source) {
@@ -226,7 +226,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         throw error;
       }
     }
-    if (req.method === "GET" && pathname === "/api/auth/google/config") return json(res, 200, { configured: Boolean(String(process.env.GOOGLE_CLIENT_ID || "").trim()), clientId: String(process.env.GOOGLE_CLIENT_ID || "").trim() || null });
+    if (req.method === "GET" && pathname === "/api/auth/google/config") { const clientId = normalizeGoogleClientId(process.env.GOOGLE_CLIENT_ID); return json(res, 200, { configured: Boolean(clientId), clientId: clientId || null }); }
     if (req.method === "POST" && pathname === "/api/auth/google") {
       checkAuthLimit(req);
       try {
