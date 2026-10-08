@@ -1711,16 +1711,22 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   // evidence, while a small boundary window supplies just enough setup/payoff
   // context. Avoid repeating large nearby transcript blocks for every candidate,
   // which makes large 40-50 clip requests unnecessarily slow.
-  const candidateContext = aiCandidates.map((item, id) => ({
+: [];
+
+  // Keep the AI context compact: the candidate transcript carries the main
+  // evidence, while a small boundary window supplies just enough setup/payoff
+  // context. Avoid repeating large nearby transcript blocks for every candidate,
+  // which makes large 40-50 clip requests unnecessarily slow.
+  const candidateContextById = new Map(aiCandidates.map((item, id) => [
     id,
-    nearby: selectNearbyContext(segments, item.start, item.end, 6).map((segment) => ({
+    selectNearbyContext(segments, item.start, item.end, 6).map((segment) => ({
       index: segment.index,
       start: Number(segment.start.toFixed(2)),
       end: Number(segment.end.toFixed(2)),
       speaker: segment.speaker || undefined,
       text: segment.text.slice(0, 180),
     })),
-  }));
+  ]));
 
   const candidates = aiCandidates.map((item, id) => ({
     id,
@@ -1728,12 +1734,11 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
     end: item.end,
     duration: item.duration,
     transcript: item.transcript.slice(0, 900),
-    nearbyContext: candidateContext.find((entry) => entry.id === id)?.nearby || [],
+    nearbyContext: candidateContextById.get(id) || [],
     baselineScore: Math.round(Number(item.score) || 0),
     highlightType: item.highlightType || "insight",
     libraryNovelty: creatorLibraryNoveltyScore(item.transcript, safeCreatorMemory),
     libraryRelationship: creatorLibraryRelationship(item.transcript, safeCreatorMemory),
-  }));
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 35_000);
