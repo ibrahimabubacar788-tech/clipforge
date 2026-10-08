@@ -636,6 +636,47 @@ test("AI highlight analyzer parses a valid Responses API JSON result", async () 
   }
 });
 
+test("AI highlight analyzer treats null and blank quality scores as unscored", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    output_text: JSON.stringify({
+      selections: [{
+        id: 0,
+        score: 86,
+        standalone: null,
+        context: "",
+        hook: null,
+        clarity: "",
+        payoff: 78,
+        reason: "Clear payoff despite partial score fields",
+        title: "Partial scoring remains usable"
+      }]
+    })
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 8, text: "Here is the biggest lesson from this story." },
+      { start: 8, end: 16, text: "You need to know why this changed everything." },
+      { start: 90, end: 98, text: "The truth is this was the biggest mistake." },
+      { start: 98, end: 106, text: "But the result surprised everyone." }
+    ], { limit: 1 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 1);
+    assert.equal(result.candidates[0].aiScore, 86);
+    assert.equal(result.candidates[0].standaloneScore, null);
+    assert.equal(result.candidates[0].contextScore, null);
+    assert.equal(result.candidates[0].hookScore, null);
+    assert.equal(result.candidates[0].clarityScore, null);
+    assert.equal(result.candidates[0].payoffScore, 78);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
 test("AI highlight analyzer falls back safely when no API key is configured", async () => {
   const previous = process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_API_KEY;
