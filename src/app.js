@@ -334,6 +334,7 @@ function showAuthError(error) {
 
 async function completeAuthentication(session) {
   if (!session?.user) throw new Error("Authentication succeeded without a user session.");
+  authenticationGeneration += 1;
   apiSession = { token: session.token || null, user: session.user };
   window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
   window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email || "" }));
@@ -348,6 +349,7 @@ async function completeAuthentication(session) {
 }
 
 async function performLogin() {
+  authenticationGeneration += 1;
   const email = String(loginEmailInput?.value || "").trim();
   const password = String(loginPasswordInput?.value || "");
   if (!email || !password) throw new Error("Enter your email and password.");
@@ -358,6 +360,7 @@ async function performLogin() {
 }
 
 async function performSignup() {
+  authenticationGeneration += 1;
   const firstName = String(signupFirstNameInput?.value || "").trim();
   const lastName = String(signupLastNameInput?.value || "").trim();
   const email = String(signupEmailInput?.value || "").trim();
@@ -380,6 +383,7 @@ async function performSignup() {
 }
 
 async function verifyPendingEmail() {
+  authenticationGeneration += 1;
   const email = pendingVerificationEmail || String(signupEmailInput?.value || "").trim();
   const code = String(verificationCodeInput?.value || "").trim();
   if (!email || !/^\\d{6}$/.test(code)) throw new Error("Enter the 6-digit verification code.");
@@ -396,6 +400,7 @@ async function resendPendingVerification() {
 }
 
 async function performGoogleLogin() {
+  authenticationGeneration += 1;
   if (!window.google?.accounts?.id) {
     await waitForGoogleIdentity();
   }
@@ -448,6 +453,7 @@ async function setupGoogleAuth() {
 }
 
 async function hydrateAuthenticatedSession() {
+  const hydrationGeneration = authenticationGeneration;
   if (apiSession?.user) {
     setAppAccess(true);
     const ready = await ensureWorkspace();
@@ -470,12 +476,17 @@ async function hydrateAuthenticatedSession() {
       return;
     }
   } catch {
+    if (hydrationGeneration !== authenticationGeneration || apiSession?.user) return;
     apiSession = null;
     window.localStorage.removeItem(sessionKey);
   }
+  if (hydrationGeneration !== authenticationGeneration || apiSession?.user) return;
   setAppAccess(false);
   if (!window.location.hash || window.location.hash === "#dashboard") history.replaceState(null, "", window.location.pathname);
 }
+
+let authenticationHydrationInFlight = false;
+let authenticationGeneration = 0;
 
 function wireAuthenticationBoundary() {
   setAppAccess(false);
@@ -526,7 +537,10 @@ function wireAuthenticationBoundary() {
     const view = window.location.hash.replace(/^#/, "");
     if (["dashboard", "editor", "clips", "brand"].includes(view)) switchView(view);
   });
-  void hydrateAuthenticatedSession();
+  authenticationHydrationInFlight = true;
+  void hydrateAuthenticatedSession().finally(() => {
+    authenticationHydrationInFlight = false;
+  });
 }
 
 
