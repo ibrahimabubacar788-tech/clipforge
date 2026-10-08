@@ -158,7 +158,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         service: "clipforge",
         ai: {
           configured: openAiConfigured,
-          highlightModel: openAiConfigured ? (process.env.OPENAI_HIGHLIGHT_MODEL || "gpt-6-luna") : null,
+          highlightModel: openAiConfigured ? (process.env.OPENAI_HIGHLIGHT_MODEL || "gpt-4o-mini") : null,
           transcription: openAiConfigured,
         },
         ffmpeg: {
