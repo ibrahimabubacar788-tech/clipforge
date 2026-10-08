@@ -1793,11 +1793,15 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
         .map((segment) => String(segment.speaker || "").trim())
         .filter(Boolean))],
     }]));
+    const optionalScore = (value) => {
+      if (value === null || value === undefined || (typeof value === "string" && !value.trim())) return null;
+      const score = Number(value);
+      return Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null;
+    };
     const ranked = selections.map((selection) => {
       const base = byId.get(Number(selection.id));
       if (!base) return null;
-      const score = Number(selection.score);
-      const aiScore = Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null;
+      const aiScore = optionalScore(selection.score);
       const dimensionWeights = [
         ["standalone", 20],
         ["context", 8],
@@ -1813,9 +1817,9 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
       let dimensionWeight = 0;
       let dimensionSignals = 0;
       for (const [key, weight] of dimensionWeights) {
-        const value = Number(selection[key]);
-        if (!Number.isFinite(value)) continue;
-        dimensionTotal += Math.max(0, Math.min(100, value)) * weight;
+        const value = optionalScore(selection[key]);
+        if (value === null) continue;
+        dimensionTotal += value * weight;
         dimensionWeight += weight;
         dimensionSignals += 1;
       }
@@ -1845,15 +1849,15 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
         aiScore,
         baselineScore: Math.round(baselineScore),
         blendedScore,
-        hookScore: Number.isFinite(Number(selection.hook)) ? Math.max(0, Math.min(100, Number(selection.hook))) : null,
-        contextScore: Number.isFinite(Number(selection.context)) ? Math.max(0, Math.min(100, Number(selection.context))) : null,
-        standaloneScore: Number.isFinite(Number(selection.standalone)) ? Math.max(0, Math.min(100, Number(selection.standalone))) : null,
-        payoffScore: Number.isFinite(Number(selection.payoff)) ? Math.max(0, Math.min(100, Number(selection.payoff))) : null,
-        emotionScore: Number.isFinite(Number(selection.emotion)) ? Math.max(0, Math.min(100, Number(selection.emotion))) : null,
-        noveltyScore: Number.isFinite(Number(selection.novelty)) ? Math.max(0, Math.min(100, Number(selection.novelty))) : null,
-        replayabilityScore: Number.isFinite(Number(selection.replayability)) ? Math.max(0, Math.min(100, Number(selection.replayability))) : null,
-        specificityScore: Number.isFinite(Number(selection.specificity)) ? Math.max(0, Math.min(100, Number(selection.specificity))) : null,
-        clarityScore: Number.isFinite(Number(selection.clarity)) ? Math.max(0, Math.min(100, Number(selection.clarity))) : null,
+        hookScore: optionalScore(selection.hook),
+        contextScore: optionalScore(selection.context),
+        standaloneScore: optionalScore(selection.standalone),
+        payoffScore: optionalScore(selection.payoff),
+        emotionScore: optionalScore(selection.emotion),
+        noveltyScore: optionalScore(selection.novelty),
+        replayabilityScore: optionalScore(selection.replayability),
+        specificityScore: optionalScore(selection.specificity),
+        clarityScore: optionalScore(selection.clarity),
         aiReason: String(selection.reason || "").trim().slice(0, 240),
         highlightType: allowedHighlightTypes.has(String(selection.type || "").trim().toLowerCase())
           ? String(selection.type).trim().toLowerCase()
