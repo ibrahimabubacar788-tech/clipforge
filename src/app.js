@@ -86,6 +86,8 @@ const dashboardNewProjectButton = document.querySelector("#dashboard-new-project
 const dashboardOpenEditorButton = document.querySelector("#dashboard-open-editor");
 const dashboardOpenLibraryButton = document.querySelector("#dashboard-open-library");
 const dashboardOpenSettingsButton = document.querySelector("#dashboard-open-settings");
+const workspaceHomeButton = document.querySelector("#workspace-home-button");
+const workspaceReturnEditorButton = document.querySelector("#workspace-return-editor");
 const settingsSignoutButton = document.querySelector("#settings-signout");
 const appShell = document.querySelector(".app-shell");
 const authLanding = document.querySelector("#auth-landing");
@@ -344,10 +346,11 @@ async function completeAuthentication(session) {
   if (verificationCodeInput) verificationCodeInput.value = "";
   accountDialog?.close();
   setAppAccess(true);
-  switchView("dashboard");
-  history.replaceState(null, "", "#dashboard");
   const ready = await ensureWorkspace();
   if (!ready) throw new Error("Your account is signed in, but the workspace could not finish loading.");
+  // The editor is the authenticated product home. My Workspace is a secondary private area.
+  switchView("editor");
+  history.replaceState(null, "", "#editor");
 }
 
 async function performLogin() {
@@ -461,7 +464,7 @@ async function hydrateAuthenticatedSession() {
     const ready = await ensureWorkspace();
     if (ready) {
       const requestedView = window.location.hash.replace(/^#/, "");
-      switchView(["dashboard", "editor", "clips", "brand"].includes(requestedView) ? requestedView : "dashboard");
+      switchView(["dashboard", "editor", "clips", "brand"].includes(requestedView) ? requestedView : "editor");
       return;
     }
   }
@@ -474,7 +477,7 @@ async function hydrateAuthenticatedSession() {
     const ready = await ensureWorkspace();
     if (ready) {
       const requestedView = window.location.hash.replace(/^#/, "");
-      switchView(["dashboard", "editor", "clips", "brand"].includes(requestedView) ? requestedView : "dashboard");
+      switchView(["dashboard", "editor", "clips", "brand"].includes(requestedView) ? requestedView : "editor");
       return;
     }
   } catch {
@@ -497,6 +500,9 @@ function wireAuthenticationBoundary() {
   accountButton?.addEventListener("click", () => showAccountDialog("account"));
   dashboardSettingsButton?.addEventListener("click", () => showAccountDialog("account"));
   dashboardOpenSettingsButton?.addEventListener("click", () => showAccountDialog("workspace"));
+  workspaceHomeButton?.addEventListener("click", () => { switchView("dashboard"); history.replaceState(null, "", "#dashboard"); });
+  workspaceReturnEditorButton?.addEventListener("click", () => { switchView("editor"); history.replaceState(null, "", "#editor"); });
+  dashboardOpenEditorButton?.addEventListener("click", () => { switchView("editor"); history.replaceState(null, "", "#editor"); });
   settingsMenuItems.forEach((item) => item.addEventListener("click", () => setSettingsPanel(item.dataset.settingsTab)));
   authModeButtons.forEach((button) => button.addEventListener("click", () => setSettingsPanel(button.dataset.settingsTab)));
   accountLoginButton?.addEventListener("click", async () => { try { await performLogin(); } catch (error) { showAuthError(error); } });
