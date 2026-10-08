@@ -522,11 +522,29 @@ async function uploadSource(file) {
   if (uploadProgressPercent) uploadProgressPercent.textContent = "100%";
   if (uploadProgressLabel) uploadProgressLabel.textContent = "Upload complete";
   showToast("Video uploaded. ClipForge AI is starting automatic clipping…");
-  const generationButton = document.querySelector("#run-ai-generation");
-  if (generationButton && !generationButton.disabled) {
-    window.setTimeout(() => generationButton.click(), 150);
-  } else {
-    document.querySelector("#transcript-dialog")?.showModal();
+  const autoClipProjectId = currentProject?.id;
+  const autoClipVideoId = uploadedVideo.id;
+  try {
+    const autoClipResult = await api(`/api/videos/${encodeURIComponent(autoClipVideoId)}/auto-clip`, {
+      method: "POST",
+      body: JSON.stringify({
+        limit: Number(document.querySelector("#ai-clip-count")?.value) || 10,
+        format: document.querySelector("#ai-output-format")?.value || "9:16",
+        captions: document.querySelector("#ai-caption-enabled")?.value !== "false",
+        style: captionStyle,
+        profile: document.querySelector("#ai-content-profile")?.value || window.localStorage.getItem("clipforge-content-profile") || "creator",
+        language: transcriptionLanguage?.value || safeStorageParse(transcriptionLanguageKey, "auto"),
+        captionLanguage: captionLanguageSelect?.value || safeStorageParse(captionLanguageKey, "original"),
+      }),
+    });
+    if (currentProject?.id !== autoClipProjectId || sourceVideo?.id !== autoClipVideoId) return;
+    showToast(autoClipResult?.status === "processing" ? "Upload verified. ClipForge is now processing your strongest moments." : "Upload complete. ClipForge started processing.");
+    void pollAutoClipStatus(autoClipVideoId);
+  } catch (error) {
+    if (currentProject?.id === autoClipProjectId && sourceVideo?.id === autoClipVideoId) {
+      showToast(`Upload finished, but automatic clipping could not start: ${error.message}`);
+      document.querySelector("#transcript-dialog")?.showModal();
+    }
   }
   } finally {
     if (!uploadCommitted) {
