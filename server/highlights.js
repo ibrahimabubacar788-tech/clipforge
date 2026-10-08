@@ -1424,6 +1424,13 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
     clean.length,
     Math.max(360, Math.min(1200, requestedCandidateBudget * 36)),
   );
+  if (clean.length <= startBudget) {
+    const startIndexes = clean.map((_, index) => index);
+    // Keep the original exhaustive path for normal-sized transcripts so
+    // quality ordering remains unchanged; the adaptive budget only activates
+    // when a transcript is large enough to make exhaustive scoring expensive.
+    for (const i of startIndexes) anchorIndexes.add(i);
+  }
   const anchorStrength = (index) => {
     const text = clean[index]?.text || "";
     return anchorPatterns.reduce((score, pattern) => score + (pattern.test(text) ? 1 : 0), 0)
