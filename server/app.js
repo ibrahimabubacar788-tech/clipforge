@@ -1114,7 +1114,7 @@ if (req.method === "POST" && pathname === "/api/uploads/chunk") {
     res.setHeader("cross-origin-opener-policy", "same-origin-allow-popups");
     res.setHeader("cross-origin-resource-policy", "same-origin");
     if (process.env.NODE_ENV === "production") res.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
-    res.setHeader("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
+    res.setHeader("content-security-policy", "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.googleusercontent.com; media-src 'self'; connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com; frame-src 'self' https://accounts.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
     try {
       res.setHeader("x-content-type-options", "nosniff");
       res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
