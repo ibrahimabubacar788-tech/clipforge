@@ -5,7 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { JsonDatabase } from "../server/database.js";
-import { createSession, login, logout, publicUser, register, requireUser, verifyEmail } from "../server/auth.js";
+import { createSession, login, logout, normalizeGoogleClientId, publicUser, register, requireUser, verifyEmail } from "../server/auth.js";
+
+test("Google OAuth client IDs are normalized when Render env values are wrapped in quotes", () => {
+  assert.equal(normalizeGoogleClientId('"123456789.apps.googleusercontent.com"'), "123456789.apps.googleusercontent.com");
+  assert.equal(normalizeGoogleClientId("  123456789.apps.googleusercontent.com  "), "123456789.apps.googleusercontent.com");
+});
 
 async function setup() {
   const dir = await mkdtemp(join(tmpdir(), "clipforge-auth-"));
