@@ -1513,6 +1513,11 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
   const safeCandidateLimit = Number.isFinite(parsedCandidateLimit)
     ? Math.max(safeLimit, Math.min(150, Math.floor(parsedCandidateLimit)))
     : safeLimit;
+  const sourceDuration = Math.max(0, ...clean.map((segment) => Number(segment.end) || 0));
+  candidates.forEach((candidate) => {
+    candidate.videoDuration = sourceDuration;
+    candidate.storyStageCount = 4;
+  });
   const selected = [];
   const pool = candidates.slice(0, Math.min(candidates.length, Math.max(safeCandidateLimit * 4, 40)));
   while (selected.length < safeCandidateLimit && pool.length) {
@@ -1884,14 +1889,8 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
     }
     const allowedHighlightTypes = new Set(["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"]);
     const selections = Array.isArray(parsed.selections) ? parsed.selections.slice(0, safeLimit * 3) : [];
-    const sourceDuration = Math.max(0, ...segments.map((segment) => Number(segment.end) || 0));
-  const aiCandidateMetadata = new Map(aiCandidates.map((item, id) => [id, {
-    videoDuration: sourceDuration,
-    storyStageCount: 4,
-  }]));
-  const byId = new Map(aiCandidates.map((item, id) => [id, {
+    const byId = new Map(aiCandidates.map((item, id) => [id, {
       ...item,
-      ...(aiCandidateMetadata.get(id) || {}),
       speakers: [...new Set((candidateContextById.get(id) || [])
         .map((segment) => String(segment.speaker || "").trim())
         .filter(Boolean))],
