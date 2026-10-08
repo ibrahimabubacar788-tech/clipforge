@@ -179,3 +179,41 @@
 #google-login-button,#google-signup-button{min-height:46px;padding:0!important;background:transparent;border:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 #google-login-button iframe,#google-signup-button iframe{max-width:100%!important;}
 @media(max-width:570px){.account-name-grid{grid-template-columns:1fr!important}.account-full-width{grid-column:auto}}
+
+/* Auth dialog scrolling: keep every field reachable on small and tall screens. */
+.account-settings-dialog {
+  max-height: min(90vh, 820px);
+  overflow: hidden;
+}
+.account-settings-dialog > form {
+  min-height: 0;
+  max-height: min(90vh, 820px);
+  display: flex;
+  flex-direction: column;
+}
+.account-settings-dialog .settings-menu {
+  flex: 0 0 auto;
+}
+.account-settings-dialog .settings-panel-section {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.account-settings-dialog .settings-panel-section::-webkit-scrollbar {
+  width: 7px;
+}
+.account-settings-dialog .settings-panel-section::-webkit-scrollbar-thumb {
+  background: rgba(166,140,255,.38);
+  border-radius: 999px;
+}
+@media (max-width: 570px) {
+  .account-settings-dialog {
+    width: calc(100% - 20px);
+    max-height: 92vh;
+  }
+  .account-settings-dialog > form {
+    max-height: 92vh;
+  }
+}
