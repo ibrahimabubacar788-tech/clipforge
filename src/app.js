@@ -1427,6 +1427,8 @@ accountDialog?.addEventListener("close", () => {
   else void performSignup();
 }));
 
+const googleLoginSlot = document.querySelector("#google-login-slot");
+const googleSignupSlot = document.querySelector("#google-signup-slot");
 const googleLoginButton = document.querySelector("#google-login-button");
 const googleSignupButton = document.querySelector("#google-signup-button");
 let googleClientId = null;
@@ -1489,19 +1491,22 @@ async function setupGoogleAuth() {
   }
 }
 function renderGoogleButtons() {
-  [googleLoginButton, googleSignupButton].forEach((button) => {
-    if (!button || !googleInitialized || !window.google?.accounts?.id) return;
-    button.replaceChildren();
-    window.google.accounts.id.renderButton(button, {
+  [
+    [googleLoginSlot, googleLoginButton],
+    [googleSignupSlot, googleSignupButton],
+  ].forEach(([slot, button]) => {
+    if (!slot || !button || !googleInitialized || !window.google?.accounts?.id) return;
+    const width = Math.min(520, Math.max(260, slot.clientWidth || button.clientWidth || 360));
+    slot.replaceChildren();
+    window.google.accounts.id.renderButton(slot, {
       type: "standard",
       theme: "outline",
       size: "large",
       text: "continue_with",
       shape: "rectangular",
       logo_alignment: "left",
-      width: Math.min(520, Math.max(260, button.clientWidth || 360))
+      width,
     });
-    button.title = "Continue with Google";
   });
 }
 async function performGoogleLogin(credential) {
