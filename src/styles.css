@@ -170,3 +170,11 @@
 .account-settings-dialog .field-label input{width:100%;margin-top:7px;padding:13px 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:#0b0f1a;color:#fff;font:13px Manrope;outline:none}
 .account-settings-dialog .field-label input:focus{border-color:#a68cff;box-shadow:0 0 0 3px rgba(166,140,255,.1)}
 @media(max-width:570px){.account-settings-dialog .dialog-heading,.account-settings-dialog .settings-panel-section{padding-left:18px;padding-right:18px}.auth-panel .settings-section-head h3{font-size:22px}}
+
+
+/* Full profile signup */
+.account-name-grid{grid-template-columns:1fr 1fr!important;}
+.account-full-width{grid-column:1/-1;}
+#google-login-button,#google-signup-button{min-height:46px;padding:0!important;background:transparent;border:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#google-login-button iframe,#google-signup-button iframe{max-width:100%!important;}
+@media(max-width:570px){.account-name-grid{grid-template-columns:1fr!important}.account-full-width{grid-column:auto}}
