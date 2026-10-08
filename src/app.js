@@ -103,6 +103,7 @@ const accountEmailInput = document.querySelector("#account-email");
 const accountPasswordInput = document.querySelector("#account-password");
 const accountDialogEmail = document.querySelector("#account-dialog-email");
 const settingsMenuItems = document.querySelectorAll("[data-settings-tab]");
+const authModeButtons = document.querySelectorAll(".auth-mode-button");
 const settingsPanels = document.querySelectorAll("[data-settings-panel]");
 
 const volumeInput = document.querySelector("#volume-input");
@@ -1321,6 +1322,7 @@ function showAccountDialog(tab = "account") {
   if (!accountDialog) return;
   if (!apiSession) setAppAccess(false);
   settingsMenuItems.forEach((item) => item.classList.toggle("active", item.dataset.settingsTab === tab));
+  authModeButtons.forEach((item) => item.classList.toggle("active", item.dataset.settingsTab === tab));
   settingsPanels.forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== tab; });
   if (accountDialogEmail) accountDialogEmail.textContent = apiSession?.user?.email || "Sign in or create your ClipForge account.";
   if (loginEmailInput && !loginEmailInput.value) loginEmailInput.value = safeStorageParse(identityKey, null)?.email || "";
@@ -1420,6 +1422,7 @@ async function signOut() {
   showToast("You have been signed out.");
 }
 settingsMenuItems.forEach((item) => item.addEventListener("click", () => showAccountDialog(item.dataset.settingsTab)));
+authModeButtons.forEach((item) => item.addEventListener("click", () => showAccountDialog(item.dataset.settingsTab)));
 accountButton?.addEventListener("click", () => showAccountDialog("account"));
 dashboardSettingsButton?.addEventListener("click", () => showAccountDialog("account"));
 dashboardLogoutButton?.addEventListener("click", () => void signOut());
