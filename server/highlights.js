@@ -1529,7 +1529,25 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
       const selectedTypes = new Set(selected.map((item) => String(item.highlightType || "").trim()).filter(Boolean));
       const introducesNewType = Boolean(candidate.highlightType) && !selectedTypes.has(candidate.highlightType);
       const typeCoverageBonus = introducesNewType ? 4 : 0;
-      const utility = candidate.score - diversityPenalty(candidate, selected) * 100 + speakerCoverageBonus + typeCoverageBonus;
+      const duration = Math.max(
+        Number(candidate.videoDuration) || 0,
+        ...selected.map((item) => Number(item.videoDuration) || 0),
+        Number(candidate.end) || 0,
+      );
+      const stageCount = Math.min(4, Math.max(1, Number(candidate.storyStageCount) || 4));
+      const candidateStage = Math.min(
+        stageCount - 1,
+        Math.max(0, Math.floor(((Number(candidate.start) || 0) / Math.max(1, duration)) * stageCount)),
+      );
+      const selectedStages = new Set(selected.map((item) => {
+        const itemDuration = Math.max(Number(item.videoDuration) || 0, Number(item.end) || 0);
+        return Math.min(
+          stageCount - 1,
+          Math.max(0, Math.floor(((Number(item.start) || 0) / Math.max(1, itemDuration)) * stageCount)),
+        );
+      }));
+      const stageCoverageBonus = selected.length < Math.ceil(safeLimit * 0.6) && !selectedStages.has(candidateStage) ? 6 : 0;
+      const utility = candidate.score - diversityPenalty(candidate, selected) * 100 + speakerCoverageBonus + typeCoverageBonus + stageCoverageBonus;
       if (utility > bestUtility) {
         bestUtility = utility;
         bestIndex = i;
@@ -1866,8 +1884,14 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
     }
     const allowedHighlightTypes = new Set(["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"]);
     const selections = Array.isArray(parsed.selections) ? parsed.selections.slice(0, safeLimit * 3) : [];
-    const byId = new Map(aiCandidates.map((item, id) => [id, {
+    const sourceDuration = Math.max(0, ...segments.map((segment) => Number(segment.end) || 0));
+  const aiCandidateMetadata = new Map(aiCandidates.map((item, id) => [id, {
+    videoDuration: sourceDuration,
+    storyStageCount: 4,
+  }]));
+  const byId = new Map(aiCandidates.map((item, id) => [id, {
       ...item,
+      ...(aiCandidateMetadata.get(id) || {}),
       speakers: [...new Set((candidateContextById.get(id) || [])
         .map((segment) => String(segment.speaker || "").trim())
         .filter(Boolean))],
