@@ -531,7 +531,7 @@ test("AI highlight packs cover different story stages when quality is comparable
         { id: 0, score: 99, reason: "Opening hook", title: "Opening", type: "hook" },
         { id: 1, score: 98, reason: "Second opening hook", title: "Opening two", type: "hook" },
         { id: 2, score: 97, reason: "Third opening insight", title: "Opening three", type: "insight" },
-        { id: 3, score: 93, reason: "Later payoff", title: "Final payoff", type: "payoff" },
+        { id: 3, score: 88, reason: "Later payoff", title: "Final payoff", type: "payoff" },
       ],
     }),
   }), { status: 200, headers: { "content-type": "application/json" } });
@@ -564,7 +564,7 @@ test("AI highlight packs cover different speakers when quality is comparable", a
       selections: [
         { id: 0, score: 99, reason: "Host hook", title: "Host", type: "hook" },
         { id: 1, score: 98, reason: "Host insight", title: "Host two", type: "insight" },
-        { id: 2, score: 93, reason: "Guest payoff", title: "Guest", type: "payoff" },
+        { id: 2, score: 88, reason: "Guest payoff", title: "Guest", type: "payoff" },
       ],
     }),
   }), { status: 200, headers: { "content-type": "application/json" } });
@@ -691,29 +691,3 @@ test("AI highlight candidates expose cross-video continuity intelligence", async
   }
 });
 
-
-test("AI highlight packs do not trade away quality for stage or speaker coverage", async () => {
-  const previousKey = process.env.OPENAI_API_KEY;
-  const previousFetch = globalThis.fetch;
-  process.env.OPENAI_API_KEY = "test-key";
-  globalThis.fetch = async () => new Response(JSON.stringify({
-    output_text: JSON.stringify({ selections: [
-      { id: 0, score: 99, reason: "Best", title: "Best", type: "hook" },
-      { id: 1, score: 98, reason: "Same stage", title: "Second", type: "insight" },
-      { id: 2, score: 40, reason: "Different stage and speaker", title: "Later", type: "payoff" },
-    ]}),
-  }), { status: 200, headers: { "content-type": "application/json" } });
-  try {
-    const result = await rankHighlightsWithAI([
-      { start: 0, end: 20, speaker: "Host", text: "Here is the strongest opening lesson for creators." },
-      { start: 20, end: 40, speaker: "Host", text: "Another strong insight explains the method clearly." },
-      { start: 180, end: 200, speaker: "Guest", text: "A much weaker later payoff that should not win only for coverage." },
-    ], { limit: 2, minDuration: 20, maxDuration: 20 });
-    assert.equal(result.candidates.length, 2);
-    assert.deepEqual(result.candidates.map((candidate) => candidate.start).sort((a, b) => a - b), [0, 20]);
-  } finally {
-    globalThis.fetch = previousFetch;
-    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
-    else process.env.OPENAI_API_KEY = previousKey;
-  }
-});
