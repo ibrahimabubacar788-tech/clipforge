@@ -267,43 +267,16 @@ async function ensureWorkspace() {
     if (error.status === 401) {
       apiSession = null;
       window.localStorage.removeItem(sessionKey);
-      try {
-        throw new Error("Your ClipForge session expired. Please log in again.");
-        const { projects } = await api("/api/projects");
-        if (loadVersion !== workspaceLoadVersion) return false;
-        if (projects.length) currentProject = projects[0];
-        else {
-          const createdProject = (await api("/api/projects", { method: "POST", body: JSON.stringify({ name: "Midnight Sessions" }) })).project;
-          if (loadVersion !== workspaceLoadVersion) return false;
-          if (!createdProject?.id) throw new Error("Project creation returned an invalid project.");
-          currentProject = createdProject;
-          projects.push(currentProject);
-        }
-        document.querySelector("#workspace-title").textContent = currentProject.name;
-        renderProjectSelector(projects);
-        const videos = (await api(`/api/videos?projectId=${encodeURIComponent(currentProject.id)}`)).videos;
-        if (loadVersion !== workspaceLoadVersion) return false;
-        sourceVideo = videos[0];
-        const deleteSourceButton = document.querySelector("#delete-source-video");
-        if (sourceVideo) {
-          restoreSourcePreview(sourceVideo);
-          if (deleteSourceButton) deleteSourceButton.hidden = false;
-        } else {
-          clearSourcePreview();
-          if (deleteSourceButton) deleteSourceButton.hidden = true;
-        }
-        const clipResult = await api("/api/clips");
-        if (loadVersion !== workspaceLoadVersion) return false;
-        clips = clipResult.clips.filter((clip) => clip.projectId === currentProject?.id);
-        renderClipLibrary();
-        return true;
-      } catch (retryError) {
-        if (loadVersion === workspaceLoadVersion) showToast(`Backend unavailable: ${retryError.message}`);
+      setAppAccess(false);
+      if (loadVersion === workspaceLoadVersion) {
+        showToast("Your ClipForge session expired. Please log in again.");
       }
-    } else {
-      if (loadVersion === workspaceLoadVersion) showToast(`Backend unavailable: ${error.message}`);
+      return false;
     }
-    if (loadVersion !== workspaceLoadVersion) return false;
+
+    if (loadVersion === workspaceLoadVersion) {
+      showToast(`Workspace is still loading: ${error.message}`);
+    }
     clips = readSavedClips();
     renderClipLibrary();
     return false;
