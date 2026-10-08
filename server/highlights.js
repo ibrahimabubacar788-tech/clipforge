@@ -1960,10 +1960,22 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
           : libraryRelationshipType === "new-angle" || libraryRelationshipType === "update" || libraryRelationshipType === "reversal"
             ? 2
             : 0;
+        // Avoid spending several clip slots on near-identical moments that
+        // happen close together in the source. Keep this a soft penalty so a
+        // genuinely stronger nearby moment can still win.
+        const nearbyRedundancyPenalty = selected.reduce((penalty, item) => {
+          const distance = Math.abs(Number(candidate.start) - Number(item.start));
+          if (!Number.isFinite(distance) || distance >= 25) return penalty;
+          const transcriptSimilarity = similarity(item.transcript, candidate.transcript);
+          if (transcriptSimilarity < 0.4) return penalty;
+          const proximity = (25 - distance) / 25;
+          const redundancy = Math.min(1, (transcriptSimilarity - 0.4) / 0.3);
+          return Math.max(penalty, Math.round(proximity * redundancy * 6));
+        }, 0);
         const utility = Number(candidate.score || 0) + requestedBonus + noveltyBonus
           + temporalCoverageBonus + storyCoverageBonus + speakerCoverageBonus
           + libraryNoveltyBonus + repeatPenalty
-          - weakContextPenalty - weakStandalonePenalty;
+          - weakContextPenalty - weakStandalonePenalty - nearbyRedundancyPenalty;
         if (utility > bestUtility) {
           bestUtility = utility;
           bestIndex = i;
