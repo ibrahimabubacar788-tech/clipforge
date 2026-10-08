@@ -87,6 +87,7 @@ const dashboardOpenEditorButton = document.querySelector("#dashboard-open-editor
 const dashboardOpenLibraryButton = document.querySelector("#dashboard-open-library");
 const dashboardOpenSettingsButton = document.querySelector("#dashboard-open-settings");
 const settingsSignoutButton = document.querySelector("#settings-signout");
+const appShell = document.querySelector(".app-shell");
 const accountDialog = document.querySelector("#account-dialog");
 const accountDialogSave = document.querySelector("#account-dialog-save");
 const accountLoginButton = document.querySelector("#account-login-button");
@@ -1310,8 +1311,15 @@ dashboardOpenLibraryButton?.addEventListener("click", async () => {
 });
 dashboardOpenSettingsButton?.addEventListener("click", () => showAccountDialog("preferences"));
 
+function setAppAccess(isAuthenticated) {
+  if (!appShell) return;
+  appShell.hidden = !isAuthenticated;
+  document.body.classList.toggle("auth-gate-active", !isAuthenticated);
+}
+
 function showAccountDialog(tab = "account") {
   if (!accountDialog) return;
+  if (!apiSession) setAppAccess(false);
   settingsMenuItems.forEach((item) => item.classList.toggle("active", item.dataset.settingsTab === tab));
   settingsPanels.forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== tab; });
   if (accountDialogEmail) accountDialogEmail.textContent = apiSession?.user?.email || "Sign in or create your ClipForge account.";
@@ -1322,6 +1330,7 @@ function showAccountDialog(tab = "account") {
 }
 async function completeAuthentication(session) {
   apiSession = session;
+  setAppAccess(true);
   window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
   if (session?.user?.email) window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email }));
   const ready = await ensureWorkspace();
@@ -1399,6 +1408,7 @@ async function saveAccount() {
 async function signOut() {
   try { if (apiSession) await api("/api/auth/logout", { method: "POST" }); } catch {}
   apiSession = null;
+  setAppAccess(false);
   currentProject = undefined;
   sourceVideo = undefined;
   clips = [];
@@ -1533,6 +1543,7 @@ async function performGoogleLogin(credential) {
 window.addEventListener("resize", () => { if (googleInitialized) renderGoogleButtons(); });
 setupGoogleAuth();
 async function initializeClipForge() {
+  setAppAccess(Boolean(apiSession));
   if (apiSession) {
     try {
       if (await ensureWorkspace()) {
