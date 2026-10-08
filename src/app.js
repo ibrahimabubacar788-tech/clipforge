@@ -93,8 +93,11 @@ const accountLoginButton = document.querySelector("#account-login-button");
 const accountSignupButton = document.querySelector("#account-signup-button");
 const loginEmailInput = document.querySelector("#login-email");
 const loginPasswordInput = document.querySelector("#login-password");
+const signupFirstNameInput = document.querySelector("#signup-first-name");
+const signupLastNameInput = document.querySelector("#signup-last-name");
 const signupEmailInput = document.querySelector("#signup-email");
 const signupPasswordInput = document.querySelector("#signup-password");
+const signupPasswordConfirmInput = document.querySelector("#signup-password-confirm");
 const accountEmailInput = document.querySelector("#account-email");
 const accountPasswordInput = document.querySelector("#account-password");
 const accountDialogEmail = document.querySelector("#account-dialog-email");
@@ -1330,7 +1333,7 @@ async function performLogin() {
   if (!email || !password) { showToast("Enter your email and password."); return; }
   accountLoginButton.disabled = true;
   try {
-    await completeAuthentication(await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }));
+    await completeAuthentication(await api("/api/auth/login", { method: "POST", body: JSON.stringify({ firstName, lastName, email, password }) }));
     loginPasswordInput.value = "";
     accountDialog?.close();
     showToast("Welcome back to ClipForge.");
@@ -1348,6 +1351,7 @@ async function performSignup() {
   try {
     await completeAuthentication(await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }));
     signupPasswordInput.value = "";
+    if (signupPasswordConfirmInput) signupPasswordConfirmInput.value = "";
     accountDialog?.close();
     showToast("Your ClipForge account is ready.");
   } catch (error) {
@@ -1415,7 +1419,9 @@ async function setupGoogleAuth() {
   try {
     const config = await api("/api/auth/google/config");
     if (!config.configured || !config.clientId) {
-      [googleLoginButton, googleSignupButton].forEach((button) => { if (button) { button.disabled = true; button.title = "Google sign-in is being configured."; } });
+      [googleLoginButton, googleSignupButton].forEach((button) => {
+        if (button) { button.disabled = true; button.title = "Google sign-in is being configured."; }
+      });
       return;
     }
     googleClientId = config.clientId;
@@ -1423,13 +1429,22 @@ async function setupGoogleAuth() {
       if (googleInitialized || !window.google?.accounts?.id) return false;
       window.google.accounts.id.initialize({ client_id: googleClientId, callback: (response) => void performGoogleLogin(response.credential) });
       googleInitialized = true;
+      renderGoogleButtons();
       return true;
     };
-    if (!ready()) {
-      const wait = setInterval(() => { if (ready()) clearInterval(wait); }, 250);
-      setTimeout(() => clearInterval(wait), 10000);
-    }
-  } catch {}
+    if (ready()) return;
+    const wait = setInterval(() => { if (ready()) clearInterval(wait); }, 250);
+    setTimeout(() => clearInterval(wait), 20000);
+  } catch {
+    showToast("Google sign-in could not be initialized.");
+  }
+}
+function renderGoogleButtons() {
+  [googleLoginButton, googleSignupButton].forEach((button) => {
+    if (!button || !googleInitialized) return;
+    button.replaceChildren();
+    window.google.accounts.id.renderButton(button, { type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "left", width: Math.min(520, Math.max(260, button.clientWidth || 360)) });
+  });
 }
 async function performGoogleLogin(credential) {
   if (!credential) { showToast("Google sign-in was cancelled."); return; }
@@ -1440,19 +1455,8 @@ async function performGoogleLogin(credential) {
     showToast("Welcome to ClipForge.");
   } catch (error) { showToast(error.message); }
 }
-function launchGoogleAuth() {
-  if (!googleInitialized || !window.google?.accounts?.id) { showToast("Google sign-in is still loading. Try again in a moment."); return; }
-  const target = document.createElement("div");
-  target.style.cssText = "position:fixed;left:-10000px;top:-10000px;width:1px;height:1px;overflow:hidden";
-  document.body.appendChild(target);
-  window.google.accounts.id.renderButton(target, { type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "left", width: 360 });
-  target.querySelector("div[role=button]")?.click();
-  setTimeout(() => target.remove(), 1500);
-}
-googleLoginButton?.addEventListener("click", launchGoogleAuth);
-googleSignupButton?.addEventListener("click", launchGoogleAuth);
+window.addEventListener("resize", () => { if (googleInitialized) renderGoogleButtons(); });
 setupGoogleAuth();
-
 async function initializeClipForge() {
   if (apiSession) {
     try {
