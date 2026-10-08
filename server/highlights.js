@@ -1718,11 +1718,50 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
       const relative = Math.max(0, Math.min(0.999999, (Number(candidate.start) - sourceStart) / sourceDuration));
       stageBuckets[Math.min(3, Math.floor(relative * 4))].push(candidate);
     }
-    let bucketIndex = 0;
+
+    // Long interviews can contain several speakers whose strongest moments
+    // would otherwise be crowded out by a single high-scoring section. Build
+    // coverage in two passes: first reserve a few strong moments from distinct
+    // story stages/speakers, then fill the remaining slots by baseline score.
+    const coverageSeenSpeakers = new Set();
+    const stageCount = stageBuckets.length;
+    for (let pass = 0; pass < 2 && coverageCandidates.length < coverageBudget; pass += 1) {
+      for (let stageIndex = 0; stageIndex < stageCount && coverageCandidates.length < coverageBudget; stageIndex += 1) {
+        const bucket = stageBuckets[stageIndex];
+        if (!bucket.length) continue;
+        let pickIndex = 0;
+        if (pass === 0) {
+          const speakerIndex = bucket.findIndex((candidate) => {
+            const speakers = Array.isArray(candidate.speakers)
+              ? candidate.speakers.map((speaker) => String(speaker || "").trim()).filter(Boolean)
+              : [];
+            return speakers.some((speaker) => !coverageSeenSpeakers.has(speaker));
+          });
+          if (speakerIndex >= 0) pickIndex = speakerIndex;
+        }
+        const [picked] = bucket.splice(pickIndex, 1);
+        coverageCandidates.push(picked);
+        if (Array.isArray(picked.speakers)) {
+          picked.speakers.map((speaker) => String(speaker || "").trim()).filter(Boolean)
+            .forEach((speaker) => coverageSeenSpeakers.add(speaker));
+        }
+      }
+    }
+
     while (coverageCandidates.length < coverageBudget && stageBuckets.some((bucket) => bucket.length)) {
-      const bucket = stageBuckets[bucketIndex % stageBuckets.length];
-      if (bucket.length) coverageCandidates.push(bucket.shift());
-      bucketIndex += 1;
+      let bestBucket = -1;
+      let bestScore = Number.NEGATIVE_INFINITY;
+      for (let stageIndex = 0; stageIndex < stageCount; stageIndex += 1) {
+        const candidate = stageBuckets[stageIndex][0];
+        if (!candidate) continue;
+        const score = Number(candidate.score) || 0;
+        if (score > bestScore) {
+          bestScore = score;
+          bestBucket = stageIndex;
+        }
+      }
+      if (bestBucket < 0) break;
+      coverageCandidates.push(stageBuckets[bestBucket].shift());
     }
   }
   const aiCandidates = [...qualityCandidates, ...coverageCandidates].slice(0, aiCandidateLimit);
