@@ -1852,9 +1852,9 @@ Prefer standalone hooks, surprising insights, emotion, humor, conflict, story pa
 When returning several clips, prefer genuinely strong moments from different stages of the conversation when quality is comparable. Do not cluster the entire clip pack around one short section of the source.
 When the transcript has multiple speakers, also prefer genuinely strong moments that represent different speakers when quality is comparable.
 ${hasLearning ? `Use this project's historical performance as a secondary signal, not a hard rule. Previously tracked clip-type engagement: ${JSON.stringify(learnedTypes.slice(0, 5).map(([type, value]) => ({ type, engagementRate: Number(value.toFixed(2)) })))}. Favor proven types modestly when the transcript quality is comparable, but still surface genuinely exceptional moments of other types.` : ""}
-Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas.
+Reject filler, contextless fragments, repetitive introductions, sponsor boilerplate, and windows that begin or end mid-thought. Prefer natural sentence boundaries and complete ideas. Also score editability: how ready the selected window is to publish as a standalone short clip with clean opening/ending boundaries, minimal dependence on unseen dialogue, and enough setup/payoff to work without manual transcript surgery.
 ${safeTargetTypes.length ? `Prioritize these intelligence types for this batch: ${safeTargetTypes.join(", ")}. Include them when the transcript genuinely supports them.` : ""}
-Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"context":90,"payoff":90,"emotion":78,"clarity":96,"novelty":90,"replayability":88,"specificity":92,"reason":"brief reason","title":"short title","hookLine":"short spoken-style hook","socialCaption":"short caption for posting","type":"hook"}]}.
+Return ONLY JSON in this exact shape: {"selections":[{"id":0,"score":95,"hook":92,"standalone":94,"context":90,"payoff":90,"emotion":78,"clarity":96,"novelty":90,"replayability":88,"specificity":92,"editability":94,"reason":"brief reason","title":"short title","hookLine":"short spoken-style hook","socialCaption":"short caption for posting","type":"hook"}]}.
 For type, choose exactly one of: "hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight".
 Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a concise attention-grabbing line grounded only in the selected moment. For socialCaption, write a concise natural-language post caption grounded only in the selected moment; do not invent facts, links, or hashtags. Do not invent timestamps.`,
             }],
@@ -1914,6 +1914,7 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
         ["novelty", 7],
         ["replayability", 9],
         ["specificity", 8],
+        ["editability", 8],
       ];
       let dimensionTotal = 0;
       let dimensionWeight = 0;
@@ -1937,14 +1938,18 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
         : effectiveDimensionScore === null
           ? aiScore
           : Math.round(aiScore * 0.55 + effectiveDimensionScore * 0.45);
+      const editabilityScore = optionalScore(selection.editability);
       const baselineScore = Math.max(0, Math.min(100, Number(base.score) * 0.8));
       const learnedTypeEngagement = learnedTypeWeights[String(selection.type || base.highlightType || "insight").trim().toLowerCase()];
       const learnedTypeBoost = hasLearning && Number.isFinite(Number(learnedTypeEngagement))
         ? Math.max(-4, Math.min(4, Number(learnedTypeEngagement) * 0.18))
         : 0;
+      const editabilityPenalty = editabilityScore !== null && editabilityScore < 55
+        ? (55 - editabilityScore) * 0.22
+        : 0;
       const blendedScore = effectiveAiScore === null
-        ? baselineScore + learnedTypeBoost
-        : Math.round(effectiveAiScore * 0.82 + baselineScore * 0.18 + learnedTypeBoost);
+        ? baselineScore + learnedTypeBoost - editabilityPenalty
+        : Math.round(effectiveAiScore * 0.82 + baselineScore * 0.18 + learnedTypeBoost - editabilityPenalty);
       return {
         ...base,
         score: blendedScore,
@@ -1959,6 +1964,7 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
         noveltyScore: optionalScore(selection.novelty),
         replayabilityScore: optionalScore(selection.replayability),
         specificityScore: optionalScore(selection.specificity),
+        editabilityScore,
         clarityScore: optionalScore(selection.clarity),
         aiReason: String(selection.reason || "").trim().slice(0, 240),
         highlightType: allowedHighlightTypes.has(String(selection.type || "").trim().toLowerCase())
