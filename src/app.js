@@ -88,6 +88,7 @@ const dashboardOpenLibraryButton = document.querySelector("#dashboard-open-libra
 const dashboardOpenSettingsButton = document.querySelector("#dashboard-open-settings");
 const settingsSignoutButton = document.querySelector("#settings-signout");
 const appShell = document.querySelector(".app-shell");
+const authLanding = document.querySelector("#auth-landing");
 const accountDialog = document.querySelector("#account-dialog");
 const accountDialogSave = document.querySelector("#account-dialog-save");
 const accountLoginButton = document.querySelector("#account-login-button");
@@ -1318,8 +1319,8 @@ dashboardOpenLibraryButton?.addEventListener("click", async () => {
 dashboardOpenSettingsButton?.addEventListener("click", () => showAccountDialog("preferences"));
 
 function setAppAccess(isAuthenticated) {
-  if (!appShell) return;
-  appShell.hidden = !isAuthenticated;
+  if (appShell) appShell.hidden = !isAuthenticated;
+  if (authLanding) authLanding.hidden = isAuthenticated;
   document.body.classList.toggle("auth-gate-active", !isAuthenticated);
 }
 
@@ -1612,6 +1613,8 @@ async function initializeClipForge() {
       }
     } catch {}
   }
-  showAccountDialog(safeStorageParse(identityKey, null)?.email ? "login" : "signup");
+  if (authLanding) authLanding.hidden = false;
+  // The welcome screen is the first step for signed-out visitors. Its buttons open the existing auth dialog without changing the small login/signup design.
+
 }
 void initializeClipForge();
