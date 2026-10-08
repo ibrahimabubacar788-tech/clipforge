@@ -7,6 +7,7 @@
     <meta name="description" content="ClipForge helps creators turn long videos into focused, share-ready clips." />
     <title>ClipForge — Shape the moment</title>
     <link rel="stylesheet" href="src/styles.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <main class="app-shell">
@@ -89,15 +90,22 @@
 </div>
 <button class="primary-button" id="account-dialog-save" type="button">Save account</button>
 </section>
-<section class="settings-panel-section" data-settings-panel="login" hidden>
-<div class="settings-section-head"><p class="eyebrow">WELCOME BACK</p><h3>Log in to ClipForge</h3><p>Sign in to an existing ClipForge account and load its projects.</p></div>
+<section class="settings-panel-section auth-panel" data-settings-panel="login" hidden>
+<div class="auth-brand-lockup"><span class="auth-orb">CF</span><div><p class="eyebrow">WELCOME BACK</p><h3>Your workspace is waiting.</h3></div></div>
+<div class="settings-section-head"><p class="eyebrow">LOG IN</p><h3>Pick up where you left off.</h3><p>Continue securely with your Google account or ClipForge email.</p></div>
+<button class="google-auth-button" id="google-login-button" type="button"><span class="google-logo" aria-hidden="true">G</span><span>Continue with Google</span><span class="auth-arrow">↗</span></button>
+<div class="auth-divider"><span>or continue with email</span></div>
 <div class="account-form"><label class="field-label">Email<input id="login-email" type="email" autocomplete="email" placeholder="you@example.com" /></label><label class="field-label">Password<input id="login-password" type="password" autocomplete="current-password" placeholder="Your password" /></label></div>
-<button class="primary-button" id="account-login-button" type="button">Log in</button>
+<button class="primary-button auth-primary" id="account-login-button" type="button">Log in <span>→</span></button>
 </section>
-<section class="settings-panel-section" data-settings-panel="signup" hidden>
-<div class="settings-section-head"><p class="eyebrow">CREATE ACCOUNT</p><h3>Start your ClipForge account</h3><p>Create a secure account with your email and password.</p></div>
+<section class="settings-panel-section auth-panel" data-settings-panel="signup" hidden>
+<div class="auth-brand-lockup"><span class="auth-orb">CF</span><div><p class="eyebrow">WELCOME TO CLIPFORGE</p><h3>Turn long videos into moments people remember.</h3></div></div>
+<div class="settings-section-head"><p class="eyebrow">CREATE ACCOUNT</p><h3>Your creator workspace starts here.</h3><p>Save projects, AI clips, captions, and settings securely across devices.</p></div>
+<button class="google-auth-button" id="google-signup-button" type="button"><span class="google-logo" aria-hidden="true">G</span><span>Continue with Google</span><span class="auth-arrow">↗</span></button>
+<div class="auth-divider"><span>or continue with email</span></div>
 <div class="account-form"><label class="field-label">Email<input id="signup-email" type="email" autocomplete="email" placeholder="you@example.com" /></label><label class="field-label">Password<input id="signup-password" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" /></label></div>
-<button class="primary-button" id="account-signup-button" type="button">Create account</button>
+<button class="primary-button auth-primary" id="account-signup-button" type="button">Create account <span>→</span></button>
+<p class="auth-footnote">By continuing, you agree to use ClipForge responsibly and keep your account secure.</p>
 </section>
 <section class="settings-panel-section" data-settings-panel="preferences" hidden>
 <div class="settings-section-head"><p class="eyebrow">PREFERENCES</p><h3>Make ClipForge work your way</h3></div>
