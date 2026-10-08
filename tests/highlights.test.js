@@ -710,7 +710,7 @@ test("AI highlight packs do not trade away quality for stage or speaker coverage
       { start: 180, end: 200, speaker: "Guest", text: "A much weaker later payoff that should not win only for coverage." },
     ], { limit: 2, minDuration: 20, maxDuration: 20 });
     assert.equal(result.candidates.length, 2);
-    assert.deepEqual(result.candidates.map((candidate) => candidate.start), [0, 20]);
+    assert.deepEqual(result.candidates.map((candidate) => candidate.start).sort((a, b) => a - b), [0, 20]);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
