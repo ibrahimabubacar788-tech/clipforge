@@ -292,6 +292,244 @@ async function ensureWorkspace() {
   }
 }
 
+
+// Authentication boundary: the public welcome and the private workspace are separate app states.
+function setAppAccess(isAuthenticated) {
+  const authenticated = Boolean(isAuthenticated);
+  if (appShell) {
+    appShell.hidden = !authenticated;
+    appShell.setAttribute("aria-hidden", String(!authenticated));
+  }
+  if (authLanding) {
+    authLanding.hidden = authenticated;
+    authLanding.setAttribute("aria-hidden", String(authenticated));
+  }
+  document.body.classList.toggle("clipforge-authenticated", authenticated);
+}
+
+function setSettingsPanel(panelName) {
+  settingsMenuItems.forEach((item) => {
+    const active = item.dataset.settingsTab === panelName;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-selected", String(active));
+  });
+  settingsPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.settingsPanel !== panelName;
+  });
+}
+
+function showAccountDialog(mode = "login") {
+  if (!accountDialog) return;
+  setSettingsPanel(mode);
+  if (accountDialogEmail) accountDialogEmail.textContent = apiSession?.user?.email || "Manage your ClipForge account and workspace.";
+  if (!accountDialog.open) accountDialog.showModal();
+  if (mode === "login") loginEmailInput?.focus();
+  if (mode === "signup") signupFirstNameInput?.focus();
+  void setupGoogleAuth();
+}
+
+function showAuthError(error) {
+  showToast(error?.message || "ClipForge could not complete that request.");
+}
+
+async function completeAuthentication(session) {
+  if (!session?.user) throw new Error("Authentication succeeded without a user session.");
+  apiSession = { token: session.token || null, user: session.user };
+  window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+  window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email || "" }));
+  pendingVerificationEmail = "";
+  if (verificationCodeInput) verificationCodeInput.value = "";
+  accountDialog?.close();
+  setAppAccess(true);
+  switchView("dashboard");
+  history.replaceState(null, "", "#dashboard");
+  const ready = await ensureWorkspace();
+  if (!ready) throw new Error("Your account is signed in, but the workspace could not finish loading.");
+}
+
+async function performLogin() {
+  const email = String(loginEmailInput?.value || "").trim();
+  const password = String(loginPasswordInput?.value || "");
+  if (!email || !password) throw new Error("Enter your email and password.");
+  const session = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+  await completeAuthentication(session);
+  if (loginPasswordInput) loginPasswordInput.value = "";
+  showToast("Welcome back to ClipForge.");
+}
+
+async function performSignup() {
+  const firstName = String(signupFirstNameInput?.value || "").trim();
+  const lastName = String(signupLastNameInput?.value || "").trim();
+  const email = String(signupEmailInput?.value || "").trim();
+  const password = String(signupPasswordInput?.value || "");
+  const confirmation = String(signupPasswordConfirmInput?.value || "");
+  if (!firstName || !lastName || !email || !password || !confirmation) throw new Error("Complete your first name, last name, email, and password.");
+  if (password !== confirmation) throw new Error("Your passwords do not match.");
+  const result = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ firstName, lastName, email, password }) });
+  if (result.verificationRequired) {
+    pendingVerificationEmail = result.email || email;
+    if (verificationEmail) verificationEmail.textContent = pendingVerificationEmail;
+    setSettingsPanel("verify-email");
+    showToast("Check your email for the 6-digit ClipForge verification code.");
+    return;
+  }
+  await completeAuthentication(result);
+  if (signupPasswordInput) signupPasswordInput.value = "";
+  if (signupPasswordConfirmInput) signupPasswordConfirmInput.value = "";
+  showToast("Your ClipForge account is ready.");
+}
+
+async function verifyPendingEmail() {
+  const email = pendingVerificationEmail || String(signupEmailInput?.value || "").trim();
+  const code = String(verificationCodeInput?.value || "").trim();
+  if (!email || !/^\\d{6}$/.test(code)) throw new Error("Enter the 6-digit verification code.");
+  const session = await api("/api/auth/verify-email", { method: "POST", body: JSON.stringify({ email, code }) });
+  await completeAuthentication(session);
+  showToast("Email verified. Welcome to ClipForge.");
+}
+
+async function resendPendingVerification() {
+  const email = pendingVerificationEmail || String(signupEmailInput?.value || "").trim();
+  if (!email) throw new Error("No verification email is pending.");
+  await api("/api/auth/resend-verification", { method: "POST", body: JSON.stringify({ email }) });
+  showToast("A new verification code was sent.");
+}
+
+async function performGoogleLogin() {
+  if (!window.google?.accounts?.id) {
+    await waitForGoogleIdentity();
+  }
+  if (!window.google?.accounts?.id) throw new Error("Google sign-in is still loading. Try again in a moment.");
+  const slot = document.querySelector("#google-login-slot");
+  if (slot && !slot.dataset.googleRendered) {
+    await setupGoogleAuth();
+  }
+  window.google.accounts.id.prompt();
+}
+
+let googleAuthPromise;
+async function waitForGoogleIdentity(timeout = 8000) {
+  if (window.google?.accounts?.id) return true;
+  const started = Date.now();
+  while (Date.now() - started < timeout) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    if (window.google?.accounts?.id) return true;
+  }
+  return false;
+}
+
+async function setupGoogleAuth() {
+  if (googleAuthPromise) return googleAuthPromise;
+  googleAuthPromise = (async () => {
+    const ready = await waitForGoogleIdentity();
+    if (!ready) return false;
+    let config;
+    try { config = await api("/api/auth/google/config"); } catch { return false; }
+    if (!config?.configured || !config.clientId) return false;
+    const callback = async (response) => {
+      try {
+        const session = await api("/api/auth/google", { method: "POST", body: JSON.stringify({ credential: response.credential }) });
+        await completeAuthentication(session);
+        showToast("Welcome to ClipForge.");
+      } catch (error) { showAuthError(error); }
+    };
+    window.google.accounts.id.initialize({ client_id: config.clientId, callback });
+    for (const slotId of ["google-login-slot", "google-signup-slot"]) {
+      const slot = document.querySelector("#" + slotId);
+      if (!slot || slot.dataset.googleRendered) continue;
+      const fallback = slot.querySelector("button");
+      if (fallback) fallback.hidden = true;
+      window.google.accounts.id.renderButton(slot, { theme: "filled_black", size: "large", shape: "rectangular", text: "continue_with", width: 360 });
+      slot.dataset.googleRendered = "true";
+    }
+    return true;
+  })();
+  try { return await googleAuthPromise; } finally { googleAuthPromise = null; }
+}
+
+async function hydrateAuthenticatedSession() {
+  if (apiSession?.user) {
+    setAppAccess(true);
+    const ready = await ensureWorkspace();
+    if (ready) {
+      const requestedView = window.location.hash.replace(/^#/, "");
+      switchView(["dashboard", "editor", "clips", "brand"].includes(requestedView) ? requestedView : "dashboard");
+      return;
+    }
+  }
+  try {
+    const result = await api("/api/me");
+    apiSession = { token: apiSession?.token || null, user: result.user };
+    window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+    window.localStorage.setItem(identityKey, JSON.stringify({ email: result.user?.email || "" }));
+    setAppAccess(true);
+    const ready = await ensureWorkspace();
+    if (ready) {
+      const requestedView = window.location.hash.replace(/^#/, "");
+      switchView(["dashboard", "editor", "clips", "brand"].includes(requestedView) ? requestedView : "dashboard");
+      return;
+    }
+  } catch {
+    apiSession = null;
+    window.localStorage.removeItem(sessionKey);
+  }
+  setAppAccess(false);
+  if (!window.location.hash || window.location.hash === "#dashboard") history.replaceState(null, "", window.location.pathname);
+}
+
+function wireAuthenticationBoundary() {
+  setAppAccess(false);
+  authLandingLoginButton?.addEventListener("click", () => showAccountDialog("login"));
+  authLandingSignupButton?.addEventListener("click", () => showAccountDialog("signup"));
+  accountButton?.addEventListener("click", () => showAccountDialog("account"));
+  dashboardSettingsButton?.addEventListener("click", () => showAccountDialog("account"));
+  dashboardOpenSettingsButton?.addEventListener("click", () => showAccountDialog("workspace"));
+  settingsMenuItems.forEach((item) => item.addEventListener("click", () => setSettingsPanel(item.dataset.settingsTab)));
+  authModeButtons.forEach((button) => button.addEventListener("click", () => setSettingsPanel(button.dataset.settingsTab)));
+  accountLoginButton?.addEventListener("click", async () => { try { await performLogin(); } catch (error) { showAuthError(error); } });
+  accountSignupButton?.addEventListener("click", async () => { try { await performSignup(); } catch (error) { showAuthError(error); } });
+  verifyEmailButton?.addEventListener("click", async () => { try { await verifyPendingEmail(); } catch (error) { showAuthError(error); } });
+  resendVerificationButton?.addEventListener("click", async () => { try { await resendPendingVerification(); } catch (error) { showAuthError(error); } });
+  document.querySelector("#google-login-button")?.addEventListener("click", () => { void performGoogleLogin(); });
+  document.querySelector("#google-signup-button")?.addEventListener("click", () => { void performGoogleLogin(); });
+  accountDialogSave?.addEventListener("click", async () => {
+    try {
+      const result = await api("/api/auth/update", { method: "PATCH", body: JSON.stringify({ email: accountEmailInput?.value, password: accountPasswordInput?.value }) });
+      apiSession = { ...apiSession, user: result.user };
+      window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+      if (accountPasswordInput) accountPasswordInput.value = "";
+      showToast("Account settings saved.");
+    } catch (error) { showAuthError(error); }
+  });
+  const logout = async () => {
+    try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+    apiSession = null;
+    currentProject = null;
+    window.localStorage.removeItem(sessionKey);
+    window.localStorage.removeItem(identityKey);
+    setAppAccess(false);
+    accountDialog?.close();
+    history.replaceState(null, "", window.location.pathname);
+    showToast("You have been signed out.");
+  };
+  dashboardLogoutButton?.addEventListener("click", () => { void logout(); });
+  settingsSignoutButton?.addEventListener("click", () => { void logout(); });
+  accountDialog?.addEventListener("close", () => {
+    if (!apiSession) setAppAccess(false);
+  });
+  window.addEventListener("hashchange", () => {
+    if (!apiSession) {
+      history.replaceState(null, "", window.location.pathname);
+      setAppAccess(false);
+      return;
+    }
+    const view = window.location.hash.replace(/^#/, "");
+    if (["dashboard", "editor", "clips", "brand"].includes(view)) switchView(view);
+  });
+  void hydrateAuthenticatedSession();
+}
+
+
 let playbackTimer;
 let toastTimer;
 let draggedHandle;
