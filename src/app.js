@@ -1119,8 +1119,13 @@ function updateFromPointer(event) {
 }
 
 function switchView(view) {
+  const isDashboard = view === "dashboard";
+  const workspace = document.querySelector("#workspace");
   document.querySelectorAll(".nav-link").forEach((link) => link.classList.toggle("active", link.dataset.view === view));
-  document.querySelectorAll(".dashboard, .editor, .secondary-view").forEach((section) => { section.hidden = section.id !== view; });
+  const dashboard = document.querySelector("#dashboard");
+  if (dashboard) dashboard.hidden = !isDashboard;
+  if (workspace) workspace.hidden = isDashboard;
+  document.querySelectorAll("#workspace .editor, #workspace .secondary-view").forEach((section) => { section.hidden = section.id !== view; });
   if (view === "clips") renderClipLibrary();
 }
 
