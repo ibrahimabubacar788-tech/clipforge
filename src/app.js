@@ -1431,45 +1431,99 @@ const googleLoginButton = document.querySelector("#google-login-button");
 const googleSignupButton = document.querySelector("#google-signup-button");
 let googleClientId = null;
 let googleInitialized = false;
+let googleSetupFinished = false;
+function setGoogleButtonsState({ disabled = false, title = "", label = null } = {}) {
+  [googleLoginButton, googleSignupButton].forEach((button) => {
+    if (!button) return;
+    button.disabled = disabled;
+    if (title) button.title = title;
+    if (label && !googleInitialized) {
+      button.replaceChildren();
+      const logo = document.createElement("span");
+      logo.className = "google-logo";
+      logo.setAttribute("aria-hidden", "true");
+      logo.textContent = "G";
+      const text = document.createElement("span");
+      text.textContent = label;
+      const arrow = document.createElement("span");
+      arrow.className = "auth-arrow";
+      arrow.textContent = "↗";
+      button.append(logo, text, arrow);
+    }
+  });
+}
 async function setupGoogleAuth() {
+  if (googleSetupFinished) return;
+  googleSetupFinished = true;
+  setGoogleButtonsState({ disabled: true, title: "Checking Google sign-in…", label: "Loading Google sign-in…" });
   try {
     const config = await api("/api/auth/google/config");
     if (!config.configured || !config.clientId) {
-      [googleLoginButton, googleSignupButton].forEach((button) => {
-        if (button) { button.disabled = true; button.title = "Google sign-in is being configured."; }
-      });
+      setGoogleButtonsState({ disabled: false, title: "Google sign-in is not configured. Use your ClipForge email and password." });
       return;
     }
     googleClientId = config.clientId;
     const ready = () => {
-      if (googleInitialized || !window.google?.accounts?.id) return false;
-      window.google.accounts.id.initialize({ client_id: googleClientId, callback: (response) => void performGoogleLogin(response.credential) });
+      if (googleInitialized) return true;
+      if (!window.google?.accounts?.id) return false;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (response) => void performGoogleLogin(response?.credential)
+      });
       googleInitialized = true;
       renderGoogleButtons();
       return true;
     };
     if (ready()) return;
-    const wait = setInterval(() => { if (ready()) clearInterval(wait); }, 250);
-    setTimeout(() => clearInterval(wait), 20000);
+    const startedAt = Date.now();
+    const wait = setInterval(() => {
+      if (ready() || Date.now() - startedAt >= 10000) {
+        clearInterval(wait);
+        if (!googleInitialized) {
+          setGoogleButtonsState({ disabled: false, title: "Google sign-in is unavailable right now. You can still create an account or log in with email.", label: "Continue with Google" });
+        }
+      }
+    }, 100);
   } catch {
-    showToast("Google sign-in could not be initialized.");
+    setGoogleButtonsState({ disabled: false, title: "Google sign-in is temporarily unavailable. Use email instead.", label: "Continue with Google" });
   }
 }
 function renderGoogleButtons() {
   [googleLoginButton, googleSignupButton].forEach((button) => {
-    if (!button || !googleInitialized) return;
+    if (!button || !googleInitialized || !window.google?.accounts?.id) return;
     button.replaceChildren();
-    window.google.accounts.id.renderButton(button, { type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "left", width: Math.min(520, Math.max(260, button.clientWidth || 360)) });
+    window.google.accounts.id.renderButton(button, {
+      type: "standard",
+      theme: "outline",
+      size: "large",
+      text: "continue_with",
+      shape: "rectangular",
+      logo_alignment: "left",
+      width: Math.min(520, Math.max(260, button.clientWidth || 360))
+    });
+    button.title = "Continue with Google";
   });
 }
 async function performGoogleLogin(credential) {
-  if (!credential) { showToast("Google sign-in was cancelled."); return; }
+  if (!credential) {
+    showToast("Google sign-in was cancelled. You can use email instead.");
+    return;
+  }
+  const buttons = [googleLoginButton, googleSignupButton].filter(Boolean);
+  buttons.forEach((button) => { button.disabled = true; });
   try {
-    const session = await api("/api/auth/google", { method: "POST", body: JSON.stringify({ credential }) });
+    const session = await api("/api/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential })
+    });
     await completeAuthentication(session);
     accountDialog?.close();
     showToast("Welcome to ClipForge.");
-  } catch (error) { showToast(error.message); }
+  } catch (error) {
+    showToast(error.message || "Google sign-in could not be completed. You can use email instead.");
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+  }
 }
 window.addEventListener("resize", () => { if (googleInitialized) renderGoogleButtons(); });
 setupGoogleAuth();
