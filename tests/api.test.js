@@ -636,6 +636,42 @@ test("AI highlight analyzer parses a valid Responses API JSON result", async () 
   }
 });
 
+test("AI highlight selections map back to the exact submitted long-video candidate", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  let selectedCandidate = null;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async (_url, init) => {
+    const payload = JSON.parse(init.body);
+    const userMessage = payload.input.find((item) => item.role === "user");
+    const request = JSON.parse(userMessage.content[0].text);
+    assert.ok(request.candidates.length > 23);
+    selectedCandidate = request.candidates[23];
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({
+        selections: [{ id: 23, score: 91, title: "Coverage candidate", reason: "Strong moment from a later section" }]
+      })
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const segments = Array.from({ length: 80 }, (_, index) => ({
+      start: index * 8,
+      end: (index + 1) * 8,
+      text: `Here is the biggest lesson number ${index}, but the result surprised everyone and this changed everything.`
+    }));
+    const result = await rankHighlightsWithAI(segments, { limit: 10 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 1);
+    assert.equal(result.candidates[0].start, selectedCandidate.start);
+    assert.equal(result.candidates[0].end, selectedCandidate.end);
+    assert.equal(result.candidates[0].title, "Coverage candidate");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
 test("AI highlight analyzer treats null and blank quality scores as unscored", async () => {
   const previousKey = process.env.OPENAI_API_KEY;
   const previousFetch = globalThis.fetch;
