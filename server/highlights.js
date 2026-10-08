@@ -1841,7 +1841,15 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
             }
           : null,
       };
-    }).filter(Boolean).sort((a, b) => b.score - a.score || a.start - b.start);
+    }).filter(Boolean).filter((candidate) => {
+      const aiQuality = Number(candidate.aiScore);
+      const standalone = Number(candidate.standaloneScore);
+      const context = Number(candidate.contextScore);
+      if (Number.isFinite(aiQuality) && aiQuality < 42) return false;
+      if (Number.isFinite(standalone) && standalone < 45) return false;
+      if (Number.isFinite(context) && context < 42) return false;
+      return true;
+    }).sort((a, b) => b.score - a.score || a.start - b.start);
 
     const selected = [];
     const tokenize = (value) => new Set(String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((word) => word.length > 2));
