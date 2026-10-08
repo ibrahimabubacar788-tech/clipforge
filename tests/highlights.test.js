@@ -362,6 +362,8 @@ test("AI highlight ranking preserves novelty, replayability, and specificity sig
     assert.equal(result.candidates[0].noveltyScore, 96);
     assert.equal(result.candidates[0].replayabilityScore, 95);
     assert.equal(result.candidates[0].specificityScore, 93);
+    assert.equal(result.candidates[0].editabilityScore, null);
+    assert.match(requestBody, /editability/);
     assert.match(requestBody, /replayability/);
     assert.match(requestBody, /specificity/);
   } finally {
@@ -371,6 +373,43 @@ test("AI highlight ranking preserves novelty, replayability, and specificity sig
   }
 });
 
+
+
+test("AI highlight ranking uses editability as a quality signal when supplied", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    output_text: JSON.stringify({
+      selections: [{
+        id: 0,
+        score: 90,
+        standalone: 92,
+        context: 90,
+        hook: 88,
+        payoff: 91,
+        clarity: 94,
+        editability: 40,
+        reason: "Strong idea but needs manual trimming.",
+        title: "Needs editing",
+        type: "insight",
+      }],
+    }),
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 20, text: "The surprising result is that creators can improve their videos by focusing on one clear idea and measuring the result carefully." },
+    ], { limit: 1, minDuration: 20, maxDuration: 20 });
+    assert.equal(result.engine, "openai-highlights-v1");
+    assert.equal(result.candidates.length, 1);
+    assert.equal(result.candidates[0].editabilityScore, 40);
+    assert.ok(Number.isFinite(result.candidates[0].score));
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
 
 test("highlight engine understands transcript context beyond the selected window", () => {
   const candidates = rankHighlights([
