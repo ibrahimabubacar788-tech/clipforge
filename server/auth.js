@@ -15,9 +15,11 @@ export async function register(db, firstName, lastName, email, password) {
   if (email === undefined && password === undefined) {
     password = lastName;
     email = firstName;
-    const localPart = String(email || "").split("@")[0].replace(/[^a-zA-Z0-9]+/g, " ").trim();
-    firstName = localPart.split(/\s+/)[0] || "ClipForge";
-    lastName = localPart.split(/\s+/).slice(1).join(" ") || "Creator";
+  }
+  if ((!firstName || !lastName) && email) {
+    const localPart = String(email).split("@")[0].replace(/[^a-zA-Z0-9]+/g, " ").trim();
+    firstName = firstName || localPart.split(/\s+/)[0] || "ClipForge";
+    lastName = lastName || localPart.split(/\s+/).slice(1).join(" ") || "Creator";
   }
   const cleanFirstName = String(firstName || "").trim().replace(/\s+/g, " ");
   const cleanLastName = String(lastName || "").trim().replace(/\s+/g, " ");
