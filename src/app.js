@@ -104,6 +104,11 @@ const accountPasswordInput = document.querySelector("#account-password");
 const accountDialogEmail = document.querySelector("#account-dialog-email");
 const settingsMenuItems = document.querySelectorAll("[data-settings-tab]");
 const authModeButtons = document.querySelectorAll(".auth-mode-button");
+const verificationEmail = document.querySelector("#verification-email");
+const verificationCodeInput = document.querySelector("#verification-code");
+const verifyEmailButton = document.querySelector("#verify-email-button");
+const resendVerificationButton = document.querySelector("#resend-verification-button");
+let pendingVerificationEmail = "";
 const settingsPanels = document.querySelectorAll("[data-settings-panel]");
 
 const volumeInput = document.querySelector("#volume-input");
@@ -1373,14 +1378,23 @@ async function performSignup() {
   }
   accountSignupButton.disabled = true;
   try {
-    await completeAuthentication(await api("/api/auth/register", {
+    const result = await api("/api/auth/register", {
       method: "POST",
       body: JSON.stringify({ firstName, lastName, email, password })
-    }));
+    });
     signupPasswordInput.value = "";
     if (signupPasswordConfirmInput) signupPasswordConfirmInput.value = "";
-    accountDialog?.close();
-    showToast("Your ClipForge account is ready.");
+    if (result.verificationRequired) {
+      pendingVerificationEmail = result.email || email;
+      if (verificationEmail) verificationEmail.textContent = pendingVerificationEmail;
+      if (verificationCodeInput) verificationCodeInput.value = "";
+      showAccountDialog("verify-email");
+      showToast("We sent a verification code to your email.");
+    } else {
+      await completeAuthentication(result);
+      accountDialog?.close();
+      showToast("Your ClipForge account is ready.");
+    }
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -1430,6 +1444,39 @@ settingsSignoutButton?.addEventListener("click", () => void signOut());
 accountLoginButton?.addEventListener("click", () => void performLogin());
 accountSignupButton?.addEventListener("click", () => void performSignup());
 accountDialogSave?.addEventListener("click", () => void saveAccount());
+verifyEmailButton?.addEventListener("click", async () => {
+  const email = pendingVerificationEmail || verificationEmail?.textContent || "";
+  const code = verificationCodeInput?.value.trim() || "";
+  if (!email || !/^\d{6}$/.test(code)) { showToast("Enter the 6-digit verification code."); return; }
+  verifyEmailButton.disabled = true;
+  try {
+    const session = await api("/api/auth/verify-email", { method: "POST", body: JSON.stringify({ email, code }) });
+    await completeAuthentication(session);
+    accountDialog?.close();
+    pendingVerificationEmail = "";
+    showToast("Email verified. Welcome to ClipForge.");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    verifyEmailButton.disabled = false;
+  }
+});
+resendVerificationButton?.addEventListener("click", async () => {
+  const email = pendingVerificationEmail || verificationEmail?.textContent || "";
+  if (!email) return;
+  resendVerificationButton.disabled = true;
+  try {
+    await api("/api/auth/resend-verification", { method: "POST", body: JSON.stringify({ email }) });
+    showToast("A new verification code has been sent.");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setTimeout(() => { resendVerificationButton.disabled = false; }, 1000);
+  }
+});
+verificationCodeInput?.addEventListener("input", () => {
+  verificationCodeInput.value = verificationCodeInput.value.replace(/\D/g, "").slice(0, 6);
+});
 accountDialog?.addEventListener("close", () => {
   if (!apiSession) showAccountDialog("signup");
 });
