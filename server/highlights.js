@@ -1419,10 +1419,40 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
     if (anchorPatterns.some((pattern) => pattern.test(text))) anchorIndexes.add(i);
     if (/[!?]/.test(text) && text.split(/\s+/).filter(Boolean).length >= 8) anchorIndexes.add(i);
   }
-  const startIndexes = [...new Set([
-    ...anchorIndexes,
-    ...clean.map((_, index) => index),
-  ])].sort((a, b) => {
+  const requestedCandidateBudget = Math.max(1, Math.min(50, Number(limit) || 10));
+  const startBudget = Math.min(
+    clean.length,
+    Math.max(360, Math.min(1200, requestedCandidateBudget * 36)),
+  );
+  const anchorStrength = (index) => {
+    const text = clean[index]?.text || "";
+    return anchorPatterns.reduce((score, pattern) => score + (pattern.test(text) ? 1 : 0), 0)
+      + (/[!?]/.test(text) ? 1 : 0);
+  };
+  const rankedAnchors = [...anchorIndexes].sort((a, b) => {
+    const strengthGap = anchorStrength(b) - anchorStrength(a);
+    return strengthGap || a - b;
+  });
+  const selectedStartIndexes = [];
+  const selectedStartSet = new Set();
+  const addStartIndex = (index) => {
+    if (selectedStartIndexes.length >= startBudget || selectedStartSet.has(index)) return;
+    selectedStartSet.add(index);
+    selectedStartIndexes.push(index);
+  };
+  // Preserve the strongest semantic anchors first. This keeps long transcripts
+  // fast without throwing away the moments most likely to contain a hook,
+  // payoff, reveal, tension, or emotional turn.
+  for (const index of rankedAnchors) addStartIndex(index);
+  // Fill the remaining budget with evenly distributed transcript positions so
+  // quieter but valuable moments still have a path into the candidate pool.
+  if (selectedStartIndexes.length < startBudget) {
+    const stride = clean.length / Math.max(1, startBudget - selectedStartIndexes.length);
+    for (let slot = 0; slot < startBudget - selectedStartIndexes.length; slot += 1) {
+      addStartIndex(Math.min(clean.length - 1, Math.floor(slot * stride)));
+    }
+  }
+  const startIndexes = selectedStartIndexes.sort((a, b) => {
     const aAnchor = anchorIndexes.has(a) ? 0 : 1;
     const bAnchor = anchorIndexes.has(b) ? 0 : 1;
     return aAnchor - bAnchor || a - b;
