@@ -1301,6 +1301,8 @@ function setAppAccess(isAuthenticated) {
 
 function showAccountDialog(tab = "account") {
   if (!accountDialog) return;
+  const publicAuth = !apiSession && ["login", "signup", "verify-email"].includes(tab);
+  accountDialog.classList.toggle("public-auth-dialog", publicAuth);
   if (!apiSession) setAppAccess(false);
   settingsMenuItems.forEach((item) => item.classList.toggle("active", item.dataset.settingsTab === tab));
   authModeButtons.forEach((item) => item.classList.toggle("active", item.dataset.settingsTab === tab));
@@ -1417,7 +1419,8 @@ async function signOut() {
   window.localStorage.removeItem(sessionKey);
   accountDialog?.close();
   switchView("dashboard");
-  showAccountDialog("login");
+  setAppAccess(false);
+  if (authLanding) authLanding.hidden = false;
   showToast("You have been signed out.");
 }
 settingsMenuItems.forEach((item) => item.addEventListener("click", () => showAccountDialog(item.dataset.settingsTab)));
