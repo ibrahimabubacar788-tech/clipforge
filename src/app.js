@@ -1307,3 +1307,115 @@ dashboardOpenLibraryButton?.addEventListener("click", async () => {
 });
 dashboardOpenSettingsButton?.addEventListener("click", () => showAccountDialog("preferences"));
 
+function showAccountDialog(tab = "account") {
+  if (!accountDialog) return;
+  settingsMenuItems.forEach((item) => item.classList.toggle("active", item.dataset.settingsTab === tab));
+  settingsPanels.forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== tab; });
+  if (accountDialogEmail) accountDialogEmail.textContent = apiSession?.user?.email || "Sign in or create your ClipForge account.";
+  if (loginEmailInput && !loginEmailInput.value) loginEmailInput.value = safeStorageParse(identityKey, null)?.email || "";
+  if (signupEmailInput && !signupEmailInput.value) signupEmailInput.value = safeStorageParse(identityKey, null)?.email || "";
+  if (accountEmailInput) accountEmailInput.value = apiSession?.user?.email || "";
+  accountDialog.showModal();
+}
+async function completeAuthentication(session) {
+  apiSession = session;
+  window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+  if (session?.user?.email) window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email }));
+  const ready = await ensureWorkspace();
+  if (ready) switchView("dashboard");
+}
+async function performLogin() {
+  const email = loginEmailInput?.value.trim().toLowerCase();
+  const password = loginPasswordInput?.value || "";
+  if (!email || !password) { showToast("Enter your email and password."); return; }
+  accountLoginButton.disabled = true;
+  try {
+    await completeAuthentication(await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }));
+    loginPasswordInput.value = "";
+    accountDialog?.close();
+    showToast("Welcome back to ClipForge.");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    accountLoginButton.disabled = false;
+  }
+}
+async function performSignup() {
+  const email = signupEmailInput?.value.trim().toLowerCase();
+  const password = signupPasswordInput?.value || "";
+  if (!email || !password) { showToast("Enter an email and password."); return; }
+  accountSignupButton.disabled = true;
+  try {
+    await completeAuthentication(await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }));
+    signupPasswordInput.value = "";
+    accountDialog?.close();
+    showToast("Your ClipForge account is ready.");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    accountSignupButton.disabled = false;
+  }
+}
+async function saveAccount() {
+  if (!apiSession) { showAccountDialog("signup"); return; }
+  const email = accountEmailInput?.value.trim().toLowerCase();
+  const password = accountPasswordInput?.value || "";
+  if (!email || !password) { showToast("Enter your email and a new password."); return; }
+  accountDialogSave.disabled = true;
+  try {
+    const result = await api("/api/auth/update", { method: "PATCH", body: JSON.stringify({ email, password }) });
+    apiSession.user = result.user;
+    window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
+    window.localStorage.setItem(identityKey, JSON.stringify({ email: result.user.email }));
+    accountPasswordInput.value = "";
+    if (accountDialogEmail) accountDialogEmail.textContent = result.user.email;
+    showToast("Account updated.");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    accountDialogSave.disabled = false;
+  }
+}
+async function signOut() {
+  try { if (apiSession) await api("/api/auth/logout", { method: "POST" }); } catch {}
+  apiSession = null;
+  currentProject = undefined;
+  sourceVideo = undefined;
+  clips = [];
+  selectedClipIds.clear();
+  window.localStorage.removeItem(sessionKey);
+  accountDialog?.close();
+  switchView("dashboard");
+  showAccountDialog("login");
+  showToast("You have been signed out.");
+}
+settingsMenuItems.forEach((item) => item.addEventListener("click", () => showAccountDialog(item.dataset.settingsTab)));
+accountButton?.addEventListener("click", () => showAccountDialog("account"));
+dashboardSettingsButton?.addEventListener("click", () => showAccountDialog("account"));
+dashboardLogoutButton?.addEventListener("click", () => void signOut());
+settingsSignoutButton?.addEventListener("click", () => void signOut());
+accountLoginButton?.addEventListener("click", () => void performLogin());
+accountSignupButton?.addEventListener("click", () => void performSignup());
+accountDialogSave?.addEventListener("click", () => void saveAccount());
+accountDialog?.addEventListener("close", () => {
+  if (!apiSession) showAccountDialog("signup");
+});
+[loginPasswordInput, signupPasswordInput].forEach((input) => input?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  if (input === loginPasswordInput) void performLogin();
+  else void performSignup();
+});
+
+async function initializeClipForge() {
+  if (apiSession) {
+    try {
+      if (await ensureWorkspace()) {
+        switchView(window.location.hash === "#editor" ? "editor" : "dashboard");
+        return;
+      }
+    } catch {}
+  }
+  showAccountDialog(safeStorageParse(identityKey, null)?.email ? "login" : "signup");
+}
+void initializeClipForge();
