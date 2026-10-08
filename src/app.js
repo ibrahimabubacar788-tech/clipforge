@@ -1339,12 +1339,21 @@ function showAccountDialog(tab = "account") {
   accountDialog.showModal();
 }
 async function completeAuthentication(session) {
+  if (!session?.token || !session?.user) throw new Error("Authentication returned an invalid session.");
   apiSession = session;
-  setAppAccess(true);
   window.localStorage.setItem(sessionKey, JSON.stringify(apiSession));
-  if (session?.user?.email) window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email }));
+  if (session.user.email) window.localStorage.setItem(identityKey, JSON.stringify({ email: session.user.email }));
+
+  // Authentication always exits the auth gate immediately. Workspace hydration is
+  // separate so a project-data failure cannot strand a signed-in user on auth.
+  setAppAccess(true);
+  accountDialog?.close();
+  switchView("dashboard");
+  history.replaceState(null, "", "#dashboard");
+
   const ready = await ensureWorkspace();
-  if (ready) switchView("dashboard");
+  if (!ready) showToast("Your account is signed in, but your workspace is still loading. Please try again in a moment.");
+  return ready;
 }
 async function performLogin() {
   const email = loginEmailInput?.value.trim().toLowerCase();
