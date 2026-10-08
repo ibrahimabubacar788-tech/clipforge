@@ -1663,7 +1663,36 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   // every baseline window makes the AI call slower without improving the top
   // results proportionally, especially on 30–50 clip requests.
   const aiCandidateLimit = Math.min(60, Math.max(24, safeLimit * 2));
-  const aiCandidates = baseline.slice(0, aiCandidateLimit);
+  // Preserve a quality-first shortlist while reserving slots for strong moments
+  // from later parts of the source. This keeps the AI from inheriting a blind
+  // spot caused by the heuristic pre-ranker concentrating candidates in one
+  // section of a long conversation.
+  const qualityBudget = Math.max(12, Math.ceil(aiCandidateLimit * 0.7));
+  const coverageBudget = Math.max(0, aiCandidateLimit - qualityBudget);
+  const qualityCandidates = baseline.slice(0, qualityBudget);
+  const remainingBaseline = baseline.slice(qualityBudget);
+  const sourceStart = Number(segments?.[0]?.start);
+  const sourceEnd = Array.isArray(segments) && segments.length
+    ? Math.max(...segments.map((segment) => Number(segment?.end)).filter(Number.isFinite))
+    : 0;
+  const sourceDuration = Number.isFinite(sourceStart) && Number.isFinite(sourceEnd)
+    ? Math.max(1, sourceEnd - sourceStart)
+    : 0;
+  const coverageCandidates = [];
+  if (coverageBudget > 0 && sourceDuration > 0 && remainingBaseline.length) {
+    const stageBuckets = Array.from({ length: 4 }, () => []);
+    for (const candidate of remainingBaseline) {
+      const relative = Math.max(0, Math.min(0.999999, (Number(candidate.start) - sourceStart) / sourceDuration));
+      stageBuckets[Math.min(3, Math.floor(relative * 4))].push(candidate);
+    }
+    let bucketIndex = 0;
+    while (coverageCandidates.length < coverageBudget && stageBuckets.some((bucket) => bucket.length)) {
+      const bucket = stageBuckets[bucketIndex % stageBuckets.length];
+      if (bucket.length) coverageCandidates.push(bucket.shift());
+      bucketIndex += 1;
+    }
+  }
+  const aiCandidates = [...qualityCandidates, ...coverageCandidates].slice(0, aiCandidateLimit);
   // Give the model a lightweight view of the entire conversation so it can judge
   // candidate windows against the broader story, not only the selected snippets.
   const globalConversationContext = buildGlobalTranscriptContext(segments);
