@@ -1787,7 +1787,7 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
     }
     const allowedHighlightTypes = new Set(["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"]);
     const selections = Array.isArray(parsed.selections) ? parsed.selections.slice(0, safeLimit * 3) : [];
-    const byId = new Map(baseline.map((item, id) => [id, {
+    const byId = new Map(aiCandidates.map((item, id) => [id, {
       ...item,
       speakers: [...new Set((candidateContext.find((entry) => entry.id === id)?.nearby || [])
         .map((segment) => String(segment.speaker || "").trim())
