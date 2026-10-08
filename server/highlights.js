@@ -1733,6 +1733,7 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
     highlightType: item.highlightType || "insight",
     libraryNovelty: creatorLibraryNoveltyScore(item.transcript, safeCreatorMemory),
     libraryRelationship: creatorLibraryRelationship(item.transcript, safeCreatorMemory),
+  }));
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 35_000);
