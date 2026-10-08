@@ -129,13 +129,15 @@ export async function updateAccount(db, currentUser, email, password) {
     return user;
   });
 }
+export const normalizeGoogleClientId = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "");
+
 export async function loginWithGoogle(db, credential) {
   const token = String(credential || "").trim();
   if (!token || token.length > 4096) throw Object.assign(new Error("Google sign-in could not be verified."), { status: 401 });
   const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
   if (!response.ok) throw Object.assign(new Error("Google sign-in could not be verified."), { status: 401 });
   const profile = await response.json();
-  const clientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
+  const clientId = normalizeGoogleClientId(process.env.GOOGLE_CLIENT_ID);
   if (!clientId) throw Object.assign(new Error("Google sign-in is not configured yet."), { status: 503 });
   if (profile.aud !== clientId || profile.email_verified !== "true" || !profile.sub || !profile.email) {
     throw Object.assign(new Error("Google sign-in could not be verified."), { status: 401 });
