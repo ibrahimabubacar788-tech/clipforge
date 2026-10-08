@@ -1405,7 +1405,7 @@ accountDialog?.addEventListener("close", () => {
   event.preventDefault();
   if (input === loginPasswordInput) void performLogin();
   else void performSignup();
-});
+}));
 
 async function initializeClipForge() {
   if (apiSession) {
