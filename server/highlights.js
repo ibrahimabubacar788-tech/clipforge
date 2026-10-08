@@ -2049,13 +2049,13 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
           ? Math.min(8, Math.max(0, Math.min(...selected.map((item) => Math.abs(Number(candidate.start) - Number(item.start)))) / 18))
           : 0;
         const storyChapter = getStoryChapter(candidate);
-        const storyCoverageBonus = storyChapter !== null && !selectedStoryChapters.has(storyChapter)
+        const storyCoverageBonus = coverageEligible && storyChapter !== null && !selectedStoryChapters.has(storyChapter)
           ? 12
           : 0;
         const candidateSpeakers = Array.isArray(candidate.speakers)
           ? candidate.speakers.map((speaker) => String(speaker || "").trim()).filter(Boolean)
           : [];
-        const speakerCoverageBonus = candidateSpeakers.length && candidateSpeakers.some((speaker) => !selectedSpeakers.has(speaker))
+        const speakerCoverageBonus = coverageEligible && candidateSpeakers.length && candidateSpeakers.some((speaker) => !selectedSpeakers.has(speaker))
           ? 8
           : 0;
         const libraryNovelty = Number(candidate.libraryNovelty);
