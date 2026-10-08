@@ -316,8 +316,8 @@
 }
 
 /* Auth welcome backdrop + explicit login/signup switcher */
-.auth-landing{position:fixed;inset:0;z-index:0;display:grid;place-items:center;overflow:hidden;background:#07080e;color:#fff;padding:40px 24px;}
-.auth-landing-content{position:relative;z-index:2;width:min(1120px,100%);padding:clamp(32px,7vw,84px) 0;}
+.auth-landing{position:fixed;inset:0;z-index:0;display:grid;place-items:start center;overflow:auto;background:#07080e;color:#fff;padding:40px 24px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+.auth-landing-content{position:relative;z-index:2;width:min(1120px,100%);min-height:calc(100vh - 80px);box-sizing:border-box;padding:clamp(32px,7vw,84px) 0 110px;display:flex;flex-direction:column;}
 .auth-landing-brand{display:flex;align-items:center;gap:12px;font:800 17px Manrope,sans-serif;letter-spacing:-.4px;margin-bottom:34px;}
 .auth-landing-mark{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#ff6eaa,#8e7bff 70%);font:800 10px "DM Mono",monospace;box-shadow:0 12px 40px rgba(142,123,255,.28);}
 .auth-landing-content>.eyebrow{color:#a99aff;letter-spacing:2px;}
@@ -326,7 +326,7 @@
 .auth-landing-copy{max-width:620px;color:#8e94aa;font-size:15px;line-height:1.75;margin:0;}
 .auth-landing-points{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px;}
 .auth-landing-points span{padding:10px 13px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.035);color:#aeb3c6;font:10px "DM Mono",monospace;}
-.auth-landing-points b{color:#b9adff;margin-right:6px;}
+.auth-landing-points b{color:#b9adff;margin-right:6px;}.auth-landing-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px;}.auth-landing-actions .primary-button,.auth-landing-actions .ghost-button{min-width:150px;}.public-auth-dialog{width:min(520px,calc(100vw - 24px));max-height:min(88vh,760px);}.public-auth-dialog .dialog-heading,.public-auth-dialog .settings-menu{display:none;}.public-auth-dialog .settings-panel-section{padding:0;}
 .auth-landing-bottom{position:absolute;left:0;right:0;bottom:30px;display:flex;justify-content:space-between;gap:20px;color:#5f667c;font:9px "DM Mono",monospace;text-transform:uppercase;letter-spacing:.7px;}
 .auth-landing-grid{position:absolute;inset:0;opacity:.32;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:72px 72px;mask-image:radial-gradient(circle at 45% 45%,#000,transparent 78%);}
 .auth-landing-glow{position:absolute;border-radius:50%;filter:blur(20px);pointer-events:none;}
