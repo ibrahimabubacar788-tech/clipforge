@@ -13,13 +13,13 @@
     <main class="app-shell" hidden>
       <header class="topbar">
         <a class="brand" href="#dashboard" aria-label="ClipForge home"><span class="brand-mark">CF</span>ClipForge</a>
-        <div class="topbar-actions"><button class="ghost-button" id="fullscreen-button" type="button">Full screen</button><button class="ghost-button" id="new-project">New project</button><button class="avatar" id="account-button" aria-label="Open account settings">IA</button></div>
+        <div class="topbar-actions"><button class="ghost-button" id="fullscreen-button" type="button">Full screen</button><button class="ghost-button" id="new-project">New project</button><button class="ghost-button" id="workspace-home-button" type="button">My Workspace</button><button class="avatar" id="account-button" aria-label="Open account settings">IA</button></div>
       </header>
       <section class="dashboard" id="dashboard" aria-labelledby="dashboard-title">
         <div class="dashboard-hero">
           <div class="dashboard-hero-copy">
-            <p class="eyebrow">CLIPFORGE WORKSPACE</p>
-            <h1 id="dashboard-title">Your projects,<br /><span>your next big clip.</span></h1>
+            <p class="eyebrow">MY WORKSPACE</p>
+            <h1 id="dashboard-title">Your projects,<br /><span>your private workspace.</span></h1>
             <p class="dashboard-subtitle">Everything you create lives here. Pick up a project, generate AI clips, and keep your exports organized.</p>
           </div>
           <button class="primary-button dashboard-create-button" id="dashboard-new-project" type="button"><span class="button-icon">+</span> New project</button>
@@ -31,11 +31,11 @@
         </div>
         <div class="dashboard-toolbar">
           <div><p class="eyebrow">YOUR WORK</p><h2>Recent projects</h2></div>
-          <div class="dashboard-meta"><span>Private workspace</span></div>
+          <div class="dashboard-meta"><span>Private workspace</span><button class="ghost-button" id="workspace-return-editor" type="button">Back to editor →</button></div>
         </div>
         <div class="dashboard-grid" id="project-grid"></div>
         <div class="dashboard-quick-actions">
-          <button class="dashboard-quick-card" id="dashboard-open-editor" type="button"><span class="quick-icon">✦</span><span><strong>Jump into editor</strong><small>Open your current project and start shaping clips.</small></span><b>→</b></button>
+          <button class="dashboard-quick-card" id="dashboard-open-editor" type="button"><span class="quick-icon">✦</span><span><strong>Return to editor</strong><small>Go back to the main ClipForge editing engine.</small></span><b>→</b></button>
           <button class="dashboard-quick-card" id="dashboard-open-library" type="button"><span class="quick-icon">▤</span><span><strong>Open clip library</strong><small>Review exports, favorites, and render progress.</small></span><b>→</b></button>
           <button class="dashboard-quick-card" id="dashboard-open-settings" type="button"><span class="quick-icon">⚙</span><span><strong>Workspace settings</strong><small>Account, captions, languages, security, and preferences.</small></span><b>→</b></button>
         </div>
@@ -48,7 +48,7 @@
       <section class="workspace" id="workspace" aria-labelledby="workspace-title" hidden>
         <aside class="sidebar">
           <p class="eyebrow">PROJECT</p><select id="project-select" class="project-select" aria-label="Select project"></select><div class="workspace-title-row"><h1 id="workspace-title">Midnight Sessions</h1><div class="project-actions"><button class="text-button" id="rename-project" type="button">Rename</button><button class="text-button danger-button" id="delete-project" type="button">Delete</button></div></div>
-          <nav aria-label="Workspace navigation"><a class="nav-link" data-view="dashboard" href="#dashboard">Projects</a><a class="nav-link active" data-view="editor" href="#editor">Editor</a><a class="nav-link" data-view="clips" href="#clips">My clips <span id="clip-count">0</span></a><a class="nav-link" data-view="brand" href="#brand">Brand kit</a></nav>
+          <nav aria-label="Workspace navigation"><a class="nav-link" data-view="dashboard" href="#dashboard">My Workspace</a><a class="nav-link active" data-view="editor" href="#editor">Editor</a><a class="nav-link" data-view="clips" href="#clips">My clips <span id="clip-count">0</span></a><a class="nav-link" data-view="brand" href="#brand">Brand kit</a></nav>
           <div class="sidebar-tip"><span>✦</span><p><strong>Pro tip</strong><br />Leave room for captions in your framing.</p></div>
         </aside>
         <section class="editor" id="editor">
