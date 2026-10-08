@@ -1333,7 +1333,10 @@ async function performLogin() {
   if (!email || !password) { showToast("Enter your email and password."); return; }
   accountLoginButton.disabled = true;
   try {
-    await completeAuthentication(await api("/api/auth/login", { method: "POST", body: JSON.stringify({ firstName, lastName, email, password }) }));
+    await completeAuthentication(await api("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password })
+    }));
     loginPasswordInput.value = "";
     accountDialog?.close();
     showToast("Welcome back to ClipForge.");
@@ -1344,12 +1347,25 @@ async function performLogin() {
   }
 }
 async function performSignup() {
+  const firstName = signupFirstNameInput?.value.trim().replace(/\s+/g, " ") || "";
+  const lastName = signupLastNameInput?.value.trim().replace(/\s+/g, " ") || "";
   const email = signupEmailInput?.value.trim().toLowerCase();
   const password = signupPasswordInput?.value || "";
-  if (!email || !password) { showToast("Enter an email and password."); return; }
+  const confirmation = signupPasswordConfirmInput?.value || "";
+  if (!firstName || !lastName || !email || !password || !confirmation) {
+    showToast("Enter your first name, last name, email, password, and password confirmation.");
+    return;
+  }
+  if (password !== confirmation) {
+    showToast("Passwords do not match.");
+    return;
+  }
   accountSignupButton.disabled = true;
   try {
-    await completeAuthentication(await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }));
+    await completeAuthentication(await api("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ firstName, lastName, email, password })
+    }));
     signupPasswordInput.value = "";
     if (signupPasswordConfirmInput) signupPasswordConfirmInput.value = "";
     accountDialog?.close();
