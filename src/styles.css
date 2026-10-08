@@ -358,3 +358,6 @@
 .auth-landing-auth-cta .auth-landing-actions{margin-top:24px}
 @keyframes clipforgeScrollHint{0%,100%{transform:translateY(0);opacity:.65}50%{transform:translateY(5px);opacity:1}}
 @media(max-width:700px){.auth-landing-content{padding-bottom:80px}.auth-landing-hero{min-height:calc(100vh - 120px);padding:25px 0 70px}.auth-landing-scroll-hint{margin-top:34px}.auth-landing-value{grid-template-columns:1fr;padding:45px 0 70px}.auth-landing-value-card{min-height:auto}.auth-landing-auth-cta{padding:28px 22px;border-radius:19px}.auth-landing-auth-cta h2{font-size:30px}}
+
+/* Hard boundary for view state: the HTML hidden attribute must always win over component display rules. */
+[hidden], .app-shell[hidden], .workspace[hidden], .auth-landing[hidden], .secondary-view[hidden] { display: none !important; }
