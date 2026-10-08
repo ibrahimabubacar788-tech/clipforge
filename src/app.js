@@ -1467,9 +1467,7 @@ resendVerificationButton?.addEventListener("click", async () => {
 verificationCodeInput?.addEventListener("input", () => {
   verificationCodeInput.value = verificationCodeInput.value.replace(/\D/g, "").slice(0, 6);
 });
-accountDialog?.addEventListener("close", () => {
-  if (!apiSession) showAccountDialog("signup");
-});
+// Public visitors can close the account dialog and return to the welcome page.
 [loginPasswordInput, signupPasswordInput].forEach((input) => input?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
   event.preventDefault();
