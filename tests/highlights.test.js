@@ -700,7 +700,7 @@ test("AI highlight packs do not trade away quality for stage or speaker coverage
     output_text: JSON.stringify({ selections: [
       { id: 0, score: 99, reason: "Best", title: "Best", type: "hook" },
       { id: 1, score: 98, reason: "Same stage", title: "Second", type: "insight" },
-      { id: 2, score: 89, reason: "Different stage and speaker", title: "Later", type: "payoff" },
+      { id: 2, score: 80, reason: "Different stage and speaker", title: "Later", type: "payoff" },
     ]}),
   }), { status: 200, headers: { "content-type": "application/json" } });
   try {
