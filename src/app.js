@@ -1145,3 +1145,5 @@ cancelUploadButton?.addEventListener("click", () => {
   uploadProgress?.setAttribute("hidden", "");
   showToast("Upload cancelled.");
 });
+
+wireAuthenticationBoundary();
