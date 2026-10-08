@@ -1801,6 +1801,9 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
     duration: item.duration,
     transcript: item.transcript.slice(0, 900),
     nearbyContext: candidateContextById.get(id) || [],
+    speakers: [...new Set((candidateContextById.get(id) || [])
+      .map((segment) => String(segment.speaker || "").trim())
+      .filter(Boolean))],
     baselineScore: Math.round(Number(item.score) || 0),
     highlightType: item.highlightType || "insight",
     libraryNovelty: creatorLibraryNoveltyScore(item.transcript, safeCreatorMemory),
