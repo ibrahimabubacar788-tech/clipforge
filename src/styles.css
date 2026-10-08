@@ -144,3 +144,29 @@
 .generation-profile select { min-height: 44px; }
 
 #ai-output-format, #ai-caption-enabled { min-height: 44px; }
+
+/* Premium authentication surface */
+.account-settings-dialog{width:min(620px,calc(100% - 28px));padding:0;overflow:hidden;background:linear-gradient(145deg,#111625,#0d101c 68%,#17132a);border:1px solid rgba(166,140,255,.24);box-shadow:0 30px 100px rgba(0,0,0,.55),0 0 80px rgba(166,140,255,.08)}
+.account-settings-dialog .dialog-heading{padding:26px 28px 20px;margin:0;border-bottom:1px solid rgba(255,255,255,.07)}
+.account-settings-dialog .settings-menu{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;gap:4px;overflow:auto}
+.account-settings-dialog .settings-menu-item{border:0;background:transparent;color:#858ba5;padding:9px 12px;border-radius:8px;font:700 11px Manrope;white-space:nowrap;cursor:pointer}
+.account-settings-dialog .settings-menu-item.active{background:#242038;color:#fff;box-shadow:inset 0 0 0 1px rgba(166,140,255,.15)}
+.account-settings-dialog .settings-panel-section{padding:30px 28px 34px}
+.auth-brand-lockup{display:flex;align-items:center;gap:14px;margin-bottom:26px}
+.auth-orb{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,#ff6eaa,#8e7bff 70%);font:800 12px "DM Mono";box-shadow:0 12px 35px rgba(142,123,255,.24)}
+.auth-brand-lockup h3{margin:2px 0 0;font-size:15px;letter-spacing:-.3px;line-height:1.35}
+.auth-panel .settings-section-head h3{font-size:25px;letter-spacing:-1px;margin:4px 0 8px}
+.auth-panel .settings-section-head p:last-child{max-width:460px;color:#949ab2;line-height:1.7}
+.google-auth-button{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:13px 16px;border-radius:11px;border:1px solid rgba(255,255,255,.13);background:#fff;color:#151824;font:800 13px Manrope;cursor:pointer;box-shadow:0 8px 28px rgba(0,0,0,.2);transition:transform .16s,border-color .16s,box-shadow .16s}
+.google-auth-button:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.35);box-shadow:0 12px 34px rgba(0,0,0,.3)}
+.google-logo{width:21px;height:21px;display:grid;place-items:center;font:800 15px Arial;color:#4285f4}
+.auth-arrow{margin-left:auto;color:#727789;font-size:15px}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:#666d84;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px}
+.auth-divider:before,.auth-divider:after{content:"";height:1px;flex:1;background:rgba(255,255,255,.08)}
+.auth-primary{width:100%;margin-top:4px;justify-content:center}
+.auth-footnote{margin:18px 0 0;text-align:center;color:#676e84;font:9px "DM Mono";line-height:1.6}
+.account-settings-dialog .account-form{display:grid;gap:14px}
+.account-settings-dialog .field-label{margin:0;color:#aeb3c6}
+.account-settings-dialog .field-label input{width:100%;margin-top:7px;padding:13px 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:#0b0f1a;color:#fff;font:13px Manrope;outline:none}
+.account-settings-dialog .field-label input:focus{border-color:#a68cff;box-shadow:0 0 0 3px rgba(166,140,255,.1)}
+@media(max-width:570px){.account-settings-dialog .dialog-heading,.account-settings-dialog .settings-panel-section{padding-left:18px;padding-right:18px}.auth-panel .settings-section-head h3{font-size:22px}}
