@@ -186,12 +186,16 @@ test("authentication works through the session cookie", async (t) => {
 
 test("production session cookies include the Secure flag", async (t) => {
   const previousNodeEnv = process.env.NODE_ENV;
+  const previousTestAuth = process.env.CLIPFORGE_TEST_AUTH;
   process.env.NODE_ENV = "production";
+  process.env.CLIPFORGE_TEST_AUTH = "1";
   const { server, base } = await app();
   t.after(() => {
     server.close();
     if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previousNodeEnv;
+    if (previousTestAuth === undefined) delete process.env.CLIPFORGE_TEST_AUTH;
+    else process.env.CLIPFORGE_TEST_AUTH = previousTestAuth;
   });
 
   const response = await fetch(base + "/api/auth/register", {
