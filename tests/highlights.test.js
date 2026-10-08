@@ -390,6 +390,8 @@ test("AI highlight ranking uses editability as a quality signal when supplied", 
         payoff: 91,
         clarity: 94,
         editability: 40,
+        startSegment: 1,
+        endSegment: 2,
         reason: "Strong idea but needs manual trimming.",
         title: "Needs editing",
         type: "insight",
@@ -398,11 +400,15 @@ test("AI highlight ranking uses editability as a quality signal when supplied", 
   }), { status: 200, headers: { "content-type": "application/json" } });
   try {
     const result = await rankHighlightsWithAI([
-      { start: 0, end: 20, text: "The surprising result is that creators can improve their videos by focusing on one clear idea and measuring the result carefully." },
-    ], { limit: 1, minDuration: 20, maxDuration: 20 });
+      { start: 0, end: 7, text: "The surprising result is that creators can improve their videos." },
+      { start: 7, end: 14, text: "They should focus on one clear idea." },
+      { start: 14, end: 21, text: "Then they should measure the result carefully." },
+    ], { limit: 1, minDuration: 10, maxDuration: 20 });
     assert.equal(result.engine, "openai-highlights-v1");
     assert.equal(result.candidates.length, 1);
     assert.equal(result.candidates[0].editabilityScore, 40);
+    assert.equal(result.candidates[0].start, 7);
+    assert.equal(result.candidates[0].end, 21);
     assert.ok(Number.isFinite(result.candidates[0].score));
   } finally {
     globalThis.fetch = previousFetch;
