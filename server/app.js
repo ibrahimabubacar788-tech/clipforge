@@ -177,7 +177,7 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
       checkAuthLimit(req);
       try {
         const user = await register(db, payload.firstName, payload.lastName, payload.email, payload.password);
-        if (process.env.NODE_ENV === "test") {
+        if (process.env.NODE_ENV === "test" || process.env.CLIPFORGE_TEST_AUTH === "1") {
           await db.transaction((data) => {
             const item = data.users.find((entry) => entry.id === user.id);
             if (item) item.emailVerified = true;
