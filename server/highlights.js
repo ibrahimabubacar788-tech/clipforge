@@ -1424,13 +1424,7 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
     clean.length,
     Math.max(360, Math.min(1200, requestedCandidateBudget * 36)),
   );
-  if (clean.length <= startBudget) {
-    const startIndexes = clean.map((_, index) => index);
-    // Keep the original exhaustive path for normal-sized transcripts so
-    // quality ordering remains unchanged; the adaptive budget only activates
-    // when a transcript is large enough to make exhaustive scoring expensive.
-    for (const i of startIndexes) anchorIndexes.add(i);
-  }
+  const exhaustiveStarts = clean.length <= startBudget ? clean.map((_, index) => index) : null;
   const anchorStrength = (index) => {
     const text = clean[index]?.text || "";
     return anchorPatterns.reduce((score, pattern) => score + (pattern.test(text) ? 1 : 0), 0)
@@ -1440,8 +1434,8 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
     const strengthGap = anchorStrength(b) - anchorStrength(a);
     return strengthGap || a - b;
   });
-  const selectedStartIndexes = [];
-  const selectedStartSet = new Set();
+  const selectedStartIndexes = exhaustiveStarts ? [...exhaustiveStarts] : [];
+  const selectedStartSet = new Set(selectedStartIndexes);
   const addStartIndex = (index) => {
     if (selectedStartIndexes.length >= startBudget || selectedStartSet.has(index)) return;
     selectedStartSet.add(index);
@@ -1450,10 +1444,12 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
   // Preserve the strongest semantic anchors first. This keeps long transcripts
   // fast without throwing away the moments most likely to contain a hook,
   // payoff, reveal, tension, or emotional turn.
-  for (const index of rankedAnchors) addStartIndex(index);
+  if (!exhaustiveStarts) {
+    for (const index of rankedAnchors) addStartIndex(index);
+  }
   // Fill the remaining budget with evenly distributed transcript positions so
   // quieter but valuable moments still have a path into the candidate pool.
-  if (selectedStartIndexes.length < startBudget) {
+  if (!exhaustiveStarts && selectedStartIndexes.length < startBudget) {
     const stride = clean.length / Math.max(1, startBudget - selectedStartIndexes.length);
     for (let slot = 0; slot < startBudget - selectedStartIndexes.length; slot += 1) {
       addStartIndex(Math.min(clean.length - 1, Math.floor(slot * stride)));
