@@ -217,3 +217,100 @@
     max-height: 92vh;
   }
 }
+
+
+/* Branded authentication gate */
+.auth-gate-active {
+  background:
+    radial-gradient(circle at 15% 15%, rgba(142,123,255,.16), transparent 32%),
+    radial-gradient(circle at 85% 80%, rgba(255,110,170,.10), transparent 30%),
+    #08090f;
+}
+.auth-gate-active .account-settings-dialog {
+  width: min(920px, calc(100vw - 28px));
+  max-height: min(90vh, 820px);
+  border: 1px solid rgba(255,255,255,.10);
+  background: linear-gradient(145deg, rgba(18,19,29,.98), rgba(10,11,18,.99));
+  box-shadow: 0 35px 100px rgba(0,0,0,.58), 0 0 80px rgba(142,123,255,.10);
+}
+.auth-gate-active .account-settings-dialog > form {
+  max-height: min(90vh, 820px);
+}
+.auth-gate-active .account-settings-dialog .dialog-heading,
+.auth-gate-active .account-settings-dialog .settings-menu {
+  display: none;
+}
+.auth-gate-active .account-settings-dialog .settings-panel-section {
+  padding: clamp(28px, 5vw, 58px);
+}
+.auth-gate-active .account-settings-dialog .settings-panel-section.auth-panel[hidden] {
+  display: none;
+}
+.auth-gate-active .auth-panel {
+  min-height: 560px;
+  position: relative;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 80% 8%, rgba(142,123,255,.12), transparent 28%),
+    radial-gradient(circle at 10% 92%, rgba(255,110,170,.08), transparent 25%);
+}
+.auth-gate-active .auth-panel::before {
+  content: "CLIPFORGE";
+  display: block;
+  margin-bottom: 28px;
+  color: rgba(255,255,255,.92);
+  font: 800 clamp(22px, 4vw, 34px)/1 "DM Mono", monospace;
+  letter-spacing: -.8px;
+}
+.auth-gate-active .auth-brand-lockup {
+  margin-bottom: 34px;
+}
+.auth-gate-active .auth-orb {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  font-size: 14px;
+  box-shadow: 0 14px 45px rgba(142,123,255,.30);
+}
+.auth-gate-active .auth-panel .settings-section-head h3 {
+  font-size: clamp(27px, 4vw, 40px);
+  line-height: 1.08;
+  max-width: 680px;
+}
+.auth-gate-active .auth-panel .settings-section-head p:last-child {
+  max-width: 620px;
+  font-size: 13px;
+}
+.auth-gate-active .google-auth-slot,
+.auth-gate-active .account-form,
+.auth-gate-active .auth-primary,
+.auth-gate-active .auth-divider,
+.auth-gate-active .auth-footnote {
+  max-width: 620px;
+}
+.auth-gate-active .auth-primary {
+  min-height: 50px;
+}
+.auth-gate-active .close-button {
+  display: none;
+}
+@media (max-width: 570px) {
+  .auth-gate-active .account-settings-dialog {
+    width: calc(100vw - 16px);
+    max-height: 94vh;
+    border-radius: 22px;
+  }
+  .auth-gate-active .account-settings-dialog .settings-panel-section {
+    padding: 28px 20px 34px;
+  }
+  .auth-gate-active .auth-panel {
+    min-height: 0;
+  }
+  .auth-gate-active .auth-panel::before {
+    margin-bottom: 22px;
+    font-size: 24px;
+  }
+  .auth-gate-active .auth-brand-lockup {
+    margin-bottom: 25px;
+  }
+}
