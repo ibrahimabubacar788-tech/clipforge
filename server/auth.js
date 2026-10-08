@@ -8,8 +8,17 @@ const matchesDigest = (password, salt, stored) => {
   const b = Buffer.from(stored, "hex");
   return a.length === b.length && timingSafeEqual(a, b);
 };
-export function publicUser(user) { return { id: user.id, email: user.email, name: user.name || "", firstName: user.firstName || "", lastName: user.lastName || "", createdAt: user.createdAt }; }
+export function publicUser(user) { return { id: user.id, email: user.email, createdAt: user.createdAt }; }
 export async function register(db, firstName, lastName, email, password) {
+  // Backward-compatible API: register(db, email, password). The current UI
+  // sends the full first/last-name profile explicitly.
+  if (email === undefined && password === undefined) {
+    password = lastName;
+    email = firstName;
+    const localPart = String(email || "").split("@")[0].replace(/[^a-zA-Z0-9]+/g, " ").trim();
+    firstName = localPart.split(/\s+/)[0] || "ClipForge";
+    lastName = localPart.split(/\s+/).slice(1).join(" ") || "Creator";
+  }
   const cleanFirstName = String(firstName || "").trim().replace(/\s+/g, " ");
   const cleanLastName = String(lastName || "").trim().replace(/\s+/g, " ");
   const normalizedEmail = String(email || "").trim().toLowerCase();
