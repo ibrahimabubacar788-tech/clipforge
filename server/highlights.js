@@ -1711,12 +1711,6 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
   // evidence, while a small boundary window supplies just enough setup/payoff
   // context. Avoid repeating large nearby transcript blocks for every candidate,
   // which makes large 40-50 clip requests unnecessarily slow.
-: [];
-
-  // Keep the AI context compact: the candidate transcript carries the main
-  // evidence, while a small boundary window supplies just enough setup/payoff
-  // context. Avoid repeating large nearby transcript blocks for every candidate,
-  // which makes large 40-50 clip requests unnecessarily slow.
   const candidateContextById = new Map(aiCandidates.map((item, id) => [
     id,
     selectNearbyContext(segments, item.start, item.end, 6).map((segment) => ({
