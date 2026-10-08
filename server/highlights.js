@@ -1493,7 +1493,10 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
       const selectedSpeakers = new Set(selected.flatMap((item) => Array.isArray(item.speakers) ? item.speakers.map((speaker) => String(speaker || "").trim()).filter(Boolean) : []));
       const introducesNewSpeaker = speakerSet.size > 0 && [...speakerSet].some((speaker) => !selectedSpeakers.has(speaker));
       const speakerCoverageBonus = introducesNewSpeaker ? 5 : 0;
-      const utility = candidate.score - diversityPenalty(candidate, selected) * 100 + speakerCoverageBonus;
+      const selectedTypes = new Set(selected.map((item) => String(item.highlightType || "").trim()).filter(Boolean));
+      const introducesNewType = Boolean(candidate.highlightType) && !selectedTypes.has(candidate.highlightType);
+      const typeCoverageBonus = introducesNewType ? 4 : 0;
+      const utility = candidate.score - diversityPenalty(candidate, selected) * 100 + speakerCoverageBonus + typeCoverageBonus;
       if (utility > bestUtility) {
         bestUtility = utility;
         bestIndex = i;
