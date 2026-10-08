@@ -8,13 +8,15 @@ const matchesDigest = (password, salt, stored) => {
   const b = Buffer.from(stored, "hex");
   return a.length === b.length && timingSafeEqual(a, b);
 };
-export function publicUser(user) { return { id: user.id, email: user.email, createdAt: user.createdAt }; }
-export async function register(db, email, password) {
+export function publicUser(user) { return { id: user.id, email: user.email, name: user.name || "", firstName: user.firstName || "", lastName: user.lastName || "", createdAt: user.createdAt }; }
+export async function register(db, firstName, lastName, email, password) {
+  const cleanFirstName = String(firstName || "").trim().replace(/\s+/g, " ");
+  const cleanLastName = String(lastName || "").trim().replace(/\s+/g, " ");
   const normalizedEmail = String(email || "").trim().toLowerCase();
-  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || typeof password !== "string" || password.length < 8 || password.length > 256) throw Object.assign(new Error("Use a valid email and a password with 8 to 256 characters."), { status: 422 });
+  if (!cleanFirstName || cleanFirstName.length > 80 || !cleanLastName || cleanLastName.length > 80 || !/^\S+@\S+\.\S+$/.test(normalizedEmail) || typeof password !== "string" || password.length < 8 || password.length > 256) throw Object.assign(new Error("Use a valid email and a password with 8 to 256 characters."), { status: 422 });
   return db.transaction((data) => {
     if (data.users.some((u) => u.email === normalizedEmail)) throw Object.assign(new Error("That email is already registered."), { status: 409 });
-    const salt = randomBytes(16).toString("hex"); const user = { id: id("usr"), email: normalizedEmail, salt, passwordHash: digest(password, salt), createdAt: now() };
+    const salt = randomBytes(16).toString("hex"); const user = { id: id("usr"), email: normalizedEmail, firstName: cleanFirstName, lastName: cleanLastName, name: `${cleanFirstName} ${cleanLastName}`, salt, passwordHash: digest(password, salt), createdAt: now() };
     data.users.push(user); return user;
   });
 }
@@ -48,11 +50,14 @@ export async function loginWithGoogle(db, credential) {
   const user = await db.transaction((data) => {
     let existing = data.users.find((item) => item.email === normalizedEmail);
     if (!existing) {
-      existing = { id: id("usr"), email: normalizedEmail, salt: "", passwordHash: "", createdAt: now(), authProvider: "google", googleSubject: profile.sub };
+      existing = { id: id("usr"), email: normalizedEmail, firstName: String(profile.given_name || "").trim().slice(0, 80), lastName: String(profile.family_name || "").trim().slice(0, 80), name: String(profile.name || normalizedEmail.split("@")[0]).trim().slice(0, 160), salt: "", passwordHash: "", createdAt: now(), authProvider: "google", googleSubject: profile.sub };
       data.users.push(existing);
     } else {
       existing.authProvider = existing.authProvider || "google";
       existing.googleSubject = existing.googleSubject || profile.sub;
+      if (!existing.name && profile.name) existing.name = String(profile.name).trim().slice(0, 160);
+      if (!existing.firstName && profile.given_name) existing.firstName = String(profile.given_name).trim().slice(0, 80);
+      if (!existing.lastName && profile.family_name) existing.lastName = String(profile.family_name).trim().slice(0, 80);
     }
     return existing;
   });
