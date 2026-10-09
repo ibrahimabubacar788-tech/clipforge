@@ -1541,6 +1541,46 @@ document.querySelector("#dashboard-open-library")?.addEventListener("click", () 
   switchView("clips");
   history.replaceState(null, "", "#clips");
 });
+document.addEventListener("click", async (event) => {
+  const previewButton = event.target.closest("[data-preview-clip]");
+  if (!previewButton) return;
+  const clipId = previewButton.dataset.previewClip;
+  const clip = clips.find((item) => item.id === clipId);
+  if (!clip || clip.status !== "ready") {
+    showToast("This clip is not ready to preview yet.");
+    return;
+  }
+  if (!clipPreviewDialog || !clipPreviewVideo) {
+    showToast("The clip preview player is unavailable.");
+    return;
+  }
+  clipPreviewTitle.textContent = clip.title || "Clip preview";
+  clipPreviewVideo.pause();
+  clipPreviewVideo.removeAttribute("src");
+  clipPreviewVideo.src = "/api/clips/" + encodeURIComponent(clip.id) + "/stream";
+  clipPreviewVideo.load();
+  if (!clipPreviewDialog.open) clipPreviewDialog.showModal();
+  try {
+    await clipPreviewVideo.play();
+  } catch {
+    // Some mobile browsers require the user to tap the player's play control.
+  }
+});
+document.querySelector("#close-clip-preview")?.addEventListener("click", () => {
+  clipPreviewVideo?.pause();
+  if (clipPreviewDialog?.open) clipPreviewDialog.close();
+});
+clipPreviewDialog?.addEventListener("close", () => {
+  clipPreviewVideo?.pause();
+  if (clipPreviewVideo) {
+    clipPreviewVideo.removeAttribute("src");
+    clipPreviewVideo.load();
+  }
+});
+clipPreviewVideo?.addEventListener("error", () => {
+  if (clipPreviewDialog?.open) showToast("Preview could not load. The rendered video may no longer be in storage.");
+});
+
 fullscreenButton?.addEventListener("click", async () => {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
