@@ -177,5 +177,34 @@
     <dialog class="style-dialog" id="style-dialog" aria-labelledby="style-dialog-title"><form method="dialog"><div class="dialog-heading"><div><p class="eyebrow">CAPTION STYLE</p><h2 id="style-dialog-title">Make it yours.</h2></div><button class="close-button" value="cancel" aria-label="Close caption style editor">×</button></div><label class="field-label">Highlight color <select id="highlight-color"><option value="lime">Lime</option><option value="pink">Pink</option><option value="sky">Sky</option></select></label><label class="field-label">Caption emphasis <select id="caption-weight"><option value="bold">Bold</option><option value="soft">Soft</option></select></label><div class="dialog-actions"><button class="ghost-button" value="cancel">Cancel</button><button class="primary-button" id="save-style" value="default">Save style</button></div></form></dialog>
     <script type="module" src="src/app.js"></script>
     <script type="module" src="src/library-status.js"></script>
-  <dialog class="clip-preview-dialog" id="clip-preview-dialog"><div class="dialog-heading"><div><p class="eyebrow">CLIP PREVIEW</p><h2 id="clip-preview-title">Clip preview</h2></div><button class="close-button" id="close-clip-preview" type="button" aria-label="Close preview">×</button></div><video id="clip-preview-video" controls playsinline></video></dialog></body>
+  <dialog class="clip-preview-dialog" id="clip-preview-dialog"><div class="dialog-heading"><div><p class="eyebrow">CLIP PREVIEW</p><h2 id="clip-preview-title">Clip preview</h2></div><button class="close-button" id="close-clip-preview" type="button" aria-label="Close preview">×</button></div><video id="clip-preview-video" controls playsinline></video></dialog>
+
+    <script>
+      // Give every password field an accessible show/hide control without changing form behavior.
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('input[type="password"]').forEach((input) => {
+          if (input.dataset.visibilityToggleReady === 'true') return;
+          input.dataset.visibilityToggleReady = 'true';
+          const wrapper = document.createElement('span');
+          wrapper.className = 'password-field-wrap';
+          input.parentNode.insertBefore(wrapper, input);
+          wrapper.appendChild(input);
+          const toggle = document.createElement('button');
+          toggle.type = 'button';
+          toggle.className = 'password-visibility-toggle';
+          toggle.setAttribute('aria-label', 'Show password');
+          toggle.setAttribute('aria-pressed', 'false');
+          toggle.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span class="toggle-label">Show</span>';
+          toggle.addEventListener('click', () => {
+            const reveal = input.type === 'password';
+            input.type = reveal ? 'text' : 'password';
+            toggle.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+            toggle.setAttribute('aria-pressed', String(reveal));
+            toggle.querySelector('.toggle-label').textContent = reveal ? 'Hide' : 'Show';
+          });
+          wrapper.appendChild(toggle);
+        });
+      });
+    </script>
+</body>
 </html>
