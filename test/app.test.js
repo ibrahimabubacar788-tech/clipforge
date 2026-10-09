@@ -1124,7 +1124,7 @@ test("personal auto-clipping flow turns an imported transcript into a downloadab
       headers: { authorization: `Bearer ${auth.token}` },
     });
     assert.equal(download.status, 200);
-    assert.match(download.headers.get("content-type") || "", /video\\/mp4/);
+    assert.ok(String(download.headers.get("content-type") || "").includes("video/mp4"));
     const mp4 = Buffer.from(await download.arrayBuffer());
     assert.ok(mp4.length > 1000, "downloaded MP4 should contain rendered video bytes");
     assert.equal(mp4.subarray(4, 8).toString(), "ftyp", "download should be an MP4 container");
