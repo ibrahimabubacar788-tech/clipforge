@@ -1542,6 +1542,22 @@ document.querySelector("#dashboard-open-library")?.addEventListener("click", () 
   history.replaceState(null, "", "#clips");
 });
 document.addEventListener("click", async (event) => {
+  const downloadButton = event.target.closest("[data-download-clip]");
+  if (downloadButton) {
+    const clipId = downloadButton.dataset.downloadClip;
+    const clip = clips.find((item) => item.id === clipId);
+    if (!clip || clip.status !== "ready") {
+      showToast("This clip is not ready to download yet.");
+      return;
+    }
+    const anchor = document.createElement("a");
+    anchor.href = "/api/clips/" + encodeURIComponent(clip.id) + "/download";
+    anchor.download = (String(clip.title || "clip").replace(/[\\\\/:*?"<>|]+/g, "-").trim() || "clip") + ".mp4";
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    return;
+  }
   const previewButton = event.target.closest("[data-preview-clip]");
   if (!previewButton) return;
   const clipId = previewButton.dataset.previewClip;
