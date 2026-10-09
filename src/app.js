@@ -1161,7 +1161,7 @@ async function openAIGenerationDialog() {
   if (transcriptInput && Array.isArray(sourceVideo.transcript) && !transcriptInput.value.trim()) {
     transcriptInput.value = sourceVideo.transcript.map((segment) =>
       [segment.start, segment.end, segment.speaker || "", segment.text].join(" | ")
-    ).join("\\n");
+    ).join("\n");
   }
   if (dialog && !dialog.open) dialog.showModal();
 }
@@ -1191,7 +1191,7 @@ async function transcribeCurrentVideo() {
     if (!Array.isArray(result.transcript) || !result.transcript.length) throw new Error("No speech was detected in this video.");
     if (transcriptInput) transcriptInput.value = result.transcript.map((segment) =>
       [segment.start, segment.end, segment.speaker || "", segment.text].join(" | ")
-    ).join("\\n");
+    ).join("\n");
     sourceVideo = { ...sourceVideo, transcript: result.transcript, transcriptFormat: "auto-stt", transcriptLanguage: transcriptionLanguage?.value || "auto" };
     showToast("Transcript ready. Review it, then choose Generate clips.");
   } finally {
