@@ -1550,12 +1550,35 @@ document.addEventListener("click", async (event) => {
       showToast("This clip is not ready to download yet.");
       return;
     }
-    const anchor = document.createElement("a");
-    anchor.href = "/api/clips/" + encodeURIComponent(clip.id) + "/download";
-    anchor.download = (String(clip.title || "clip").replace(/[\\\\/:*?"<>|]+/g, "-").trim() || "clip") + ".mp4";
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
+    try {
+      const response = await fetch("/api/clips/" + encodeURIComponent(clip.id) + "/download", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: apiSession && apiSession.token ? { authorization: "Bearer " + apiSession.token } : {},
+      });
+      if (!response.ok) {
+        let message = "Download failed (" + response.status + ").";
+        try {
+          const error = await response.json();
+          message = error.error || error.message || message;
+        } catch {}
+        throw new Error(message);
+      }
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.toLowerCase().includes("video/mp4")) throw new Error("The server did not return an MP4 video.");
+      const blob = await response.blob();
+      if (!blob.size) throw new Error("The exported video file is empty.");
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = (String(clip.title || "clip").replace(/[\\\\/:*?"<>|]+/g, "-").trim() || "clip") + ".mp4";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    } catch (error) {
+      showToast("Could not download clip: " + (error && error.message ? error.message : "Unknown error"));
+    }
     return;
   }
   const previewButton = event.target.closest("[data-preview-clip]");
