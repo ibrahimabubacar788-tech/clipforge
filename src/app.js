@@ -1229,21 +1229,18 @@ async function runAIGeneration(event) {
         method: "POST",
         body: JSON.stringify({ text: transcriptText, format: ext, language: options.language }),
       });
-      result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/generate-clips", {
+      result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/auto-clip", {
         method: "POST",
         body: JSON.stringify(options),
       });
-      const createdClips = Array.isArray(result.clips) ? result.clips.map((entry) => entry.clip || entry).filter(Boolean) : [];
-      if (createdClips.length) {
-        clips = [...createdClips, ...clips.filter((clip) => !createdClips.some((entry) => entry.id === clip.id))];
-      }
-      if (sourceVideo) sourceVideo = { ...sourceVideo, transcriptFormat: ext };
-      renderClipLibrary();
-      startClipStatusPolling();
+      if (sourceVideo) sourceVideo = { ...sourceVideo, transcriptFormat: ext, transcriptLanguage: options.language };
       dialog?.close();
       switchView("clips");
       history.replaceState(null, "", "#clips");
-      showToast("ClipForge found " + (result.generated ?? createdClips.length) + " moments. Rendering has started.");
+      showToast(result?.status === "processing"
+        ? "ClipForge is analyzing your transcript and finding the strongest moments."
+        : "ClipForge started AI clipping.");
+      void pollAutoClipStatus(sourceVideo.id);
     } else {
       result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/auto-clip", {
         method: "POST",
