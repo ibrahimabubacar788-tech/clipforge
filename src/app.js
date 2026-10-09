@@ -694,7 +694,7 @@ async function uploadSource(file) {
   if (uploadProgressPercent) uploadProgressPercent.textContent = "0%";
   const upload = await new Promise(async (resolve, reject) => {
     const uploadId = crypto.randomUUID();
-    const chunkSize = 10 * 1024 * 1024;
+    const chunkSize = 2 * 1024 * 1024;
     const totalChunks = Math.ceil(file.size / chunkSize);
     let completedBytes = 0;
     try {
@@ -702,7 +702,7 @@ async function uploadSource(file) {
         const chunk = file.slice(index * chunkSize, Math.min(file.size, (index + 1) * chunkSize));
         let attempts = 0;
         let uploaded = false;
-        while (!uploaded && attempts < 3) {
+        while (!uploaded && attempts < 5) {
           attempts += 1;
           const result = await new Promise((chunkResolve, chunkReject) => {
             const request = new XMLHttpRequest();
@@ -733,9 +733,10 @@ async function uploadSource(file) {
             request.ontimeout = () => chunkReject(new Error("Upload chunk timed out."));
             request.onabort = () => chunkReject(new Error("Upload was cancelled."));
             request.send(chunk);
-          }).catch((error) => {
-            if (attempts >= 3) throw error;
+          }).catch(async (error) => {
+            if (attempts >= 5) throw error;
             showToast("Connection interrupted. Retrying this upload section…");
+            await new Promise((retryResolve) => setTimeout(retryResolve, Math.min(1000 * attempts, 4000)));
             return null;
           });
           if (result !== null) uploaded = true;
