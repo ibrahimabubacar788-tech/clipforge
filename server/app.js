@@ -189,6 +189,18 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           res.setHeader("set-cookie", sessionCookie(session.token));
           return json(res, 201, { token: session.token, user: publicUser(session.user) });
         }
+        const emailVerificationConfigured = Boolean(
+          String(process.env.RESEND_API_KEY || "").trim() &&
+          String(process.env.RESEND_FROM || "").trim()
+        );
+        if (!emailVerificationConfigured) {
+          // Email verification is intentionally deferred until delivery is configured.
+          // Do not strand a newly registered user or pretend a code was sent.
+          const session = await login(db, user.email, payload.password);
+          clearAuthFailures(req);
+          res.setHeader("set-cookie", sessionCookie(session.token));
+          return json(res, 201, { token: session.token, user: publicUser(session.user), emailVerificationDeferred: true });
+        }
         try {
           await sendVerificationCode(db, user);
         } catch (error) {
