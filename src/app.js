@@ -1173,4 +1173,18 @@ cancelUploadButton?.addEventListener("click", () => {
   showToast("Upload cancelled.");
 });
 
+// Password visibility controls must live in this same-origin module because the app's CSP blocks inline event handlers.
+document.addEventListener("click", (event) => {
+  const toggle = event.target.closest(".password-visibility-toggle");
+  if (!toggle) return;
+  const field = toggle.parentElement?.querySelector("input");
+  if (!field) return;
+  const showPassword = field.type === "password";
+  field.type = showPassword ? "text" : "password";
+  toggle.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
+  toggle.setAttribute("aria-pressed", String(showPassword));
+  const label = toggle.querySelector(".toggle-label");
+  if (label) label.textContent = showPassword ? "Hide" : "Show";
+});
+
 wireAuthenticationBoundary();
