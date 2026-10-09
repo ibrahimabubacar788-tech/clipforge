@@ -1120,7 +1120,7 @@ test("personal auto-clipping flow turns an imported transcript into a downloadab
     assert.ok(statusBody?.ready > 0, "auto-clipping should render at least one finished MP4");
     const clip = statusBody.clips.find((item) => item.status === "ready");
     assert.ok(clip?.downloadUrl, "finished clip should have a download URL");
-    const download = await fetch(new URL(clip.downloadUrl, ctx.base), {
+    const download = await fetch(`${ctx.base}/api/clips/${clip.id}/download`, {
       headers: { authorization: `Bearer ${auth.token}` },
     });
     assert.equal(download.status, 200);
