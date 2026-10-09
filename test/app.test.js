@@ -920,45 +920,69 @@ test("upload, queue, FFmpeg render, and clip download work end to end", async ()
     assert.equal(videoResponse.status, 201);
     const video = (await videoResponse.json()).video;
 
-    const clipResponse = await fetch(`${ctx.base}/api/clips`, {
+    const transcriptResponse = await fetch(`${ctx.base}/api/videos/${video.id}/transcript`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${auth.token}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        videoId: video.id,
-        title: "Render smoke clip",
-        start: 0,
-        end: 20,
-        format: "9:16",
-        captions: false,
+        format: "plain",
+        language: "en",
+        segments: [
+          { start: 0, end: 5, text: "Here is the thing most creators miss when they edit a video." },
+          { start: 5, end: 10, text: "The biggest mistake is keeping every moment instead of the strongest story." },
+          { start: 10, end: 15, text: "But when you find the surprising part, viewers understand why it matters." },
+          { start: 15, end: 20, text: "That is the result: a short clip with a hook, context, and a clear payoff." },
+        ],
       }),
     });
-    assert.equal(clipResponse.status, 202);
-    const queued = await clipResponse.json();
-    assert.equal(queued.clip.status, "queued");
+    assert.equal(transcriptResponse.status, 200, await transcriptResponse.text());
 
-    let job = queued.job;
-    for (let attempt = 0; attempt < 240 && !["completed", "failed"].includes(job.status); attempt += 1) {
+    const generateResponse = await fetch(`${ctx.base}/api/videos/${video.id}/auto-clip`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        limit: 1,
+        language: "en",
+        captionLanguage: "original",
+        format: "9:16",
+        captions: false,
+        profile: "creator",
+      }),
+    });
+    assert.equal(generateResponse.status, 202, await generateResponse.text());
+
+    let analysisStatus = null;
+    for (let attempt = 0; attempt < 120; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 250));
-      const jobResponse = await fetch(`${ctx.base}/api/jobs/${job.id}`, {
+      const statusResponse = await fetch(
+        `${ctx.base}/api/videos/${video.id}/auto-clip-status?language=en&captionLanguage=original`,
+        { headers: { authorization: `Bearer ${auth.token}` } },
+      );
+      assert.equal(statusResponse.status, 200);
+      const statusBody = await statusResponse.json();
+      analysisStatus = statusBody.analysisStatus;
+      if (analysisStatus?.status === "completed" || analysisStatus?.status === "failed") break;
+    }
+    assert.equal(analysisStatus?.status, "completed", analysisStatus?.error || "AI clip analysis did not complete.");
+    assert.ok(analysisStatus.generated >= 1);
+
+    let rendered = null;
+    for (let attempt = 0; attempt < 240; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const clipsResponse = await fetch(`${ctx.base}/api/clips`, {
         headers: { authorization: `Bearer ${auth.token}` },
       });
-      assert.equal(jobResponse.status, 200);
-      job = (await jobResponse.json()).job;
+      assert.equal(clipsResponse.status, 200);
+      const clips = (await clipsResponse.json()).clips;
+      rendered = clips.find((clip) => clip.videoId === video.id && clip.generation === "auto-ai");
+      if (rendered?.status === "ready" || rendered?.status === "failed") break;
     }
-
-    assert.equal(job.status, "completed", job.error || "Render job did not complete.");
-    assert.ok(job.progress >= 100);
-
-    const clipsResponse = await fetch(`${ctx.base}/api/clips`, {
-      headers: { authorization: `Bearer ${auth.token}` },
-    });
-    assert.equal(clipsResponse.status, 200);
-    const clips = (await clipsResponse.json()).clips;
-    const rendered = clips.find((clip) => clip.id === queued.clip.id);
-    assert.equal(rendered.status, "ready");
+    assert.equal(rendered?.status, "ready", rendered?.error || "AI-generated clip did not finish rendering.");
     assert.ok(rendered.downloadUrl);
 
     const download = await fetch(`${ctx.base}/api/clips/${rendered.id}/download`, {
@@ -967,7 +991,7 @@ test("upload, queue, FFmpeg render, and clip download work end to end", async ()
     assert.equal(download.status, 200);
     assert.equal(download.headers.get("content-type"), "video/mp4");
     const contentDisposition = download.headers.get("content-disposition") || "";
-    assert.match(contentDisposition, /attachment;\s*filename="Render smoke clip\.mp4"/i);
+    assert.match(contentDisposition, /attachment;\\s*filename=".*\\.mp4"/i);
     const downloaded = Buffer.from(await download.arrayBuffer());
     assert.ok(downloaded.length > 0);
 
