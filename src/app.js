@@ -1065,15 +1065,15 @@ async function refreshClipLibraryWhileRendering() {
   }
 }
 
-async function pollAutoClipStatus(videoId) {
+async function pollAutoClipStatus(videoId, pollOptions = {}) {
   if (!videoId || automaticClipPolls.has(videoId)) return;
   automaticClipPolls.add(videoId);
   const pollingProjectId = currentProject?.id;
   try {
     for (let attempt = 0; attempt < 900; attempt += 1) {
       if (currentProject?.id !== pollingProjectId || sourceVideo?.id !== videoId) return;
-      const language = transcriptionLanguage?.value || "auto";
-      const captionLanguage = captionLanguageSelect?.value || safeStorageParse(captionLanguageKey, "original");
+      const language = pollOptions.language || transcriptionLanguage?.value || "auto";
+      const captionLanguage = pollOptions.captionLanguage || captionLanguageSelect?.value || safeStorageParse(captionLanguageKey, "original");
       try {
         const result = await api(`/api/videos/${encodeURIComponent(videoId)}/auto-clip-status?language=${encodeURIComponent(language)}&captionLanguage=${encodeURIComponent(captionLanguage)}`);
         if (currentProject?.id !== pollingProjectId || sourceVideo?.id !== videoId) return;
@@ -1240,7 +1240,7 @@ async function runAIGeneration(event) {
       showToast(result?.status === "processing"
         ? "ClipForge is analyzing your transcript and finding the strongest moments."
         : "ClipForge started AI clipping.");
-      void pollAutoClipStatus(sourceVideo.id);
+      void pollAutoClipStatus(sourceVideo.id, { language: options.language, captionLanguage: options.captions ? options.captionLanguage : "original" });
     } else {
       result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/auto-clip", {
         method: "POST",
