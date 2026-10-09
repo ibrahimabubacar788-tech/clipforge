@@ -78,7 +78,7 @@ function normalizeAssemblyAIResponse(response) {
 }
 
 async function transcribeWithAssemblyAI({ audioFile, language }) {
-  const apiKey = process.env.ASSEMBLYAI_API_KEY;
+  const apiKey = String(process.env.ASSEMBLYAI_API_KEY || "").trim();
   if (!apiKey) throw Object.assign(new Error("AssemblyAI transcription is not configured."), { status: 503 });
 
   const audio = await readFile(audioFile);
@@ -172,8 +172,8 @@ export async function translateTranscriptSegments(segments, targetLanguage) {
 }
 
 export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
-  const assemblyKey = process.env.ASSEMBLYAI_API_KEY;
-  const openAIKey = process.env.OPENAI_API_KEY;
+  const assemblyKey = String(process.env.ASSEMBLYAI_API_KEY || "").trim();
+  const openAIKey = String(process.env.OPENAI_API_KEY || "").trim();
   if (!assemblyKey && !openAIKey) {
     throw Object.assign(new Error("Automatic transcription is not configured. Add ASSEMBLYAI_API_KEY or OPENAI_API_KEY to the server environment."), { status: 503 });
   }
@@ -183,7 +183,15 @@ export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
 
   try {
     await run(ffmpegPath, ["-y", "-i", source, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "32k", audioFile]);
-    if (assemblyKey) return await transcribeWithAssemblyAI({ audioFile, language });
+    if (assemblyKey) {
+      try {
+        return await transcribeWithAssemblyAI({ audioFile, language });
+      } catch (error) {
+        const rejectedAssemblyKey = /invalid api key|unauthorized|authentication failed|not authorized/i.test(String(error?.message || ""));
+        if (!openAIKey || !rejectedAssemblyKey) throw error;
+        console.warn("ClipForge: AssemblyAI credentials were rejected; trying the configured OpenAI transcription fallback.");
+      }
+    }
 
     const audio = await readFile(audioFile);
     const form = new FormData();
