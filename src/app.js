@@ -1141,6 +1141,125 @@ function updateFromPointer(event) {
 }
 
 
+
+async function openAIGenerationDialog() {
+  if (!apiSession?.user) {
+    showAccountDialog("login");
+    return;
+  }
+  if (!currentProject?.id) {
+    showToast("Create or open a project before generating clips.");
+    return;
+  }
+  if (!sourceVideo?.id) {
+    showToast("Upload a source video first. ClipForge needs a real video before it can find moments.");
+    sourceUpload?.click();
+    return;
+  }
+  const dialog = document.querySelector("#transcript-dialog");
+  const transcriptInput = document.querySelector("#transcript-input");
+  if (transcriptInput && Array.isArray(sourceVideo.transcript) && !transcriptInput.value.trim()) {
+    transcriptInput.value = sourceVideo.transcript.map((segment) =>
+      [segment.start, segment.end, segment.speaker || "", segment.text].join(" | ")
+    ).join("\\n");
+  }
+  if (dialog && !dialog.open) dialog.showModal();
+}
+
+function generationOptions() {
+  return {
+    limit: Math.max(5, Math.min(50, Number(document.querySelector("#ai-clip-count")?.value) || 10)),
+    format: document.querySelector("#ai-output-format")?.value || document.querySelector(".format-option.selected")?.dataset.format || "9:16",
+    captions: document.querySelector("#ai-caption-enabled")?.value !== "false",
+    style: captionStyle,
+    profile: document.querySelector("#ai-content-profile")?.value || "creator",
+    language: transcriptionLanguage?.value || "auto",
+    captionLanguage: captionLanguageSelect?.value || "original",
+  };
+}
+
+async function transcribeCurrentVideo() {
+  if (!sourceVideo?.id) throw new Error("Upload a source video before transcribing.");
+  const button = document.querySelector("#auto-transcribe");
+  const transcriptInput = document.querySelector("#transcript-input");
+  if (button) { button.disabled = true; button.textContent = "Transcribing…"; }
+  try {
+    const result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/transcribe", {
+      method: "POST",
+      body: JSON.stringify({ language: transcriptionLanguage?.value || "auto", captionLanguage: captionLanguageSelect?.value || "original" }),
+    });
+    if (!Array.isArray(result.transcript) || !result.transcript.length) throw new Error("No speech was detected in this video.");
+    if (transcriptInput) transcriptInput.value = result.transcript.map((segment) =>
+      [segment.start, segment.end, segment.speaker || "", segment.text].join(" | ")
+    ).join("\\n");
+    sourceVideo = { ...sourceVideo, transcript: result.transcript, transcriptFormat: "auto-stt", transcriptLanguage: transcriptionLanguage?.value || "auto" };
+    showToast("Transcript ready. Review it, then choose Generate clips.");
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "Transcribe video automatically"; }
+  }
+}
+
+async function importTranscriptFile(file) {
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) throw new Error("Transcript files must be smaller than 5 MB.");
+  const text = await file.text();
+  if (!text.trim()) throw new Error("That transcript file is empty.");
+  const transcriptInput = document.querySelector("#transcript-input");
+  if (transcriptInput) transcriptInput.value = text;
+  showToast("Transcript imported. Choose Generate clips to continue.");
+}
+
+async function runAIGeneration(event) {
+  event?.preventDefault();
+  const button = document.querySelector("#run-ai-generation");
+  const transcriptInput = document.querySelector("#transcript-input");
+  const dialog = document.querySelector("#transcript-dialog");
+  if (!sourceVideo?.id) {
+    showToast("Upload a source video before generating clips.");
+    return;
+  }
+  const options = generationOptions();
+  const transcriptText = String(transcriptInput?.value || "").trim();
+  if (button) { button.disabled = true; button.textContent = "Preparing clips…"; }
+  try {
+    let result;
+    if (transcriptText) {
+      const ext = document.querySelector("#transcript-file")?.dataset.format || "auto";
+      await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/transcript", {
+        method: "POST",
+        body: JSON.stringify({ text: transcriptText, format: ext, language: options.language }),
+      });
+      result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/generate-clips", {
+        method: "POST",
+        body: JSON.stringify(options),
+      });
+      const createdClips = Array.isArray(result.clips) ? result.clips.map((entry) => entry.clip || entry).filter(Boolean) : [];
+      if (createdClips.length) {
+        clips = [...createdClips, ...clips.filter((clip) => !createdClips.some((entry) => entry.id === clip.id))];
+      }
+      if (sourceVideo) sourceVideo = { ...sourceVideo, transcriptFormat: ext };
+      renderClipLibrary();
+      startClipStatusPolling();
+      dialog?.close();
+      switchView("clips");
+      history.replaceState(null, "", "#clips");
+      showToast("ClipForge found " + (result.generated ?? createdClips.length) + " moments. Rendering has started.");
+    } else {
+      result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/auto-clip", {
+        method: "POST",
+        body: JSON.stringify(options),
+      });
+      dialog?.close();
+      showToast(result?.status === "processing" ? "ClipForge is analyzing your video and finding the strongest moments." : "ClipForge started AI clipping.");
+      void pollAutoClipStatus(sourceVideo.id);
+    }
+  } catch (error) {
+    showToast("AI clip generation failed: " + error.message);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "Generate clips"; }
+  }
+}
+
 async function createWorkspaceProject() {
   if (!apiSession?.user) {
     showAccountDialog("login");
@@ -1372,7 +1491,35 @@ document.addEventListener("click", (event) => {
 });
 
 
-newProjectButton?.addEventListener("click", () => { void createWorkspaceProject(); });
+
+document.querySelector("#generate-ai-clips")?.addEventListener("click", () => { void openAIGenerationDialog(); });
+document.querySelector("#library-ai-generate")?.addEventListener("click", () => { void openAIGenerationDialog(); });
+document.querySelector("#auto-transcribe")?.addEventListener("click", async () => {
+  try { await transcribeCurrentVideo(); }
+  catch (error) { showToast("Transcription failed: " + error.message); }
+});
+document.querySelector("#transcript-file")?.addEventListener("change", async (event) => {
+  const file = event.currentTarget.files?.[0];
+  if (!file) return;
+  event.currentTarget.dataset.format = /\\.srt$/i.test(file.name) ? "srt" : /\\.vtt$/i.test(file.name) ? "vtt" : "auto";
+  try { await importTranscriptFile(file); }
+  catch (error) { showToast("Transcript import failed: " + error.message); }
+  finally { event.currentTarget.value = ""; }
+});
+document.querySelector("#run-ai-generation")?.addEventListener("click", (event) => { void runAIGeneration(event); });
+document.querySelector("#style-button")?.addEventListener("click", () => {
+  if (styleDialog && !styleDialog.open) styleDialog.showModal();
+});
+document.querySelector("#save-style")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  applyCaptionStyle({
+    color: document.querySelector("#highlight-color")?.value || "lime",
+    weight: document.querySelector("#caption-weight")?.value || "bold",
+  });
+  styleDialog?.close();
+  showToast("Caption style saved.");
+});
+\nnewProjectButton?.addEventListener("click", () => { void createWorkspaceProject(); });
 dashboardNewProjectButton?.addEventListener("click", () => { void createWorkspaceProject(); });
 document.querySelector("#rename-project")?.addEventListener("click", () => { void renameWorkspaceProject(); });
 deleteProjectButton?.addEventListener("click", () => { void deleteWorkspaceProject(); });
