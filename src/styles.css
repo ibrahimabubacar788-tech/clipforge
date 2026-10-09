@@ -361,3 +361,13 @@
 
 /* Hard boundary for view state: the HTML hidden attribute must always win over component display rules. */
 [hidden], .app-shell[hidden], .workspace[hidden], .auth-landing[hidden], .secondary-view[hidden] { display: none !important; }
+
+
+/* Accessible show/hide password controls */
+.password-field-wrap{position:relative;display:block;width:100%;}
+.password-field-wrap>input{width:100%;padding-right:3.25rem!important;}
+.password-visibility-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:38px;min-height:36px;padding:6px;border:1px solid rgba(148,163,184,.28);border-radius:9px;background:rgba(15,23,42,.88);color:#dbeafe;cursor:pointer;z-index:2;}
+.password-visibility-toggle:hover{border-color:#84cc16;color:#bef264;}
+.password-visibility-toggle:focus-visible{outline:2px solid #a3e635;outline-offset:2px;}
+.password-visibility-toggle svg{width:18px;height:18px;display:block;}
+.password-visibility-toggle .toggle-label{font-size:11px;line-height:1;}
