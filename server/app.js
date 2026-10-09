@@ -1110,6 +1110,61 @@ if (req.method === "POST" && pathname === "/api/uploads/chunk") {
         }
       }
     }
+    const clipStreamMatch = pathname.match(/^\/api\/clips\/([^/]+)\/stream$/);
+    if (clipStreamMatch && req.method === "GET") {
+      const clip = await db.read((d) => d.clips.find((item) => item.id === clipStreamMatch[1] && item.userId === user.id));
+      if (!clip || clip.status !== "ready" || !clip.downloadUrl?.startsWith("/storage/exports/")) {
+        throw Object.assign(new Error("Rendered clip is not available to preview yet."), { status: 404 });
+      }
+      const exportDir = normalize(join(storageDir, "exports"));
+      const candidate = normalize(join(storageDir, clip.downloadUrl.slice("/storage/".length)));
+      const relativeExport = requireRelative(exportDir, candidate);
+      if (relativeExport.startsWith("..") || relativeExport.startsWith("/") || relativeExport.startsWith("\\\\")) {
+        throw Object.assign(new Error("Invalid export path."), { status: 403 });
+      }
+      const info = await lstat(candidate).catch(() => null);
+      if (!info?.isFile() || info.isSymbolicLink()) throw Object.assign(new Error("Rendered clip file is missing from storage."), { status: 404 });
+      const resolvedCandidate = await realpath(candidate).catch(() => null);
+      const resolvedExportDir = await realpath(exportDir).catch(() => null);
+      if (!resolvedCandidate || !resolvedExportDir) throw Object.assign(new Error("Rendered clip file is unavailable."), { status: 404 });
+      const resolvedRelative = requireRelative(resolvedExportDir, resolvedCandidate);
+      if (resolvedRelative.startsWith("..") || resolvedRelative.startsWith("/") || resolvedRelative.startsWith("\\\\")) throw Object.assign(new Error("Invalid export path."), { status: 403 });
+      let handle;
+      try {
+        handle = await open(resolvedCandidate, O_RDONLY | O_NOFOLLOW);
+        const openedInfo = await handle.stat();
+        if (!openedInfo.isFile() || openedInfo.size <= 0) throw Object.assign(new Error("Rendered clip file is empty."), { status: 404 });
+        const total = openedInfo.size;
+        const rangeHeader = String(req.headers.range || "");
+        const headers = { "content-type": "video/mp4", "accept-ranges": "bytes", "cache-control": "private, no-store" };
+        if (!rangeHeader) {
+          res.writeHead(200, { ...headers, "content-length": total, "content-disposition": "inline" });
+          handle.createReadStream({ autoClose: true }).pipe(res);
+          handle = null;
+          return;
+        }
+        const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+        if (!match) {
+          res.writeHead(416, { "content-range": `bytes */${total}` });
+          res.end();
+          return;
+        }
+        const start = match[1] ? Number(match[1]) : Math.max(0, total - Number(match[2]));
+        const end = match[2] ? Number(match[2]) : total - 1;
+        if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || start >= total) {
+          res.writeHead(416, { "content-range": `bytes */${total}` });
+          res.end();
+          return;
+        }
+        const boundedEnd = Math.min(end, total - 1);
+        res.writeHead(206, { ...headers, "content-length": boundedEnd - start + 1, "content-range": `bytes ${start}-${boundedEnd}/${total}`, "content-disposition": "inline" });
+        handle.createReadStream({ start, end: boundedEnd, autoClose: true }).pipe(res);
+        handle = null;
+      } finally {
+        if (handle) await handle.close().catch(() => {});
+      }
+      return;
+    }
     const downloadMatch = pathname.match(/^\/api\/clips\/([^/]+)\/download$/);
     if (downloadMatch && req.method === "GET") {
       const clip = await db.read((d) => d.clips.find((c) => c.id === downloadMatch[1] && c.userId === user.id));
