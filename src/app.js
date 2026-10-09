@@ -1140,6 +1140,146 @@ function updateFromPointer(event) {
   updateRange();
 }
 
+
+async function createWorkspaceProject() {
+  if (!apiSession?.user) {
+    showAccountDialog("login");
+    return;
+  }
+  const name = window.prompt("Name your new project", "Untitled project");
+  if (name === null) return;
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    showToast("Enter a project name to continue.");
+    return;
+  }
+  try {
+    const result = await api("/api/projects", {
+      method: "POST",
+      body: JSON.stringify({ name: trimmedName }),
+    });
+    const projects = (await api("/api/projects")).projects;
+    currentProject = result.project;
+    renderProjectSelector(projects);
+    renderDashboard(projects);
+    await loadProject(currentProject.id);
+    switchView("editor");
+    history.replaceState(null, "", "#editor");
+    showToast("Project created. Your workspace is ready.");
+  } catch (error) {
+    showToast("Could not create project: " + error.message);
+  }
+}
+
+async function renameWorkspaceProject() {
+  if (!currentProject?.id) {
+    showToast("Choose a project first.");
+    return;
+  }
+  const name = window.prompt("Rename project", currentProject.name);
+  if (name === null) return;
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    showToast("Project name cannot be empty.");
+    return;
+  }
+  try {
+    const result = await api("/api/projects/" + encodeURIComponent(currentProject.id), {
+      method: "PATCH",
+      body: JSON.stringify({ name: trimmedName }),
+    });
+    currentProject = result.project;
+    document.querySelector("#workspace-title").textContent = currentProject.name;
+    const projects = (await api("/api/projects")).projects;
+    renderProjectSelector(projects);
+    renderDashboard(projects);
+    showToast("Project renamed.");
+  } catch (error) {
+    showToast("Could not rename project: " + error.message);
+  }
+}
+
+async function deleteWorkspaceProject() {
+  if (!currentProject?.id) {
+    showToast("Choose a project first.");
+    return;
+  }
+  if (!window.confirm('Delete "' + currentProject.name + '" and its videos and clips? This cannot be undone.')) return;
+  const deletedId = currentProject.id;
+  try {
+    await api("/api/projects/" + encodeURIComponent(deletedId), { method: "DELETE" });
+    const projects = (await api("/api/projects")).projects;
+    if (!projects.length) {
+      currentProject = null;
+      await ensureWorkspace();
+    } else {
+      currentProject = projects[0];
+      renderProjectSelector(projects);
+      renderDashboard(projects);
+      await loadProject(currentProject.id);
+    }
+    switchView("editor");
+    history.replaceState(null, "", "#editor");
+    showToast("Project deleted.");
+  } catch (error) {
+    showToast("Could not delete project: " + error.message);
+  }
+}
+
+async function deleteSourceVideo() {
+  if (!sourceVideo?.id) {
+    showToast("There is no source video to delete.");
+    return;
+  }
+  if (!window.confirm("Delete this source video and its clips? This cannot be undone.")) return;
+  const videoId = sourceVideo.id;
+  const projectId = currentProject?.id;
+  try {
+    await api("/api/videos/" + encodeURIComponent(videoId), { method: "DELETE" });
+    if (projectId && currentProject?.id === projectId) await loadProject(projectId);
+    showToast("Source video and its clips deleted.");
+  } catch (error) {
+    showToast("Could not delete source video: " + error.message);
+  }
+}
+
+async function exportCurrentClip() {
+  if (!sourceVideo?.id || !currentProject?.id) {
+    showToast("Upload a source video before exporting a clip.");
+    return;
+  }
+  const clipRange = getRange();
+  const selectedFormat = document.querySelector(".format-option.selected")?.dataset.format || "9:16";
+  const captionsEnabled = Boolean(captionToggle?.checked);
+  const button = document.querySelector("#export-button");
+  if (button) button.disabled = true;
+  try {
+    const result = await api("/api/clips", {
+      method: "POST",
+      body: JSON.stringify({
+        videoId: sourceVideo.id,
+        start: clipRange.start,
+        end: clipRange.end,
+        title: (sourceVideo.name || "ClipForge video").replace(/\.[^.]+$/, "") + " clip " + formatTimestamp(clipRange.start),
+        format: selectedFormat,
+        captions: captionsEnabled,
+        style: captionStyle,
+      }),
+    });
+    const clip = result.clip;
+    if (clip && !clips.some((item) => item.id === clip.id)) clips.unshift(clip);
+    renderClipLibrary();
+    startClipStatusPolling();
+    switchView("clips");
+    history.replaceState(null, "", "#clips");
+    showToast("Clip queued for rendering. Track progress in My clips.");
+  } catch (error) {
+    showToast("Export could not start: " + error.message);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 function switchView(view) {
   const isDashboard = view === "dashboard";
   const workspace = document.querySelector("#workspace");
@@ -1229,6 +1369,39 @@ document.addEventListener("click", (event) => {
   toggle.setAttribute("aria-pressed", String(showPassword));
   const label = toggle.querySelector(".toggle-label");
   if (label) label.textContent = showPassword ? "Hide" : "Show";
+});
+
+
+newProjectButton?.addEventListener("click", () => { void createWorkspaceProject(); });
+dashboardNewProjectButton?.addEventListener("click", () => { void createWorkspaceProject(); });
+document.querySelector("#rename-project")?.addEventListener("click", () => { void renameWorkspaceProject(); });
+deleteProjectButton?.addEventListener("click", () => { void deleteWorkspaceProject(); });
+document.querySelector("#delete-source-video")?.addEventListener("click", () => { void deleteSourceVideo(); });
+document.querySelector("#export-button")?.addEventListener("click", () => { void exportCurrentClip(); });
+projectSelect?.addEventListener("change", async () => {
+  const projectId = projectSelect.value;
+  if (!projectId || projectId === currentProject?.id) return;
+  try {
+    await loadProject(projectId);
+    switchView("editor");
+    history.replaceState(null, "", "#editor");
+    showToast("Project opened.");
+  } catch (error) {
+    showToast("Could not open project: " + error.message);
+  }
+});
+document.querySelector("#dashboard-open-library")?.addEventListener("click", () => {
+  switchView("clips");
+  history.replaceState(null, "", "#clips");
+});
+fullscreenButton?.addEventListener("click", async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await appShell?.requestFullscreen();
+    fullscreenButton.textContent = document.fullscreenElement ? "Exit full screen" : "Full screen";
+  } catch {
+    showToast("Full-screen mode is not available in this browser.");
+  }
 });
 
 wireAuthenticationBoundary();
