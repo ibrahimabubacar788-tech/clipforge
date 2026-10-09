@@ -1499,12 +1499,13 @@ document.querySelector("#auto-transcribe")?.addEventListener("click", async () =
   catch (error) { showToast("Transcription failed: " + error.message); }
 });
 document.querySelector("#transcript-file")?.addEventListener("change", async (event) => {
-  const file = event.currentTarget.files?.[0];
+  const input = event.currentTarget;
+  const file = input.files?.[0];
   if (!file) return;
-  event.currentTarget.dataset.format = /\.srt$/i.test(file.name) ? "srt" : /\.vtt$/i.test(file.name) ? "vtt" : "auto";
+  input.dataset.format = /\.srt$/i.test(file.name) ? "srt" : /\.vtt$/i.test(file.name) ? "vtt" : "auto";
   try { await importTranscriptFile(file); }
   catch (error) { showToast("Transcript import failed: " + error.message); }
-  finally { event.currentTarget.value = ""; }
+  finally { input.value = ""; }
 });
 document.querySelector("#run-ai-generation")?.addEventListener("click", (event) => { void runAIGeneration(event); });
 document.querySelector("#style-button")?.addEventListener("click", () => {
