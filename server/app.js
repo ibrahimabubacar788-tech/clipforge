@@ -170,6 +170,9 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
           persistent: mediaPersistent,
           warning: mediaPersistent ? null : "Local media storage is ephemeral on Render and should not be treated as durable production storage.",
         },
+        emailVerification: {
+          configured: Boolean(String(process.env.RESEND_API_KEY || "").trim() && String(process.env.RESEND_FROM || "").trim()),
+        },
       });
     }
     if (req.method === "POST" && pathname === "/api/auth/register") {
