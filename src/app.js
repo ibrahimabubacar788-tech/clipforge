@@ -1230,18 +1230,24 @@ async function runAIGeneration(event) {
         method: "POST",
         body: JSON.stringify({ text: transcriptText, format: ext, language: options.language }),
       });
-      result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/auto-clip", {
+      result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/generate-clips", {
         method: "POST",
-        body: JSON.stringify(options),
+        body: JSON.stringify({ ...options, style: captionStyle }),
       });
       if (sourceVideo) sourceVideo = { ...sourceVideo, transcriptFormat: ext, transcriptLanguage: options.language };
+      const generatedClips = Array.isArray(result?.clips) ? result.clips.map((entry) => entry.clip).filter(Boolean) : [];
+      if (generatedClips.length) {
+        const knownClipIds = new Set(clips.map((clip) => clip.id));
+        clips = [...generatedClips.filter((clip) => !knownClipIds.has(clip.id)), ...clips];
+        renderClipLibrary();
+        startClipStatusPolling();
+      }
       dialog?.close();
       switchView("clips");
       history.replaceState(null, "", "#clips");
-      showToast(result?.status === "processing"
-        ? "ClipForge is analyzing your transcript and finding the strongest moments."
-        : "ClipForge started AI clipping.");
-      void pollAutoClipStatus(sourceVideo.id, { language: options.language, captionLanguage: options.captions ? options.captionLanguage : "original" });
+      showToast(result?.generated > 0
+        ? "ClipForge found " + result.generated + " moments and started rendering your clips."
+        : "ClipForge could not find clip-worthy moments in that transcript. Check the transcript timestamps and try again.");
     } else {
       result = await api("/api/videos/" + encodeURIComponent(sourceVideo.id) + "/auto-clip", {
         method: "POST",
