@@ -1173,6 +1173,50 @@ cancelUploadButton?.addEventListener("click", () => {
   showToast("Upload cancelled.");
 });
 
+// Restore the missing file-picker wiring: without this listener, choosing a gallery
+// video never calls uploadSource(), so the preview and upload flow remain unchanged.
+sourceUpload?.addEventListener("change", async () => {
+  const file = sourceUpload.files?.[0];
+  if (!file) return;
+  try {
+    await uploadSource(file);
+  } catch (error) {
+    showToast(`Video upload failed: ${error?.message || "Please try again."}`);
+  } finally {
+    // Let the user choose the same file again after a failed attempt.
+    sourceUpload.value = "";
+  }
+});
+
+videoDropzone?.addEventListener("click", (event) => {
+  if (event.target.closest("button, input, a, video")) return;
+  sourceUpload?.click();
+});
+videoDropzone?.addEventListener("keydown", (event) => {
+  if (event.target !== videoDropzone || !["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  sourceUpload?.click();
+});
+videoDropzone?.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  videoDropzone.classList.add("is-dragging");
+});
+videoDropzone?.addEventListener("dragleave", (event) => {
+  if (event.relatedTarget && videoDropzone.contains(event.relatedTarget)) return;
+  videoDropzone.classList.remove("is-dragging");
+});
+videoDropzone?.addEventListener("drop", async (event) => {
+  event.preventDefault();
+  videoDropzone.classList.remove("is-dragging");
+  const file = event.dataTransfer?.files?.[0];
+  if (!file) return;
+  try {
+    await uploadSource(file);
+  } catch (error) {
+    showToast(`Video upload failed: ${error?.message || "Please try again."}`);
+  }
+});
+
 // Password visibility controls must live in this same-origin module because the app's CSP blocks inline event handlers.
 document.addEventListener("click", (event) => {
   const toggle = event.target.closest(".password-visibility-toggle");
