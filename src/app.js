@@ -1501,7 +1501,7 @@ document.querySelector("#auto-transcribe")?.addEventListener("click", async () =
 document.querySelector("#transcript-file")?.addEventListener("change", async (event) => {
   const file = event.currentTarget.files?.[0];
   if (!file) return;
-  event.currentTarget.dataset.format = /\\.srt$/i.test(file.name) ? "srt" : /\\.vtt$/i.test(file.name) ? "vtt" : "auto";
+  event.currentTarget.dataset.format = /\.srt$/i.test(file.name) ? "srt" : /\.vtt$/i.test(file.name) ? "vtt" : "auto";
   try { await importTranscriptFile(file); }
   catch (error) { showToast("Transcript import failed: " + error.message); }
   finally { event.currentTarget.value = ""; }
@@ -1519,7 +1519,8 @@ document.querySelector("#save-style")?.addEventListener("click", (event) => {
   styleDialog?.close();
   showToast("Caption style saved.");
 });
-\nnewProjectButton?.addEventListener("click", () => { void createWorkspaceProject(); });
+
+newProjectButton?.addEventListener("click", () => { void createWorkspaceProject(); });
 dashboardNewProjectButton?.addEventListener("click", () => { void createWorkspaceProject(); });
 document.querySelector("#rename-project")?.addEventListener("click", () => { void renameWorkspaceProject(); });
 deleteProjectButton?.addEventListener("click", () => { void deleteWorkspaceProject(); });
