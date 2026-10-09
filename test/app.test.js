@@ -980,3 +980,34 @@ test("upload, queue, FFmpeg render, and clip download work end to end", async ()
     await rm(fixtureDir, { recursive: true, force: true });
   }
 });
+
+test("raw video upload chunks bypass the JSON request-body parser", async () => {
+  const ctx = await startTestApp();
+  try {
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "upload-test@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+
+    const bytes = Buffer.from("video");
+    const response = await fetch(`${ctx.base}/api/uploads/chunk`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "video/mp4",
+        "x-filename": "sample.mp4",
+        "x-upload-id": "uploadtest1",
+        "x-upload-index": "0",
+        "x-upload-total": "1",
+        "x-upload-size": String(bytes.length),
+      },
+      body: bytes,
+    });
+    assert.equal(response.status, 201, await response.text());
+  } finally {
+    await stopTestApp(ctx);
+  }
+});
