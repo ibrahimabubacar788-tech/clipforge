@@ -991,7 +991,7 @@ test("upload, queue, FFmpeg render, and clip download work end to end", async ()
     assert.equal(download.status, 200);
     assert.equal(download.headers.get("content-type"), "video/mp4");
     const contentDisposition = download.headers.get("content-disposition") || "";
-    assert.match(contentDisposition, /attachment;\\s*filename=".*\\.mp4"/i);
+    assert.match(contentDisposition, /^attachment;\s*filename=".+\.mp4"$/i);
     const downloaded = Buffer.from(await download.arrayBuffer());
     assert.ok(downloaded.length > 0);
 
