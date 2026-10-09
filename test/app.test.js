@@ -1035,3 +1035,102 @@ test("raw video upload chunks bypass the JSON request-body parser", async () => 
     await stopTestApp(ctx);
   }
 });
+
+
+test("personal auto-clipping flow turns an imported transcript into a downloadable MP4 without an AI key", async () => {
+  const ctx = await startTestApp();
+  const previousKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  const fixturePath = join(ctx.root, "personal-auto-clip-fixture.mp4");
+  try {
+    await createTestVideo(fixturePath);
+    const { readFile } = await import("node:fs/promises");
+    const bytes = await readFile(fixturePath);
+    const register = await fetch(`${ctx.base}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "personal-clip-test@example.com", password: "strong-pass-123" }),
+    });
+    assert.equal(register.status, 201);
+    const auth = await register.json();
+    const headers = { authorization: `Bearer ${auth.token}`, "content-type": "application/json" };
+    const projectResponse = await fetch(`${ctx.base}/api/projects`, {
+      method: "POST", headers, body: JSON.stringify({ name: "Personal Engine Test" }),
+    });
+    assert.equal(projectResponse.status, 201);
+    const project = (await projectResponse.json()).project;
+
+    const upload = await fetch(`${ctx.base}/api/uploads`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.token}`,
+        "content-type": "video/mp4",
+        "content-length": String(bytes.length),
+        "x-filename": "personal-test.mp4",
+      },
+      body: bytes,
+    });
+    assert.equal(upload.status, 201);
+    const sourceUrl = (await upload.json()).url;
+    const videoResponse = await fetch(`${ctx.base}/api/videos`, {
+      method: "POST", headers,
+      body: JSON.stringify({ projectId: project.id, name: "Personal engine fixture", sourceUrl }),
+    });
+    assert.equal(videoResponse.status, 201);
+    const video = (await videoResponse.json()).video;
+
+    const transcriptResponse = await fetch(`${ctx.base}/api/videos/${video.id}/transcript`, {
+      method: "POST", headers,
+      body: JSON.stringify({
+        format: "srt",
+        language: "en",
+        text: [
+          "1\\n00:00:00,000 --> 00:00:05,000\\nHere's the biggest mistake people make when they start creating videos.",
+          "2\\n00:00:05,000 --> 00:00:10,000\\nThe truth is you need a simple process and a strong opening.",
+          "3\\n00:00:10,000 --> 00:00:15,000\\nThis changed everything because I finally understood what mattered.",
+          "4\\n00:00:15,000 --> 00:00:20,000\\nHere is how you can do it too, and the result is much better.",
+        ].join("\\n\\n"),
+      }),
+    });
+    assert.equal(transcriptResponse.status, 200);
+    assert.equal((await transcriptResponse.json()).count, 4);
+
+    const start = await fetch(`${ctx.base}/api/videos/${video.id}/auto-clip`, {
+      method: "POST", headers,
+      body: JSON.stringify({ limit: 1, format: "9:16", captions: false, language: "en" }),
+    });
+    assert.equal(start.status, 202);
+    const started = await start.json();
+    assert.equal(started.status, "processing");
+
+    let statusBody;
+    const deadline = Date.now() + 45_000;
+    while (Date.now() < deadline) {
+      const statusResponse = await fetch(`${ctx.base}/api/videos/${video.id}/auto-clip-status?language=en&captionLanguage=original`, {
+        headers: { authorization: `Bearer ${auth.token}` },
+      });
+      assert.equal(statusResponse.status, 200);
+      statusBody = await statusResponse.json();
+      if (statusBody.analysisStatus?.status === "failed") {
+        assert.fail(`Auto-clipping failed: ${statusBody.analysisStatus.error}`);
+      }
+      if (statusBody.ready > 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    assert.ok(statusBody?.ready > 0, "auto-clipping should render at least one finished MP4");
+    const clip = statusBody.clips.find((item) => item.status === "ready");
+    assert.ok(clip?.downloadUrl, "finished clip should have a download URL");
+    const download = await fetch(new URL(clip.downloadUrl, ctx.base), {
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    assert.equal(download.status, 200);
+    assert.match(download.headers.get("content-type") || "", /video\\/mp4/);
+    const mp4 = Buffer.from(await download.arrayBuffer());
+    assert.ok(mp4.length > 1000, "downloaded MP4 should contain rendered video bytes");
+    assert.equal(mp4.subarray(4, 8).toString(), "ftyp", "download should be an MP4 container");
+  } finally {
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+    await stopTestApp(ctx);
+  }
+});
