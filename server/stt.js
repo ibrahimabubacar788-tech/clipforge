@@ -68,7 +68,7 @@ function normalizeAssemblyAIResponse(response) {
       current.end = end;
       current.text += ` ${text}`;
     }
-    if (/[.!?]["'”’)]?$/.test(text) || current.text.split(/\\s+/).length >= 12) {
+    if (/[.!?]["'”’)]?$/.test(text) || current.text.split(/\s+/).length >= 12) {
       segments.push(current);
       current = null;
     }
@@ -155,7 +155,7 @@ export async function translateTranscriptSegments(segments, targetLanguage) {
       headers: { Authorization: "Bearer " + apiKey, "content-type": "application/json" },
       body: JSON.stringify({
         model: process.env.CLIPFORGE_TRANSLATION_MODEL || "gpt-4o-mini",
-        input: "Translate every transcript segment into " + target + ". Preserve each index, start, and end exactly. Return JSON only as an array of objects with index and text. Do not summarize, omit, merge, or reorder segments. Preserve names and meaning.\\n\\n" + JSON.stringify(compact)
+        input: "Translate every transcript segment into " + target + ". Preserve each index, start, and end exactly. Return JSON only as an array of objects with index and text. Do not summarize, omit, merge, or reorder segments. Preserve names and meaning.\n\n" + JSON.stringify(compact)
       })
     });
     const raw = await response.text();
