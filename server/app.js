@@ -419,6 +419,10 @@ export function createApp({ root = process.cwd(), dbFile = join(process.cwd(), "
         const item = d.videos.find((entry) => entry.id === video.id && entry.userId === user.id);
         item.transcript = segments;
         item.transcriptFormat = format;
+        const requestedLanguage = String(payload.language || payload.sourceLanguage || "").trim().toLowerCase();
+        item.transcriptLanguage = requestedLanguage === "auto" || /^[a-z]{2,3}$/.test(requestedLanguage)
+          ? requestedLanguage
+          : (item.transcriptLanguage || "auto");
         item.transcriptUpdatedAt = now();
       });
       return json(res, 200, { videoId: video.id, count: segments.length, transcript: segments });
