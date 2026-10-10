@@ -2034,7 +2034,7 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
       if (!candidate || selected.length >= safeLimit) return false;
       const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
       if (overlaps) return false;
-      const duplicate = selected.some((item) => similarity(item.transcript, candidate.transcript) >= 0.72);
+      const duplicate = selected.some((item) => similarity(item.transcript, candidate.transcript) >= 0.62);
       if (duplicate) return false;
       selected.push(candidate);
       return true;
