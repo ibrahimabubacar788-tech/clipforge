@@ -171,6 +171,8 @@ export async function translateTranscriptSegments(segments, targetLanguage) {
   return translatedSegments;
 }
 
+let localWhisperPipelinePromise = null;
+
 async function transcribeWithLocalWhisper({ source, ffmpegPath, tempDir }) {
   const { pipeline, env } = await import("@huggingface/transformers");
   env.cacheDir = process.env.CLIPFORGE_MODEL_CACHE
@@ -195,10 +197,18 @@ async function transcribeWithLocalWhisper({ source, ffmpegPath, tempDir }) {
   );
 
   const model = process.env.CLIPFORGE_WHISPER_MODEL || "onnx-community/whisper-tiny";
-  const transcriber = await pipeline("automatic-speech-recognition", model, {
-    dtype: "q8",
-    device: "cpu",
-  });
+  // Load the local model once per server process instead of re-downloading/reloading
+  // it for every video. If loading fails, clear the cached promise so a later retry works.
+  if (!localWhisperPipelinePromise) {
+    localWhisperPipelinePromise = pipeline("automatic-speech-recognition", model, {
+      dtype: "q8",
+      device: "cpu",
+    }).catch((error) => {
+      localWhisperPipelinePromise = null;
+      throw error;
+    });
+  }
+  const transcriber = await localWhisperPipelinePromise;
   const result = await transcriber(audio, {
     sampling_rate: 16000,
     return_timestamps: "chunk",
