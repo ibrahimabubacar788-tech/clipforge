@@ -26,6 +26,19 @@ test("highlight selection reduces near-time duplicates", () => {
   assert.notEqual(Math.floor(clips[0].start / 40), Math.floor(clips[1].start / 40));
 });
 
+test("local highlight selection rejects repeated transcript moments far apart in the source", () => {
+  const repeatedMoment = "The biggest lesson is to change the opening because viewers need a clear reason to keep watching.";
+  const clips = rankHighlights([
+    { start: 0, end: 8, text: repeatedMoment },
+    { start: 8, end: 16, text: "The result was much stronger after we changed the opening." },
+    { start: 100, end: 108, text: repeatedMoment },
+    { start: 108, end: 116, text: "The result was much stronger after we changed the opening." },
+  ], { limit: 2, minDuration: 15, maxDuration: 20 });
+
+  assert.equal(clips.length, 1);
+  assert.match(clips[0].transcript, /biggest lesson|result was much stronger/i);
+});
+
 test("highlight boundaries trim leading filler without losing the minimum duration", () => {
   const clips = rankHighlights([
     { start: 0, end: 2, text: "Um, okay, welcome back." },
