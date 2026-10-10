@@ -1526,7 +1526,9 @@ function collectRankedHighlights(segments, { limit = 10, minDuration = 15, maxDu
     for (let i = 0; i < pool.length; i += 1) {
       const candidate = pool[i];
       const overlaps = selected.some((item) => Math.max(item.start, candidate.start) < Math.min(item.end, candidate.end) - 2);
-      if (overlaps) continue;
+      // Reject repeated transcript moments even when they occur far apart in the source.
+      const duplicate = selected.some((item) => transcriptSimilarity(item.transcript, candidate.transcript) >= 0.62);
+      if (overlaps || duplicate) continue;
       const speakerSet = new Set(Array.isArray(candidate.speakers) ? candidate.speakers.map((speaker) => String(speaker || "").trim()).filter(Boolean) : []);
       const selectedSpeakers = new Set(selected.flatMap((item) => Array.isArray(item.speakers) ? item.speakers.map((speaker) => String(speaker || "").trim()).filter(Boolean) : []));
       const introducesNewSpeaker = speakerSet.size > 0 && [...speakerSet].some((speaker) => !selectedSpeakers.has(speaker));
