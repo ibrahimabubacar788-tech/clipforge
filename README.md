@@ -75,6 +75,8 @@ The response contains a private `/storage/uploads/...` URL. Pass that URL as `so
 - `OPENAI_HIGHLIGHT_MODEL`: optional model override when `CLIPFORGE_HIGHLIGHT_ENGINE=openai`.
 - `FFMPEG_PATH`: optional FFmpeg executable override.
 
+Note: local highlight ranking removes the paid API dependency for moment selection, but automatic speech-to-text still requires a configured transcription provider. The self-hosted transcription model is a separate next stage.
+
 ## Checks
 
 ```bash
