@@ -226,7 +226,7 @@ export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
   const assemblyKey = String(process.env.ASSEMBLYAI_API_KEY || "").trim();
   const openAIKey = String(process.env.OPENAI_API_KEY || "").trim();
   const tempDir = await mkdtemp(join(dirname(source), ".clipforge-transcription-"));
-  const audioFile = join(tempDir, \`audio-\${randomUUID()}.mp3\`);
+  const audioFile = join(tempDir, `audio-${randomUUID()}.mp3`);
   let providerError = null;
 
   try {
@@ -259,7 +259,7 @@ export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
         try {
           response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
             method: "POST",
-            headers: { Authorization: \`Bearer \${openAIKey}\` },
+            headers: { Authorization: `Bearer ${openAIKey}` },
             body: form,
             signal: controller.signal,
           });
@@ -291,7 +291,7 @@ export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
       const hostedMessage = providerError ? String(providerError.message || providerError) : "No hosted transcription provider is configured.";
       const localMessage = String(localError.message || localError);
       throw Object.assign(
-        new Error(\`Automatic transcription failed. Hosted provider: \${hostedMessage} Local Whisper: \${localMessage}\`),
+        new Error(`Automatic transcription failed. Hosted provider: ${hostedMessage} Local Whisper: ${localMessage}`),
         { status: 503, cause: localError },
       );
     }
