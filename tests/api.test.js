@@ -8,6 +8,9 @@ import ffmpegStatic from "ffmpeg-static";
 import { createApp } from "../server/app.js";
 import { rankHighlightsWithAI } from "../server/highlights.js";
 
+// API integration tests explicitly exercise the optional OpenAI ranking path.
+process.env.CLIPFORGE_HIGHLIGHT_ENGINE = "openai";
+
 const hasFfmpeg = spawnSync(ffmpegStatic, ["-version"], { stdio: "ignore" }).status === 0;
 function command(binary, args) { return new Promise((resolve, reject) => { const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] }); let stdout = ""; let stderr = ""; child.stdout.on("data", (chunk) => { stdout += chunk; }); child.stderr.on("data", (chunk) => { stderr += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(`${binary} exited with ${code}: ${stderr}`))); }); }
 async function app() { const dir = await mkdtemp(join(tmpdir(), "clipforge-")); const server = createApp({ root: process.cwd(), dbFile: join(dir, "db.json"), storageDir: join(dir, "storage") }); await new Promise((resolve) => server.listen(0, resolve)); return { dir, server, base: `http://127.0.0.1:${server.address().port}` }; }
