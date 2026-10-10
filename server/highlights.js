@@ -1697,7 +1697,8 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
     .sort((a, b) => b[1] - a[1]);
   const hasLearning = learnedTypes.length > 0 && Number(learning.trackedClips) > 0;
   const safeTargetTypes = [...new Set((Array.isArray(targetTypes) ? targetTypes : String(targetTypes || "").split(",")).map((type) => String(type || "").trim().toLowerCase()).filter((type) => ["hook", "reveal", "payoff", "how-to", "humor", "emotion", "insight"].includes(type)))].slice(0, 3);
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+  const engineMode = String(process.env.CLIPFORGE_HIGHLIGHT_ENGINE || "local").trim().toLowerCase();
   const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
   const safeMinDuration = Number.isFinite(Number(minDuration)) ? Math.min(300, Math.max(0, Number(minDuration))) : 15;
   const parsedMaxDuration = Number(maxDuration);
@@ -1705,7 +1706,9 @@ export async function rankHighlightsWithAI(segments, { limit = 12, minDuration =
     ? Math.max(safeMinDuration, Math.min(300, parsedMaxDuration))
     : 75;
   const fallback = () => rankHighlights(segments, { limit: safeLimit, minDuration: safeMinDuration, maxDuration: safeMaxDuration });
-  if (!apiKey) return { candidates: fallback(), engine: "heuristic-fallback" };
+  // ClipForge-owned ranking is the default. External ranking is opt-in so the core
+  // moment-selection pipeline does not require a paid AI request for every video.
+  if (engineMode !== "openai" || !apiKey) return { candidates: fallback(), engine: "clipforge-local-v1" };
 
   const baseline = collectRankedHighlights(segments, {
     limit: safeLimit,
@@ -2143,10 +2146,18 @@ Use only supplied IDs. Score each selection from 0 to 100. For hookLine, write a
     const aiError = error?.name === "AbortError"
       ? "Highlight analysis timed out."
       : String(error?.message || "Highlight analysis failed.");
-    // Once an API key is configured, do not silently downgrade a real AI run
-    // to heuristics. A silent downgrade makes the product report an AI result
-    // even when the model failed. Surface the failure so the caller can show
-    // the real engine status and the run can be retried cleanly.
+    // Keep the product usable if the optional external ranking provider is
+    // unavailable. Explicitly identify the local engine and preserve the API
+    // error for diagnostics instead of pretending the external request worked.
+    const localCandidates = fallback();
+    if (localCandidates.length) {
+      console.warn("ClipForge: OpenAI highlight ranking failed; using ClipForge local ranking:", aiError);
+      return {
+        candidates: localCandidates,
+        engine: "clipforge-local-v1",
+        aiError,
+      };
+    }
     return {
       candidates: [],
       engine: "openai-highlights-error",

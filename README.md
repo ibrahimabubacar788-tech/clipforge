@@ -70,8 +70,9 @@ The response contains a private `/storage/uploads/...` URL. Pass that URL as `so
 
 - `DATABASE_URL`: PostgreSQL connection string. If omitted, ClipForge uses the local JSON database.
 - `DATABASE_SSL=false`: disables PostgreSQL TLS verification only when explicitly set.
-- `OPENAI_API_KEY`: enables automatic transcription and AI highlight ranking. Without it, highlight generation falls back to the local heuristic engine.
-- `OPENAI_HIGHLIGHT_MODEL`: optional model override for highlight ranking.
+- `OPENAI_API_KEY`: enables automatic transcription and optional OpenAI highlight ranking.
+- `CLIPFORGE_HIGHLIGHT_ENGINE`: defaults to `local`, using ClipForge's built-in highlight-selection logic without a paid ranking request. Set to `openai` to opt into external ranking; if that request fails, ClipForge falls back to local ranking.
+- `OPENAI_HIGHLIGHT_MODEL`: optional model override when `CLIPFORGE_HIGHLIGHT_ENGINE=openai`.
 - `FFMPEG_PATH`: optional FFmpeg executable override.
 
 ## Checks
