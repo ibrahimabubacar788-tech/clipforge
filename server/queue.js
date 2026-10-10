@@ -253,9 +253,9 @@ export class ClipQueue {
         await writeFile(captionSrtPath, srt, { encoding: "utf8", flag: "wx" });
       }
       for(let i=0;i<captions.length;i++) await writeFile(captionPaths[i],captionPpm(captions[i].text,clip.style?.color==="pink"?"ff8fbe":clip.style?.color==="sky"?"8be1ff":"d3e964"),{ encoding: "utf8", flag: "wx" });
-      const args=["-y","-ss",String(clip.start),"-i",resolvedSource,"-loop","1","-i",watermarkPath];
+      const args=["-y","-filter_threads","1","-filter_complex_threads","1","-ss",String(clip.start),"-i",resolvedSource,"-loop","1","-i",watermarkPath];
       for(const p of captionPaths) args.push("-loop","1","-i",p);
-      args.push("-t",String(duration),"-filter_complex",videoFilter(clip,captions,this.subtitleSupport && captions.length ? captionSrtPath : null),"-map","[v]","-map","0:a?","-sn","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-threads","0","-c:a","aac","-shortest","-movflags","+faststart","-avoid_negative_ts","make_zero","-progress","pipe:2","-nostats",tempOutput);
+      args.push("-t",String(duration),"-filter_complex",videoFilter(clip,captions,this.subtitleSupport && captions.length ? captionSrtPath : null),"-map","[v]","-map","0:a?","-sn","-c:v","libx264","-preset","veryfast","-crf","23","-pix_fmt","yuv420p","-threads","1","-c:a","aac","-shortest","-movflags","+faststart","-avoid_negative_ts","make_zero","-progress","pipe:2","-nostats",tempOutput);
       let lastProgress = -1;
       let lastPersistedAt = 0;
       await run(this.ffmpegPath,args,{
