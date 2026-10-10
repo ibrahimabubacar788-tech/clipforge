@@ -171,60 +171,130 @@ export async function translateTranscriptSegments(segments, targetLanguage) {
   return translatedSegments;
 }
 
+async function transcribeWithLocalWhisper({ source, ffmpegPath, tempDir }) {
+  const { pipeline, env } = await import("@huggingface/transformers");
+  env.cacheDir = process.env.CLIPFORGE_MODEL_CACHE
+    || join(process.env.HOME || dirname(source), ".cache", "clipforge-models");
+  env.allowLocalModels = false;
+
+  const pcmFile = join(tempDir, "audio-f32le.pcm");
+  await run(ffmpegPath, [
+    "-y", "-i", source, "-vn", "-ac", "1", "-ar", "16000",
+    "-f", "f32le", "-acodec", "pcm_f32le", pcmFile,
+  ]);
+
+  const audioBuffer = await readFile(pcmFile);
+  if (!audioBuffer.length || audioBuffer.length % 4 !== 0) {
+    throw new Error("Local transcription could not decode the audio.");
+  }
+  const audio = new Float32Array(
+    audioBuffer.buffer.slice(
+      audioBuffer.byteOffset,
+      audioBuffer.byteOffset + audioBuffer.byteLength,
+    ),
+  );
+
+  const model = process.env.CLIPFORGE_WHISPER_MODEL || "onnx-community/whisper-tiny";
+  const transcriber = await pipeline("automatic-speech-recognition", model, {
+    dtype: "q8",
+    device: "cpu",
+  });
+  const result = await transcriber(audio, {
+    sampling_rate: 16000,
+    return_timestamps: "chunk",
+  });
+  const chunks = Array.isArray(result?.chunks) ? result.chunks : [];
+  const segments = chunks.map((chunk) => ({
+    start: Number(chunk.timestamp?.[0]),
+    end: Number(chunk.timestamp?.[1]),
+    text: String(chunk.text || "").trim(),
+  })).filter((segment) =>
+    Number.isFinite(segment.start)
+    && Number.isFinite(segment.end)
+    && segment.end > segment.start
+    && segment.text
+  );
+
+  if (!segments.length) {
+    throw new Error("Local transcription returned no timestamped speech segments.");
+  }
+  console.info("ClipForge: transcription completed using local Whisper.");
+  return segments;
+}
+
 export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
   const assemblyKey = String(process.env.ASSEMBLYAI_API_KEY || "").trim();
   const openAIKey = String(process.env.OPENAI_API_KEY || "").trim();
-  if (!assemblyKey && !openAIKey) {
-    throw Object.assign(new Error("Automatic transcription is not configured. Add ASSEMBLYAI_API_KEY or OPENAI_API_KEY to the server environment."), { status: 503 });
-  }
-
   const tempDir = await mkdtemp(join(dirname(source), ".clipforge-transcription-"));
-  const audioFile = join(tempDir, `audio-${randomUUID()}.mp3`);
+  const audioFile = join(tempDir, \`audio-\${randomUUID()}.mp3\`);
+  let providerError = null;
 
   try {
     await run(ffmpegPath, ["-y", "-i", source, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "32k", audioFile]);
+
     if (assemblyKey) {
       try {
-        return await transcribeWithAssemblyAI({ audioFile, language });
+        const segments = await transcribeWithAssemblyAI({ audioFile, language });
+        if (segments.length) return segments;
+        throw new Error("AssemblyAI returned no timestamped speech segments.");
       } catch (error) {
-        const rejectedAssemblyKey = /invalid api key|unauthorized|authentication failed|not authorized/i.test(String(error?.message || ""));
-        if (!openAIKey || !rejectedAssemblyKey) throw error;
-        console.warn("ClipForge: AssemblyAI credentials were rejected; trying the configured OpenAI transcription fallback.");
+        providerError = error;
+        console.warn("ClipForge: AssemblyAI transcription failed; trying the next available transcription route.");
       }
     }
 
-    const audio = await readFile(audioFile);
-    const form = new FormData();
-    form.append("file", new Blob([audio], { type: "audio/mpeg" }), "clipforge-audio.mp3");
-    form.append("model", "gpt-4o-transcribe-diarize");
-    form.append("response_format", "diarized_json");
-    form.append("chunking_strategy", "auto");
-    if (language && language !== "auto") form.append("language", language);
+    if (openAIKey) {
+      try {
+        const audio = await readFile(audioFile);
+        const form = new FormData();
+        form.append("file", new Blob([audio], { type: "audio/mpeg" }), "clipforge-audio.mp3");
+        form.append("model", "gpt-4o-transcribe-diarize");
+        form.append("response_format", "diarized_json");
+        form.append("chunking_strategy", "auto");
+        if (language && language !== "auto") form.append("language", language);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15 * 60 * 1000);
-    let response;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15 * 60 * 1000);
+        let response;
+        try {
+          response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+            method: "POST",
+            headers: { Authorization: \`Bearer \${openAIKey}\` },
+            body: form,
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+
+        const raw = await response.text();
+        let result = {};
+        try { result = JSON.parse(raw); } catch { result = { error: { message: raw } }; }
+        if (!response.ok) {
+          throw Object.assign(
+            new Error(result?.error?.message || "OpenAI transcription failed."),
+            { status: response.status >= 500 ? 502 : 422 },
+          );
+        }
+        const segments = normalizeTranscriptionResponse(result);
+        if (segments.length) return segments;
+        throw new Error("OpenAI returned no timestamped speech segments.");
+      } catch (error) {
+        providerError = error;
+        console.warn("ClipForge: hosted transcription failed; trying local Whisper.");
+      }
+    }
+
     try {
-      response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${openAIKey}` },
-        body: form,
-        signal: controller.signal,
-      });
-    } catch (error) {
-      if (error?.name === "AbortError") {
-        throw Object.assign(new Error("Automatic transcription timed out."), { status: 504 });
-      }
-      throw error;
-    } finally {
-      clearTimeout(timer);
+      return await transcribeWithLocalWhisper({ source, ffmpegPath, tempDir });
+    } catch (localError) {
+      const hostedMessage = providerError ? String(providerError.message || providerError) : "No hosted transcription provider is configured.";
+      const localMessage = String(localError.message || localError);
+      throw Object.assign(
+        new Error(\`Automatic transcription failed. Hosted provider: \${hostedMessage} Local Whisper: \${localMessage}\`),
+        { status: 503, cause: localError },
+      );
     }
-
-    const raw = await response.text();
-    let result = {};
-    try { result = JSON.parse(raw); } catch { result = { error: { message: raw } }; }
-    if (!response.ok) throw Object.assign(new Error(result?.error?.message || "Automatic transcription failed."), { status: response.status >= 500 ? 502 : 422 });
-    return normalizeTranscriptionResponse(result);
   } finally {
     await unlink(audioFile).catch(() => {});
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});
