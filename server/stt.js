@@ -198,7 +198,7 @@ async function transcribeWithLocalWhisper({ source, ffmpegPath, tempDir }) {
   // it for every video. If loading fails, clear the cached promise so a later retry works.
   if (!localWhisperPipelinePromise) {
     localWhisperPipelinePromise = pipeline("automatic-speech-recognition", model, {
-      dtype: "q8",
+      dtype: "q4",
       device: "cpu",
     }).catch((error) => {
       localWhisperPipelinePromise = null;
@@ -210,8 +210,8 @@ async function transcribeWithLocalWhisper({ source, ffmpegPath, tempDir }) {
     const transcriber = await localWhisperPipelinePromise;
     const totalSamples = pcmStat.size / bytesPerSample;
     const sampleRate = 16000;
-    const windowSeconds = 30;
-    const overlapSeconds = 5;
+    const windowSeconds = 15;
+    const overlapSeconds = 3;
     const windowSamples = windowSeconds * sampleRate;
     const hopSamples = (windowSeconds - overlapSeconds) * sampleRate;
     const segments = [];
