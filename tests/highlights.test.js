@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { rankHighlights, rankHighlightsWithAI } from "../server/highlights.js";
 
+// These tests exercise the explicit OpenAI path; local-engine tests temporarily unset this.
+process.env.CLIPFORGE_HIGHLIGHT_ENGINE = "openai";
+
 test("highlight engine returns ranked non-overlapping candidates with speaker data", () => {
   const segments = [];
   for (let i = 0; i < 12; i += 1) {
@@ -733,6 +736,58 @@ test("AI highlight candidates expose cross-video continuity intelligence", async
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
+
+test("ClipForge uses its local highlight engine by default without calling a paid ranking API", async () => {
+  const previousApiKey = process.env.OPENAI_API_KEY;
+  const previousEngine = process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-only-key";
+  delete process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
+  globalThis.fetch = async () => { throw new Error("The local ranking engine must not call fetch."); };
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 6, text: "The biggest mistake creators make is ignoring the audience." },
+      { start: 6, end: 12, text: "But the result changes because the opening gives viewers value." },
+      { start: 12, end: 18, text: "That is why this lesson works and you can improve results." },
+    ], { limit: 1, minDuration: 15, maxDuration: 20 });
+    assert.equal(result.engine, "clipforge-local-v1");
+    assert.equal(result.candidates.length, 1);
+  } finally {
+    if (previousApiKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousApiKey;
+    if (previousEngine === undefined) delete process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
+    else process.env.CLIPFORGE_HIGHLIGHT_ENGINE = previousEngine;
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("ClipForge falls back to local ranking when opt-in OpenAI ranking has no credits", async () => {
+  const previousApiKey = process.env.OPENAI_API_KEY;
+  const previousEngine = process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-only-key";
+  process.env.CLIPFORGE_HIGHLIGHT_ENGINE = "openai";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: { message: "You have no credits remaining." },
+  }), { status: 429, headers: { "content-type": "application/json" } });
+  try {
+    const result = await rankHighlightsWithAI([
+      { start: 0, end: 6, text: "The biggest mistake creators make is ignoring the audience." },
+      { start: 6, end: 12, text: "But the result changes because the opening gives viewers value." },
+      { start: 12, end: 18, text: "That is why this lesson works and you can improve results." },
+    ], { limit: 1, minDuration: 15, maxDuration: 20 });
+    assert.equal(result.engine, "clipforge-local-v1");
+    assert.equal(result.candidates.length, 1);
+    assert.match(result.aiError, /no credits remaining/i);
+  } finally {
+    if (previousApiKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousApiKey;
+    if (previousEngine === undefined) delete process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
+    else process.env.CLIPFORGE_HIGHLIGHT_ENGINE = previousEngine;
+    globalThis.fetch = previousFetch;
   }
 });
 
