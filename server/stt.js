@@ -1,4 +1,4 @@
-import { readFile, unlink, mkdtemp, rm } from "node:fs/promises";
+import { readFile, unlink, mkdtemp, rm, open } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { join, dirname } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -185,16 +185,13 @@ async function transcribeWithLocalWhisper({ source, ffmpegPath, tempDir }) {
     "-f", "f32le", "-acodec", "pcm_f32le", pcmFile,
   ]);
 
-  const audioBuffer = await readFile(pcmFile);
-  if (!audioBuffer.length || audioBuffer.length % 4 !== 0) {
+  const pcmHandle = await open(pcmFile, "r");
+  const pcmStat = await pcmHandle.stat();
+  const bytesPerSample = 4;
+  if (!pcmStat.size || pcmStat.size % bytesPerSample !== 0) {
+    await pcmHandle.close();
     throw new Error("Local transcription could not decode the audio.");
   }
-  const audio = new Float32Array(
-    audioBuffer.buffer.slice(
-      audioBuffer.byteOffset,
-      audioBuffer.byteOffset + audioBuffer.byteLength,
-    ),
-  );
 
   const model = process.env.CLIPFORGE_WHISPER_MODEL || "onnx-community/whisper-tiny";
   // Load the local model once per server process instead of re-downloading/reloading
@@ -208,28 +205,77 @@ async function transcribeWithLocalWhisper({ source, ffmpegPath, tempDir }) {
       throw error;
     });
   }
-  const transcriber = await localWhisperPipelinePromise;
-  const result = await transcriber(audio, {
-    sampling_rate: 16000,
-    return_timestamps: "chunk",
-  });
-  const chunks = Array.isArray(result?.chunks) ? result.chunks : [];
-  const segments = chunks.map((chunk) => ({
-    start: Number(chunk.timestamp?.[0]),
-    end: Number(chunk.timestamp?.[1]),
-    text: String(chunk.text || "").trim(),
-  })).filter((segment) =>
-    Number.isFinite(segment.start)
-    && Number.isFinite(segment.end)
-    && segment.end > segment.start
-    && segment.text
-  );
 
-  if (!segments.length) {
-    throw new Error("Local transcription returned no timestamped speech segments.");
+  try {
+    const transcriber = await localWhisperPipelinePromise;
+    const totalSamples = pcmStat.size / bytesPerSample;
+    const sampleRate = 16000;
+    const windowSeconds = 30;
+    const overlapSeconds = 5;
+    const windowSamples = windowSeconds * sampleRate;
+    const hopSamples = (windowSeconds - overlapSeconds) * sampleRate;
+    const segments = [];
+
+    // Read and infer one bounded audio window at a time. This avoids holding the
+    // entire video's decoded audio in RAM on small hosted instances.
+    for (let offsetSamples = 0; offsetSamples < totalSamples; offsetSamples += hopSamples) {
+      const sampleCount = Math.min(windowSamples, totalSamples - offsetSamples);
+      const audioBuffer = Buffer.allocUnsafe(sampleCount * bytesPerSample);
+      const { bytesRead } = await pcmHandle.read(
+        audioBuffer,
+        0,
+        audioBuffer.length,
+        offsetSamples * bytesPerSample,
+      );
+      if (bytesRead !== audioBuffer.length) {
+        throw new Error("Local transcription could not read a complete audio window.");
+      }
+
+      const audio = new Float32Array(
+        audioBuffer.buffer.slice(
+          audioBuffer.byteOffset,
+          audioBuffer.byteOffset + audioBuffer.byteLength,
+        ),
+      );
+      const result = await transcriber(audio, {
+        sampling_rate: sampleRate,
+        return_timestamps: "chunk",
+      });
+      const chunks = Array.isArray(result?.chunks) ? result.chunks : [];
+      const windowStart = offsetSamples / sampleRate;
+      const windowDuration = sampleCount / sampleRate;
+      const isFirstWindow = offsetSamples === 0;
+      const isLastWindow = offsetSamples + sampleCount >= totalSamples;
+      const ownershipStart = isFirstWindow ? 0 : overlapSeconds / 2;
+      const ownershipEnd = isLastWindow ? windowDuration : windowSeconds - overlapSeconds / 2;
+
+      for (const chunk of chunks) {
+        const start = Number(chunk.timestamp?.[0]);
+        const end = Number(chunk.timestamp?.[1]);
+        const text = String(chunk.text || "").trim();
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !text) continue;
+
+        // Adjacent windows overlap by five seconds. Assign each overlap midpoint
+        // to one window only so the transcript does not repeat boundary phrases.
+        const midpoint = (start + end) / 2;
+        if (midpoint < ownershipStart || midpoint >= ownershipEnd) continue;
+        segments.push({
+          start: windowStart + start,
+          end: windowStart + end,
+          text,
+        });
+      }
+    }
+
+    segments.sort((left, right) => left.start - right.start);
+    if (!segments.length) {
+      throw new Error("Local transcription returned no timestamped speech segments.");
+    }
+    console.info("ClipForge: transcription completed using local Whisper (windowed audio).");
+    return segments;
+  } finally {
+    await pcmHandle.close().catch(() => {});
   }
-  console.info("ClipForge: transcription completed using local Whisper.");
-  return segments;
 }
 
 export async function transcribeVideo({ source, ffmpegPath, language = "en" }) {
