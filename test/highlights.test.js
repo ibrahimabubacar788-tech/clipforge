@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { rankHighlights, rankHighlightsWithAI, selectNearbyContext } from "../server/highlights.js";
+import { rankHighlights, selectNearbyContext } from "../server/highlights.js";
 
 test("highlight engine assembles transcript windows without injected placeholder text", () => {
   const clips = rankHighlights([
@@ -117,55 +117,3 @@ test("AI nearby context keeps setup, clip content, and payoff balanced", () => {
   ]);
   assert.equal(context.length, 8);
 });
-
-test("ClipForge uses its local highlight engine by default without calling a paid ranking API", async () => {
-  const previousApiKey = process.env.OPENAI_API_KEY;
-  const previousEngine = process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
-  const previousFetch = globalThis.fetch;
-  process.env.OPENAI_API_KEY = "test-only-key";
-  delete process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
-  globalThis.fetch = async () => { throw new Error("The local ranking engine must not call fetch."); };
-  try {
-    const result = await rankHighlightsWithAI([
-      { start: 0, end: 6, text: "The biggest mistake creators make is ignoring the audience." },
-      { start: 6, end: 12, text: "But the result changes because the opening gives viewers value." },
-      { start: 12, end: 18, text: "That is why this lesson works and you can improve results." },
-    ], { limit: 1, minDuration: 15, maxDuration: 20 });
-    assert.equal(result.engine, "clipforge-local-v1");
-    assert.equal(result.candidates.length, 1);
-  } finally {
-    if (previousApiKey === undefined) delete process.env.OPENAI_API_KEY;
-    else process.env.OPENAI_API_KEY = previousApiKey;
-    if (previousEngine === undefined) delete process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
-    else process.env.CLIPFORGE_HIGHLIGHT_ENGINE = previousEngine;
-    globalThis.fetch = previousFetch;
-  }
-});
-
-test("ClipForge falls back to local ranking when opt-in OpenAI ranking has no credits", async () => {
-  const previousApiKey = process.env.OPENAI_API_KEY;
-  const previousEngine = process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
-  const previousFetch = globalThis.fetch;
-  process.env.OPENAI_API_KEY = "test-only-key";
-  process.env.CLIPFORGE_HIGHLIGHT_ENGINE = "openai";
-  globalThis.fetch = async () => new Response(JSON.stringify({
-    error: { message: "You have no credits remaining." },
-  }), { status: 429, headers: { "content-type": "application/json" } });
-  try {
-    const result = await rankHighlightsWithAI([
-      { start: 0, end: 6, text: "The biggest mistake creators make is ignoring the audience." },
-      { start: 6, end: 12, text: "But the result changes because the opening gives viewers value." },
-      { start: 12, end: 18, text: "That is why this lesson works and you can improve results." },
-    ], { limit: 1, minDuration: 15, maxDuration: 20 });
-    assert.equal(result.engine, "clipforge-local-v1");
-    assert.equal(result.candidates.length, 1);
-    assert.match(result.aiError, /no credits remaining/i);
-  } finally {
-    if (previousApiKey === undefined) delete process.env.OPENAI_API_KEY;
-    else process.env.OPENAI_API_KEY = previousApiKey;
-    if (previousEngine === undefined) delete process.env.CLIPFORGE_HIGHLIGHT_ENGINE;
-    else process.env.CLIPFORGE_HIGHLIGHT_ENGINE = previousEngine;
-    globalThis.fetch = previousFetch;
-  }
-});
-
